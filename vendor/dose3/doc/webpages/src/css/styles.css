@@ -1,0 +1,113 @@
+/*
+A Bootstrap 3.1 affix sidebar template
+from http://bootply.com
+
+This CSS code should follow the 'bootstrap.css'
+in your HTML file.
+
+license: MIT
+author: bootply.com
+*/
+
+body {
+ padding-top:50px;
+}
+
+#masthead { 
+ min-height:140px;
+}
+
+#masthead h1 {
+ font-size: 30px;
+ line-height: 1;
+ padding-top:20px;
+}
+
+#masthead .well {
+ margin-top:8%;
+}
+
+.page-header {
+  margin: 20px 0px 20px;
+}
+
+@media screen and (min-width: 768px) {
+  #masthead h1 {
+    font-size: 50px;
+  }
+}
+
+.navbar-bright {
+ background-color:#111155;
+ color:#fff;
+}
+
+.affix-top,.affix{
+ position: static;
+}
+
+@media (min-width: 979px) {
+  #sidebar.affix-top {
+    position: static;
+  	margin-top:30px;
+  	width:228px;
+  }
+  
+  #sidebar.affix {
+    position: fixed;
+    top:70px;
+    width:228px;
+  }
+}
+
+#sidebar li.active {
+  border:0 #eee solid;
+  border-right-width:5px;
+}
+
+/* bibtex plugin */
+#bibliography .entry h1{
+ text-decoration:underline;
+ margin: 10px 3px;
+}
+
+#bibliography .entry p{ 
+ margin:5px 2px;
+}
+
+#bibliography .entry p.note{
+ font-size:80%;
+}
+
+#bibliography .entry p.abstract{
+ text-align:justify;
+ padding:1em;
+ margin:1em;
+ background:#729fcf;
+ font-size:90%;
+}
+
+#bibliography .entry code{
+ display:block;
+ padding:10px;
+ margin:10px;
+ background:#729fcf;
+}
+
+
+/* highlight plugin */
+pre.hl { color:#000000; background-color:#ffffff; }
+.hl.num { color:#2928ff; }
+.hl.esc { color:#ff00ff; }
+.hl.str { color:#ff0000; }
+.hl.dstr { color:#818100; }
+.hl.slc { color:#838183; font-style:italic; }
+.hl.com { color:#838183; font-style:italic; }
+.hl.dir { color:#008200; }
+.hl.sym { color:#000000; }
+.hl.line { color:#555555; }
+.hl.mark { background-color:#ffffbb; }
+.hl.kwa { color:#000000; font-weight:bold; }
+.hl.kwb { color:#830000; }
+.hl.kwc { color:#000000; font-weight:bold; }
+.hl.kwd { color:#010181; }

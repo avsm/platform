@@ -1,0 +1,4 @@
+#!/bin/sh
+
+export APT_GET_CUDF_CMDLINE="apt-get $* -o APT::Solver::Strict-Pinning=\"false\""
+apt-get $* -o APT::Solver::Strict-Pinning="false"

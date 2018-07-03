@@ -1,0 +1,12 @@
+the proposal for the new edos-debcheck is now on the debian wiki at
+
+http://wiki.debian.org/EDOS/ProposalDose3
+
+-Ralf.
+
+to check the conformity of the example to the data structure use :
+kwalify -lf distcheck.yaml ex.yaml
+
+ex.yaml contains the real output of distcheck for sid 4/08/2010
+
+-Pietro

@@ -1,0 +1,402 @@
+=head1 NAME
+
+distcheck - check installability of packages according to metadata 
+
+=head1 SYNOPSIS
+
+=over 
+
+=item B<distcheck> [option] ... I<uri>
+
+=item B<debcheck> [option] ... [I<file>]
+
+=item B<rpmcheck> [option] ... [I<file>]
+
+=item B<eclipsecheck> [option] ... [I<file>] 
+
+=back
+=cut
+
+=head1 DESCRIPTION
+
+distcheck determines, for a set of package control stanzas, called the
+repository, whether packages of the repository can be installed relative to the
+repository according to the inter-package relationsships expressed in the
+package control stanzas.  The exact set of relevant control fields and their
+meaning depends on the type of the repository. The constraint solving algorithm
+is complete, that is it finds a solution whenever there exists one, even for
+multiple disjunctive dependencies and deep package conflicts. This problem is
+computationally infeasible in theory (that is, NP-complete), but can be solved
+very efficiently for package repositories that actually occur in practice. 
+
+Packages are split into foreground and background: only packages in the
+foreground are checked for installability, but dependencies may be
+satisfied by foreground packages and by background packages. By default,
+all packages are in the foreground.
+
+=cut
+
+=head1 Input Specification
+
+Currently supported input types are debian, rpm, and eclipse. The
+B<distcheck> tool expects its input specifiations in the form
+I<type://pathname> where I<type> is one of B<deb>, B<synthesis>,
+B<hdlist> or B<eclipse>, and I<pathname> is the pathname of a file
+containing the input. The package metadata found in that file must
+correspond to the I<type> given in the URI.
+
+When invoked as I<typeB<check>> then the type of input is assumed to be
+I<type>, and repositories (in positional arguments or in the values of options
+B<--fg> and B<--bg>) are simply given in form of a pathname of a file
+containing the repository. If no positional argument is given then input is
+read from standard input. B<distcheck> also accepts compressed files (.gz ,
+.bz2) as positional arguments. Input read on standard input cannot be in
+compressed form.
+
+=head1 Input Formats
+
+=cut
+
+=head2 Debian
+
+The input file has to contain stanzas in the format
+of L<deb-control(5)>, separated by one blank line. For instance, the Packages
+files as found on a Debian mirror server, or in the directory I</var/lib/apt/lists/>
+of a Debian system, are suitable as input to B<debcheck>. Installability of
+packages is analyzed according to their B<Depends>, B<Conflicts>, and B<Provides>
+fields with their meaning as of Debian policy version 3.9.0. B<Pre-depends> are
+treated like B<Depends>, and B<Breaks> are treated like B<Conflicts>.
+
+If the input contains several packages with the same values of name, version,
+and architecture than only the last of these is taken into account, and a
+warning is issued.
+
+In the case
+of Debian, it is not possible to install at the same time two packages
+with the same name but different versions. 
+
+=cut
+
+=head2 Rpm
+
+The input file can be either a I<synthesis> file or a I<hdlist> file.  By
+default rpmcheck expects a synthesis file as input. To specify a hdlist file
+distcheck must be invoked with a file argument of the form hdlist:// 
+
+=cut
+
+=head2 Npm
+
+The input file is a 822 encoding of an npm repository. 
+
+=cut
+
+=head2 Opam
+
+The input file is a 822 encoding of an opam repository. 
+
+=cut
+
+=head2 Pef
+
+The input is a generic 822 file. Versions are compared by default using the
+debian comparing function, or if provided the function specified by B<--compare>
+
+=cut
+
+=head2 Eclipse
+
+The input is a 822 file containing the encoding of OSGi plugins  content.xml
+files. 
+
+=cut
+
+=head1 OPTIONS
+
+=head2 MISC OPTIONS
+
+=over 8
+
+=item B<--version>
+
+Show program version and exit.
+
+=item B<-h, --help>
+
+Display this list of options.
+
+=item B<-v, --verbose>
+
+Enable info / warnings / debug messages.
+This option may be repeated up to three times in order to increase verbosity.
+
+=item B<--progress>
+
+Show progress bars.
+
+=item B<--timers>
+
+Show timing information.
+
+=item B<--quiet>
+
+Do not print warning messages
+
+=back
+
+=head2 DISTCHECK OPTIONS
+
+=over 8
+
+=item B<-e>, B<--explain>
+
+Give explanations. If used together with B<--failures> then the explanation
+consists of dependency chains leading to a conflict or a dependency on a
+missing package. If used together with B<--successes> then the explanation
+consists of an installation set.
+
+=item B<-m>, B<--explain-minimal>
+
+For all packages B<P> that are found installable, and when used in conjunction
+with B<--successes>, prints a reduced installation set containing only those
+packages in the dependency cone of B<P>. When used with Debian repositories,
+all essential packages and their dependencies that are not in the cone of B<P>
+are omitted.  When used in conjunction with B<--failures>, and B<--explain>,
+all dependencies chains are not printed.
+
+=item B<-c>, B<--explain-condense>
+
+Compress explanation graph
+
+=item B<-f>, B<--failures>
+
+List all packages that are found not to be installable.
+
+=item B<-s>, B<--successes>
+
+List all packages that are found to be installable. May be used together
+with B<--failures>, in this case the value of the status field in the output
+allows one to distinguish installable from non-installable packages.
+
+=item B<--summary>
+
+Gives a more detailed summary of the findings.
+
+=item B<--coinst>  I<package> [,I<package>] ...
+
+Takes a comma-separated list of package names, each of them possibly with a version
+constraint, as argument. If this list consists of n expressions, then
+co-installability will be checked independently for each set of n
+packages where the i-th element of the set matches the i-th
+expression. The initial distinction between foreground and background
+is ignored. This option must not be combined with B<--checkonly>.
+
+Example: --coinst "a (>1), b"
+
+If we have package a in versions 1, 2 and 3, and package b in versions
+11 and 12, then this will check 4 pairs of packages for
+co-installability, namely (a=2,b=11), (a=2,b=12), (a=3,b=11) and
+(a=3,b=12).
+
+=item B<--fields=>I<strlst>
+
+Print additional fields if available
+
+=item B<--lowmem>
+
+Serialise multiple distcheck runs to save memory. This might take more time.
+
+=back
+
+=head2 INPUT OPTIONS
+
+=over 8
+
+=item B<-t >I<input-spec>
+
+Select the input type. Possible values are:
+
+=item .
+
+B<cudf> for cudf files
+
+=item .
+
+B<csw>
+
+=item .
+
+B<opam>
+
+=item .
+
+B<deb> for Debian binary package files, also known as Packages files. Possibly
+compressed with L<gzip(1)> or L<bzip2(1)>, depending on compile-time options
+for dose3.
+
+=item .
+
+B<debsrc> for Debian source package files, also knows as Sources files.
+Possibly compressed with L<gzip(1)> or L<bzip2(1)>, depending on compile-time
+options for dose3.
+
+=item .
+
+B<edsp> for apt-get External Dependency Solver Protocol
+
+=item .
+
+B<eclipse> for Eclipse (p2) package files
+
+=item .
+
+B<hdlist> for RPM hdlists
+
+=item .
+
+B<synthesis> for urpmi synthesis hdlists
+
+=item .
+
+B<pef>
+
+=item B<--checkonly> I<package> [,I<package>] ...
+
+Takes a comma-separated list of package names, each of them possibly with a version
+constraint, as argument. The foreground is constituted of all packages
+that match any of the expressions, all other packages are pushed into
+the background. The initial distinction between foreground and background is
+ignored. This option must not be combined with B<--coinst>.
+
+Example: --checkonly "libc6 , 2ping (= 1.2.3-1)"
+
+=item B<--latest> I<n>
+
+Consider only the latest -I<n> most recent versions of each package,
+older versions of packages are ignored.
+
+=item B<--fg=>I<file>
+
+Add packages in I<file> to the foreground.
+
+=item B<--bg=>I<file>
+
+Add packages in I<file> to the background.
+
+=item B<--compare>
+
+When specified with a B<pef> file, select the comparison function used by the
+pef -> cudf encoding. Possible values are B<deb> 
+(<https://www.debian.org/doc/debian-policy/ch-controlfields.html#s-f-Version>) , 
+B<semver> (<http://semver.org/>) , B<npm> (<https://docs.npmjs.com/misc/semver>)
+
+=back
+
+=head2 OUTPUT OPTIONS
+
+=over 8
+
+=item B<-o, --outfile=> I<file>
+
+Send output to I<file>.
+
+=item B<-d, --outdir=> I<directory>
+
+Set the output directory (default current directory).
+
+=item B<--dot>
+
+Save the explanation graph (one for each package) in dot format.
+
+=back
+
+=head2 DEBIAN SPECIFIC OPTIONS
+
+Multi-arch annotations are correctly considered by distcheck. Packages
+whose's architecture is neither the native architecture nor in the list
+of foreign architectures (see below) are ignored.
+
+=over 8
+
+=item B<--deb-native-arch=>I<name>
+
+Specify the native architecture. The default behavior is to deduce
+the native architecture from the first package stanza in the input
+that has an architecture different from all.
+
+=item B<--deb-foreign-archs=>I<name> [,I<name>] ...
+
+Specify a comma-separated list of foreign architectures. The default
+is an empty list of foreign architectures.
+
+=item B<--deb-ignore-essential>
+
+Do not consider essential packages as part of the installation problem.
+By default all essential package are considered as part of the
+installation problem for all packages, that is a package is installable
+if and only if it is co-installable with all essential packages. This
+option allows the user to test the installability with no essential
+packages installed.
+
+=item B<--deb-builds-from>
+
+Add builds-from relationship of binary packages on source packages as
+dependency. This allows one to create graphs for bootstrapping purposes.
+
+=back
+
+=cut
+
+=head1 EXIT CODES
+
+Exit codes 0-63 indicate a normal termination of the program, codes 64-127 indicate abnormal termination of the program (such as parse errors, I/O errors).
+
+In case of normal program termination:
+
+- exit code 0 indicates that all foreground packages are found installable;
+
+- exit code 1 indicates that at least one foreground package is found
+uninstallable.
+
+=head1 EXAMPLE
+
+Check which packages in a particular distribution are not installable and why: 
+
+ dose-distcheck -v -f -e \
+ --bg deb:///var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages\
+ --bg deb:///var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_non-free_binary-amd64_Packages\
+ --fg deb:///var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_contrib_binary-amd64_Packages
+
+where Packages is the file pertaining to that distribution, as for instance
+found in the directory B</var/lib/apt/lists>. 
+
+Check which packages in contrib are not installable when dependencies may
+be satisfied from main:
+ 
+  debcheck --failures --bg=main_Packages contrib_Packages
+
+=cut
+
+=head1 NOTE
+
+Distcheck is a complete reimplementation of edos-debcheck, written for the EDOS
+project. 
+
+=cut
+
+=head1 AUTHOR
+
+The first version of debcheck was written by Jerome Vouillon for the EDOS
+project. The current version has been rewritten on the basis of the dose3
+library by Pietro Abate.
+
+=cut
+
+=head1 SEE ALSO
+
+L<B<deb-control>(5)> 
+
+<http://www.edos-project.org> is the home page of the EDOS project. 
+
+<http://www.mancoosi.org> is the home page of the Mancoosi project. 
+ 
