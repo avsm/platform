@@ -1,0 +1,112 @@
+preamble: 
+property: suite: enum[stable,testing,unstable] = [stable],
+ bugs: int = [0],
+ description: string = ["no description"]
+
+package: car
+version: 1
+depends: engine, wheel, door, battery
+installed: true
+description: 4-wheeled, motor-powered vehicle
+
+package: bicycle
+version: 7
+description: 2-wheeled, "pedal-powered" vehicle
+
+package: gasoline-engine
+version: 1
+depends: turbo
+provides: engine
+conflicts: engine, gasoline-engine
+installed: true
+
+package: gasoline-engine
+version: 2
+provides: engine
+conflicts: engine, gasoline-engine
+suite: testing
+
+package: electric-engine
+version: 1
+depends: solar-collector | huge-battery
+provides: engine
+conflicts: engine, electric-engine
+bugs: 12
+
+package: electric-engine
+version: 2
+depends: solar-collector | huge-battery
+provides: engine
+conflicts: engine, electric-engine
+suite: unstable
+bugs: 180
+
+package: solar-collector
+version: 1
+
+package: battery
+version: 3
+provides: huge-battery
+installed: true
+
+package: wheel
+version: 2
+conflicts: wheel
+installed: true
+suite: stable
+
+package: wheel
+version: 3
+conflicts: wheel
+suite: testing
+
+package: door
+version: 1
+conflicts: door
+installed: true
+
+package: door
+version: 2
+depends: window
+conflicts: door
+suite: unstable
+
+package: turbo
+version: 1
+installed: true
+
+package: tire
+version: 1
+conflicts: tire
+
+package: tire
+version: 2
+conflicts: tire
+suite: testing
+
+package: window
+version: 1
+conflicts: window
+
+package: window
+version: 2
+depends: glass
+ =
+ a
+conflicts: window
+suite: testing
+
+package: window
+version: 3
+depends: glass = 2
+conflicts: window
+suite: unstable
+
+package: glass
+version: 1
+conflicts: glass
+
+package: glass
+version: 2
+conflicts: glass, tire = 2
+suite: testing

@@ -1,0 +1,12 @@
+preamble: 
+property: replaces: vpkglist
+
+# note the trailing space after colon in "replaces:"
+package: libcdio-paranoia-dev
+version: 1
+depends: libcdio-paranoia0 = 1 , libcdio-cdda-dev , libcdio-dev , libc6-dev | libc-dev--virtual | libc-dev
+conflicts: libcdio-paranoia-dev
+replaces: 
+
+request: foo
+install: libcdio-paranoia-dev

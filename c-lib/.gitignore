@@ -1,0 +1,6 @@
+*.a
+*.o
+c-test
+c-test-opt
+caml_hash_variant
+cudf-variants.h
