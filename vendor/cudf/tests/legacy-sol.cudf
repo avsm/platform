@@ -1,0 +1,30 @@
+package: car
+version: 1
+depends: engine, wheel, door, battery
+installed: true
+
+package: battery
+version: 3
+provides: huge-battery
+installed: true
+
+package: wheel
+version: 3
+conflicts: wheel
+installed: true
+
+package: door
+version: 1
+conflicts: door
+installed: true
+
+package: bicycle
+version: 7
+installed: true
+
+package: electric-engine
+version: 1
+depends: solar-collector | huge-battery
+provides: engine
+conflicts: engine, electric-engine
+installed: true
