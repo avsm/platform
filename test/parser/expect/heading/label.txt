@@ -1,0 +1,6 @@
+((output
+  (ok
+   (((f.ml (1 0) (1 11))
+     (2 (label ((root (f.ml (page f.ml) "") f.ml) (label foo)))
+      (((f.ml (1 7) (1 10)) (word Bar))))))))
+ (warnings ()))
