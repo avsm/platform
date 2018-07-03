@@ -1,0 +1,91 @@
+package: car
+version: 1
+depends: engine, wheel, door, battery
+installed: true
+
+package: bicycle
+version: 7
+
+package: gasoline-engine
+version: 1
+depends: turbo
+provides: engine
+conflicts: engine, gasoline-engine
+installed: true
+
+package: gasoline-engine
+version: 2
+conflicts: engine, gasoline-engine
+
+package: electric-engine
+version: 1
+depends: solar-collector | huge-battery
+provides: engine
+conflicts: engine, electric-engine
+
+package: electric-engine
+version: 2
+depends: solar-collector | huge-battery
+provides: engine
+conflicts: engine, electric-engine
+
+package: solar-collector
+version: 1
+
+package: battery
+version: 3
+provides: huge-battery
+installed: true
+
+package: wheel
+version: 2
+conflicts: wheel
+installed: true
+
+package: wheel
+version: 3
+conflicts: wheel
+
+package: door
+version: 1
+conflicts: door
+installed: true
+
+package: door
+version: 2
+depends: window
+conflicts: door
+
+package: turbo
+version: 1
+installed: true
+
+package: tire
+version: 1
+conflicts: tire
+
+package: tire
+version: 2
+conflicts: tire
+
+package: window
+version: 1
+conflicts: window
+
+package: window
+version: 2
+depends: glass = 1
+conflicts: window
+
+package: window
+version: 3
+depends: glass = 2
+conflicts: window
+
+package: glass
+version: 1
+conflicts: glass
+
+package: glass
+version: 2
+conflicts: glass, tire = 2

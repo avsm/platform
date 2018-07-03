@@ -1,0 +1,6 @@
+package: a
+version: 1
+depends: b
+depends: c
+
+request: nothing
