@@ -1,0 +1,45 @@
+
+apt-mancoosi is distributed under the licence GPLv3
+
+- cudf_sol_check.native
+- cudf_sol_diff.native
+Part of the libcudf library
+Full source code are available on the [Mancoosi Project Forge]
+(http://gforge.info.ucl.ac.be/projects/mancoosi/).
+Licence : GPLv3
+
+- aptsolutions.native
+- cudf-diff1.native 
+- deb-dudftocudf.native
+Part of the dose3 library
+Full source code are available on the [Mancoosi Project Forge]
+(http://gforge.info.ucl.ac.be/projects/mancoosi/).
+Licence : GPLv3
+
+- dudf-save
+Full source code are available on the [Mancoosi Project Forge]
+(http://gforge.info.ucl.ac.be/projects/mancoosi/).
+Licence : GPLv3
+
+- p2cudf
+http://wiki.eclipse.org/Equinox/p2/CUDFResolver
+This code is made available under the terms of 
+the EPL: http://eclipse.org/org/documents/epl-v10.php
+The full code is available on the eclipse cvs server:
+repository: :pserver:anonymous@dev.eclipse.org:/cvsroot/rt/
+module: org.eclipse.equinox/incubator/p2/demos/misc-conf-2010/
+
+- aspcud
+The kernel of the solver is the Potsdam Answer Set Solving Collection - Potassco.
+Licence: GPLv2
+Full source code are available 
+http://sourceforge.net/projects/potassco/
+and http://www.cs.uni-potsdam.de/~matheior/aspcud/
+
+- inesc / msuncore-pb2wcnf
+The kernel of the solver is the msuncore-pb2wcnf and distribuited in
+binary form only.
+Licence: solvers/inesc*/LICENSE.msuncore-pb2wcnf
+
+- inesc / cudf-solver
+Licence: solvers/inesc*/LICENSE.cudf-solver 

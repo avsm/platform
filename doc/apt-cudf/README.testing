@@ -1,0 +1,11 @@
+# To test the apt-cudf behaviour in the apt toolchain,
+# 1) dump in EDSP the state of the repositories
+apt-get -s --solver dump install gnome
+# it is in /tmp/dump.edsp
+
+# 2) dump the CUDF translation of the EDSP file
+./apt-cudf.native --dump --solver aspcud --noop /tmp/dump.edsp 
+
+# it is stored in a file in /tmp/ whose name is shown in stdout
+# something like /tmp/apt-cudf-universedd360b.cudf
+# and /tmp/dump.edsp 

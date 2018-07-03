@@ -1,0 +1,193 @@
+#!/bin/bash
+
+# apt-mancoosi - Apt-Mancoosi is a proof of concept wrapper that implements the 
+#                Mancoosi modular solver infrastructure
+#  
+# Copyright (C) 2010  Pietro Abate <pietro.abate@pps.jussieu.fr>
+#
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
+
+usage()
+{
+cat << EOF
+usage: $0 options
+
+Run a MISC solver and returns an apt-get command line
+
+OPTIONS:
+   -h      Show this message
+   -s      Solvers :
+               apt-get-paranoid
+               apt-get-trendy
+               aptitude-paranoid
+               aptitude-trendy
+               aspcud-paranoid-1.0
+               aspcud-trendy-1.2
+               inescp-1.0 (paranoid)
+               inesct-1.0 (trendy)
+               p2cudf-paranoid-1.6 (default)
+               p2cudf-trendy-1.6
+               p2param
+
+   -o      User defined objective function:
+           the solver will look for a solution optimizing
+	   a sequence of criteria, in the order given (lexicographically)
+
+             + or - indicate maximize or minimize criterion
+
+           know criteria are 
+
+             new : number of new packages in the solution
+             changed : number of changed packages
+             notuptodate : number of packages not at the last version
+             recommended : number of packages with satisfied recommends
+             removed : number of packages removed
+
+           For example, paranoid can be expressed as
+
+            -removed,-changed,-new
+
+	   which gives a pretty different result from
+
+	    -changed,-removed,-new
+
+   -f      Dudf file (format xml not compressed)
+   -c      Cudf file (not compressed)
+   -a      Architecture (set the default architecture, e.g. i386, amd64, ...)
+   -v      Verbose
+   -d      Debug
+EOF
+}
+
+SOLVER="p2cudf-paranoid-1.6"
+DUDFFILE=
+CUDFFILE=
+APTCMD=
+DEBUG=
+VERBOSE=
+OBJFUN=
+ARCH=
+DPKG=`which dpkg`
+
+while getopts  "vf:hs:do:a:c:" flag
+do
+  case "$flag" in
+    s) SOLVER=$OPTARG ;;
+    f) DUDFFILE=$OPTARG ;;
+    c) CUDFFILE=$OPTARG ;;
+    a) ARCH=$OPTARG ;;
+    o) OBJFUN=$OPTARG ;;
+    d) set -x ; DEBUG=true ;;
+    v) VERBOSE=true ;; 
+    h) usage ; exit 0;;
+  esac
+#  echo "$flag" $OPTIND $OPTARG
+done
+
+if [ ! -z "$OBJFUN" ]; then
+    echo "Setting solver to p2param, the only one that supports user defined objective functions up to now";
+    SOLVER=p2param;
+fi
+
+
+if [ -z "$DPKG" ]; then
+    if [ -z "$ARCH" -o -z "$DUDFFILE$CUDFFILE" ]; then
+	usage
+        echo
+	echo "It appears you are trying to run " `basename $0` " on a non Debian-based machine:"
+	echo "to do this, you need to provide an input DUDF or CUDF file and a default architecture."
+	exit 1
+    fi
+else 
+  ARCH=${ARCH:=`dpkg --print-architecture`}
+fi
+
+if [ -z "$DUDFFILE$CUDFFILE" ]; then
+  shift $((OPTIND-1))
+  APTCMD="$@"
+  if [ -z "$APTCMD" ]; then
+    usage
+    echo
+    echo "You must specify an apt-get command line or a CUDF or DUDF file with a default architecture"
+    exit 1
+  fi
+fi
+
+echo "Default architecture is set to $ARCH"
+
+REALPATH=`readlink -f $0`
+BASE=`dirname $REALPATH`
+DUDFSAVE=$BASE/bin/dudf-save
+DUDFCUDF=$BASE/bin/deb-dudftocudf.native
+SOLVERHOME=$BASE/solvers/$SOLVER
+SOLCHECK=$BASE/bin/cudf_sol_check.native
+SOLTOAPT=$BASE/bin/cudf_sol_diff.native
+
+TEMPDIR=`mktemp -d`
+TIMEFILE=$TEMPDIR/time.log
+TIME="/usr/bin/time -f %Ereal,%Uuser,%Ssys -o $TIMEFILE -a "
+
+if [ -z "$CUDFFILE" ]; then
+    if [ ! -z "$DUDFFILE" ]; then
+	cp $DUDFFILE $TEMPDIR
+	cd $TEMPDIR
+    else
+	echo "Creating dudf (dudf-save)"
+	cd $TEMPDIR
+	echo "dudf-save" > $TIMEFILE
+	DUDFFILE=`$TIME $DUDFSAVE -n -C apt-get -s $APTCMD 2>&1 | grep "INFO:root:DUDF report" | awk '{print $5}'`
+    fi
+    echo "dudf to cudf (deb-dudftocudf)"
+    echo "deb-dudftocudf" >> $TIMEFILE
+    $TIME $DUDFCUDF -a $ARCH --outdir . $DUDFFILE
+    CUDFFILE=$TEMPDIR/`basename $DUDFFILE .xml`.cudf
+else
+    cp $CUDFFILE $TEMPDIR
+    cd $TEMPDIR
+    CUDFFILE=$TEMPDIR/`basename $CUDFFILE`
+fi
+
+echo "solving ($SOLVER)"
+echo "$SOLVER" >> $TIMEFILE
+cd $SOLVERHOME
+$TIME ./$SOLVER $CUDFFILE $OBJFUN $TEMPDIR/solution.cudf >& $TEMPDIR/solver.log
+cd -
+
+echo "Building apt-args"
+echo "cudf_sol_check" >> $TIMEFILE
+$TIME $SOLTOAPT -verbose -cudf $CUDFFILE -sol solution.cudf > apt-score-args
+tail -n 1 apt-score-args > apt-args
+
+echo
+
+#
+# Print summary of changes
+#
+head -11 apt-score-args
+
+echo "apt-get -s install `cat apt-args`"
+cd ..
+
+if [ -n "$VERBOSE" ]; then
+  echo
+  echo "Time information"
+  cat $TIMEFILE
+  echo
+fi
+
+if [ -z "$DEBUG" ]; then
+  rm -Rf $TEMPDIR
+fi
+
+exit 0
