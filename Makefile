@@ -1,5 +1,5 @@
-PACKAGES="opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat"
-PINS="ocp-indent odoc tyxml ocamlformat merlin"
+PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat
+PINS=ocp-indent odoc tyxml ocamlformat merlin
 
 v-lock:
 	duniverse vendor-lock $(PINS:%=--pin %) $(PACKAGES) -v
