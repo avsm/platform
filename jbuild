@@ -1,0 +1,11 @@
+(jbuild_version 1)
+
+(rule
+ (with-stdout-to jbuild.inc.gen
+  (run ocaml ${path:gen/update_jbuild.ml})))
+
+(alias
+ ((name runtest)
+  (action (diff jbuild.inc jbuild.inc.gen))))
+
+(include jbuild.inc)
