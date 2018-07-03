@@ -1,5 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 3-15:\
-   \n'@author' is not allowed in '{2 ...}' (section heading)"))
- (warnings ()))

@@ -1,6 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 12-25:\
-   \n'@author' is not allowed in '{li ...}' (list item)\
-   \nSuggestion: move '@author' outside of any other markup"))
- (warnings ()))

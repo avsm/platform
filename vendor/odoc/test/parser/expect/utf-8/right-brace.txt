@@ -1,5 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 2-3:\
-   \nunpaired '}' (end of markup)"))
- (warnings ()))
