@@ -7,6 +7,12 @@ build:
 	cd vendor/markup && ocaml src/configure.ml
 	dune build --profile=release @install
 
+doc:
+	dune build --profile=release @doc
+
+clean:
+	dune clean
+
 v-lock:
 	duniverse vendor-lock $(PINS:%=--pin %) $(PACKAGES) -v
 
