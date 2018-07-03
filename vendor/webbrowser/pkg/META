@@ -1,0 +1,18 @@
+description = "Open and reload URIs in web browsers from OCaml"
+version = "%%VERSION_NUM%%"
+requires = "rresult astring bos"
+archive(byte) = "webbrowser.cma"
+archive(native) = "webbrowser.cmxa"
+plugin(byte) = "webbrowser.cma"
+plugin(native) = "webbrowser.cmxs"
+
+package "cli" (
+  description = "Cmdliner support for Webbrowser"
+  version = "%%VERSION_NUM%%"
+  requires = "rresult bos cmdliner"
+  archive(byte) = "webbrowser_cli.cma"
+  archive(native) = "webbrowser_cli.cmxa"
+  plugin(byte) = "webbrowser_cli.cma"
+  plugin(native) = "webbrowser_cli.cmxs"
+  exists_if = "webbrowser_cli.cma"
+)

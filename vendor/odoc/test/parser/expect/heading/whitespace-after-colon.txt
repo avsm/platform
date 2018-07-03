@@ -1,0 +1,5 @@
+((output
+  (error
+    "File \"f.ml\", line 1, characters 2-3:\
+   \nheading label cannot be empty"))
+ (warnings ()))
