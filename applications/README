@@ -1,0 +1,122 @@
+
+
+To start a new application from scratch, have a look at the example.ml file
+
+
+-------------------------------------------------------------------------
+
+
+distcheck.native checks broken packages in a repository
+
+./distcheck.native -e -f --architecture=amd64 --release=unstable/sid --distribution=debian -u deb://tests/sid.packages > sid.yaml
+
+-----
+
+deb-cudf.native converts a debian archive in a cudf universe
+./deb-cudf.native deb:///var/lib/apt/lists/ftp.fr.debian.org_debian_dists_unstable_main_binary-amd64_Packages >test.cudf
+
+-----
+
+randcudf.native generates random cudf documents
+./randcudf.native deb://status.biglist deb://biglist.packages --outdir rand --upgradeAll --seed 10 -n 10 --remove 50 --install 50 --upgrade 50 --keep 40 --rstatus 50
+
+10 cudf documents with empty request
+./randcudf.native deb://status.biglist deb://biglist.packages --outdir rand --seed 10 -n 10 --keep 40 --rstatus 50
+
+-----
+
+cudf-solver.native compute a solution for a cudf problem
+./cudf-solver.native --cudf tests/rande43c24.cudf > test-sol.cudf
+
+to test a solution : 
+cudf-check -sol test-sol.cudf -cudf tests/rande43c24.cudf
+
+-----
+
+cudf-diff.native prints the differences between two cudf documents
+eventually considering one of them as a solution file.
+
+./cudf-diff.native doc1.cudf doc2.cudf
+./cudf-diff.native --solution legacy.cudf leg-sol.pdf --verbose
+
+
+-----
+
+rmat.native generates a random graph with small world characteristic
+./rmat.native --dot > test.dot
+
+-----
+
+smallworld.native computes relevant small world measures of a dependecy graph
+./smallworld.native test.dot
+
+-----
+
+deb-dudf-cudf.native converts a debian dudf document to a cudf document
+./debdudf/deb-dudftocudf.native dudf.xml > doc.cudf
+
+-----
+
+./testingcheck.native /var/lib/apt/lists/ftp.de.debian.org_debian_dists_unstable_main_binary-amd64_Packages
+
+$echo "add" | socat - UNIX-CLIENT:/tmp/cmd.sock
+$cat <<EOF | socat - UNIX-CLIENT:/tmp/input.sock
+Package: pippo
+Version: 1.3
+EOF
+$
+
+$echo "check" | socat - UNIX-CLIENT:/tmp/cmd.sock
+
+$echo "rm" | socat - UNIX-CLIENT:/tmp/cmd.sock
+$cat <<EOF | socat - UNIX-CLIENT:/tmp/input.sock
+Package: pippo
+Version: 1.3
+EOF
+$
+
+$echo "undo" | socat - UNIX-CLIENT:/tmp/cmd.sock
+-----
+
+
+./buildcheck.native --arch amd64 /var/lib/apt/lists/ftp.debian.org_debian_dists_unstable_main_binary-amd64_Packages /var/lib/apt/lists/ftp.debian.org_debian_dists_unstable_main_source_Sources
+
+-----
+grep-dctrl -s Package,Version '' /var/lib/apt/lists/ftp.de.debian.org_debian_dists_unstable_main_binary-amd64_Packages > candidates
+
+./migration.native candidates /var/lib/apt/lists/ftp.de.debian.org_debian_dists_testing_main_binary-amd64_Packages /var/lib/apt/lists/ftp.de.debian.org_debian_dists_unstable_main_binary-amd64_Packages /var/lib/apt/lists/ftp.de.debian.org_debian_dists_unstable_main_source_Sources
+-----
+
+db-cudf.native converts a debian archive stored in a database to a cudf universe
+
+depgraph.native generates a .dot graph of a repository
+
+dimacs.native generates a propositional problem in dimacs format from a repository
+
+-----
+strong-deps.native generates the strong dependency graph from a repository
+
+./strong-deps.native --dump --dot cudf://algo/tests/strongdep-simple.cudf
+
+./strong-deps.native --incr --dot graph.marshal cudf://algo/tests/strongdep-simple.cudf cudf://algo/tests/strongdep-conflict.cudf
+
+-----
+$cat zz
+ !h-1 i-1
+ !h-1 l-1
+ !g-1 e-1 f-1
+ !e-1 f-1
+ !e-1 a-1 b-1
+ !b-1 !a-1
+ !a-1 c-1 d-1
+$./cnftocudf.native zz > zz.cudf
+$./ceve.native -tcnf cudf://zz.cudf 
+ !h-1 i-1
+ !h-1 l-1
+ !g-1 e-1 f-1
+ !e-1 f-1
+ !e-1 a-1 b-1
+ !b-1 !a-1
+ !a-1 c-1 d-1
+
+

@@ -1,0 +1,102 @@
+=head1 NAME
+
+outdated - detect uninstallable packages due to obsolete dependencies 
+
+=head1 SYNOPSIS
+
+B<outdated> [option] ... I<file> ... 
+
+=cut
+
+=head1 DESCRIPTION
+
+B<outdated> identifies in a debian package repository those packages that
+are not installable with respect to that repository by the their inter-package
+relationships (dependencies, conflicts, ...), and that furthermore cannot
+become installable (in the current version) how matter how the rest of the
+repository evolves. This means that this package has to be updated in the
+repository to ever become installable again. 
+ 
+=head1 Input Specification
+
+Input files have to contain stanzas in the format of
+L<deb-control(5)>, separated by one blank line. For instance, the
+Packages files as found on a Debian mirror server, or in the directory
+I</var/lib/apt/lists/> of a Debian system, are suitable as input. The
+repository used in the analysis consists of the union of all packages 
+from the input files.
+
+=head1 Output Specification
+
+The output of outdated is in the YAML format. 
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<-f --failure> 
+
+Print the list of broken packages
+ 
+=item B<-e --explain> 
+
+Explain the results in more detail.
+
+=item B<-s> 
+
+Print a summary of broken packages.
+
+=item B<--dump> 
+
+Dump to standard output in CUDF format the packages that are internally  
+generated and exit (mostly useful for debugging purposes). 
+
+=item B<--checkonly> I<package>[,I<package>] ...
+
+Specifies a list of packages to check. By default all packages are checked.
+Takes a comma-separated list of package names, each of them possibly with a
+version constraint, as argument. 
+
+Example: --checkonly "libc6 , 2ping (>= 1.2.3-1)"
+
+=item B<-v>
+ 
+Enable info / warnings / debug messages. This option may be repeated up to
+three times in order to increase verbosity.
+
+=item B<--progress> 
+
+Display progress bars. 
+
+=item B<-h>, B<--help> 
+
+Display this list of options. 
+
+=back
+=cut
+
+=head1 EXIT CODES
+
+Exit codes 0-63 indicate a normal termination of the program, codes 64-127
+indicate abnormal termination of the program (such as parse errors, I/O
+errors).
+
+=head1 EXAMPLE
+
+ dose3-outdated -f -v /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages
+
+=cut
+
+=head1 AUTHORS
+
+Pietro Abate and Ralf Treinen 
+
+=cut
+
+=head1 SEE ALSO
+
+L<B<distcheck>(5)>
+L<B<challenged>(5)> 
+
+<http://www.mancoosi.org> is the home page of the Mancoosi project. 
+ 
