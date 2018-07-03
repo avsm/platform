@@ -1,0 +1,96 @@
+=head1 NAME
+
+challenged - detect broken packages due to obsolete dependencies 
+
+=head1 SYNOPSIS 
+
+=over
+
+=item B<challenged> [options] I<Packages file(s)> 
+
+=back
+=cut
+
+=head1 DESCRIPTION
+
+challenged performs a speculative analysis of the repository to identify those
+packages that, if upgraded to a specific version, would break a large number of
+other packages in the repository. This tool would be particularly useful during
+the upgrade of a specific component to evaluate its impact on the software
+archive.
+
+=cut
+
+=head1 Input Specification
+
+The input of challenged is a list of Debian Packages files 
+
+=cut
+
+=head1 Output Specification
+
+The output of challenged is in the yaml format.
+
+=cut
+
+=head1 Options
+
+=over 8
+
+=item B<-b --broken> 
+
+Print the list of broken packages 
+
+=item B<-d --downgrade> 
+
+Check package downgrades 
+
+=item B<-c> 
+
+Print the list of packages in a cluster 
+
+=item B<--checkonly> I<package>[,I<package>] ...
+
+Specifies a list of packages to check. By default all packages are checked.
+Takes a comma-separated list of package names and a version .
+
+Example: --checkonly "libc6 (=1.4), 2ping (= 1.2.3-1)"
+
+=item B<-v> 
+
+Enable info / warnings / debug messages. This option may be repeated up to
+three times in order to increase verbosity. 
+
+=item B<--progress> 
+
+Enable progress bars. 
+
+=item B<-h, --help>
+
+Display this list of options. 
+
+=back
+=cut
+
+=head1 EXAMPLE
+
+  challenged -v --progress Packages.bz2 > result.yaml 
+
+=cut
+
+=head1 NOTE
+
+=cut
+
+=head1 AUTHOR
+
+Pietro Abate and Roberto Di Cosmo 
+
+=head1 SEE ALSO
+
+L<B<distcheck>(1)B<>>
+L<B<outdated>(1)B<>> 
+
+<http://www.mancoosi.org> is the home page of the Mancoosi project.
+
+ 

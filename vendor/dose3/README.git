@@ -1,0 +1,29 @@
+Submodules
+==========
+
+The dose Git report uses submodules to reference external repositories. In
+particular:
+
+    cudf/         points to the cudf Git repo of mancoosi-tools
+    tests/        points to the dose-testdata Git repo of mancoosi-tools
+
+After cloning the dose Git repo, just use the following to populate the
+submodules:
+
+    git submodule update --init
+
+See the git submodules documentation for more usage information [1,2].
+
+[1] http://book.git-scm.com/5_submodules.html
+[2] http://man.cx/git-submodule
+
+
+Note that the submodules are configured using the public git clone URL of
+external repositories (i.e. https://gforge.inria.fr/... instead of
+git+ssh://scm.gforge.inria.fr//...). This is to allow people checking out the
+dose code to easily retrieve the submodules. The drawback is that by default
+you cannot push your changes via those URLs. Just add a separate git+ssh remote
+and push to it.
+
+
+ -- Stefano Zacchiroli <zack@upsilon.cc>  Sun, 27 Nov 2011 17:51:30 +0100

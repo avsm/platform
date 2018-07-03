@@ -1,0 +1,13 @@
+
+The file librpm_stubs.c contains ocaml bindings for librpm.  In other to
+create a package list in ocaml we first trasform the hdlist in an
+associative list (key,value) where key is a label (ei. package, version,
+provides ...) and value is a string containing either a single element or a
+list of elements comma separated.
+
+hdlist.ml converts this associative list in a package list.
+
+The hdlist format encodes a lot of useless information such as changelogs and
+maintainer(s) list. We do not include this information in the associative list
+to avoid the performance penalties involved in copying strings between C and
+ocaml.

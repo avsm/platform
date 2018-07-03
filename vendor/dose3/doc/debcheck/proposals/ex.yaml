@@ -1,0 +1,2605 @@
+report:
+ -
+  package: knights-themepack
+  version: 0.5.9-1
+  architecture: amd64
+  source: knights-themepack (= 0.5.9-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: knights
+      version: 0.6-8.2+b1
+      architecture: amd64
+      missingdep: kdebase-kio-plugins
+     depchains:
+      -
+       depchain:
+        -
+         package: knights-themepack
+         version: 0.5.9-1
+         architecture: amd64
+         depends: knights
+ -
+  package: opensync-plugin-opie
+  version: 0.022-2
+  architecture: amd64
+  source: libopensync-plugin-opie (= 0.22-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-plugin-opie
+      version: 0.022-2
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     
+ -
+  package: libosgal1
+  version: 0.6.1-2+b3
+  architecture: amd64
+  source: osgal (= 0.6.1-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libosgal1
+      version: 0.6.1-2+b3
+      architecture: amd64
+      missingdep: libopenscenegraph56 (>= 2.08.01)
+     
+ -
+  package: libgnuradio-usrp2-dev
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgnuradio-usrp2-0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libgnuradio-usrp2-dev
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgnuradio-usrp2-0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: librheolef-dev
+  version: 5.89-1
+  architecture: amd64
+  source: rheolef (= 5.89-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: librheolef-dev
+      version: 5.89-1
+      architecture: amd64
+      missingdep: rheolef-runtime
+     
+ -
+  package: scsh-install-lib
+  version: 1.3.0-1
+  architecture: all
+  source: scsh-install-lib (= 1.3.0-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: scsh-install-lib
+      version: 1.3.0-1
+      architecture: all
+      missingdep: scsh-0.6 (>= 0.6.6)
+     
+ -
+  package: pixbros
+  version: 0.6.3-1
+  architecture: all
+  source: pixbros (= 0.6.3-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: pixbros
+      version: 0.6.3-1
+      architecture: all
+      missingdep: fenix
+     
+ -
+  package: libplayerdrivers3.0-dev
+  version: 3.0.1+dfsg-1.1
+  architecture: amd64
+  source: player (= 3.0.1+dfsg-1.1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libplayerdrivers3.0
+      version: 3.0.1+dfsg-1.1
+      architecture: amd64
+      missingdep: libcv4
+     depchains:
+      -
+       depchain:
+        -
+         package: libplayerdrivers3.0-dev
+         version: 3.0.1+dfsg-1.1
+         architecture: amd64
+         depends: libplayerdrivers3.0 (= 3.0.1+dfsg-1.1)
+ -
+  package: libgnuradio-qtgui0
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgnuradio-qtgui0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: libapt-rpm-pkg2
+  version: 0.5.15lorg3.2-6
+  architecture: amd64
+  source: apt-rpm (= 0.5.15lorg3.2-6)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libapt-rpm-pkg2
+      version: 0.5.15lorg3.2-6
+      architecture: amd64
+      missingdep: librpm4.4 (>= 4.4)
+     
+ -
+  package: mseide-msegui
+  version: 1.008-1
+  architecture: all
+  source: mseide-msegui (= 1.8-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: mseide-msegui
+      version: 1.008-1
+      architecture: all
+      missingdep: msegui
+     
+ -
+  package: enna-dbg
+  version: 0.4.0-4
+  architecture: amd64
+  source: enna (= 0.4.0-4)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: enna
+      version: 0.4.0-4
+      architecture: amd64
+      missingdep: libevas-svn-05-engines-x (>= 0.9.9.063)
+     depchains:
+      -
+       depchain:
+        -
+         package: enna-dbg
+         version: 0.4.0-4
+         architecture: amd64
+         depends: enna (= 0.4.0-4)
+ -
+  package: libzltext-dev
+  version: 0.10.7dfsg-3+b1
+  architecture: amd64
+  source: fbreader (= 0.10.7dfsg-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libzltext0.10
+      version: 0.10.7dfsg-3+b1
+      architecture: amd64
+      missingdep: libzltext-data (>= 0.10.7dfsg-3+b1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libzltext-dev
+         version: 0.10.7dfsg-3+b1
+         architecture: amd64
+         depends: libzltext0.10 (= 0.10.7dfsg-3+b1)
+ -
+  package: libzltext0.10
+  version: 0.10.7dfsg-3+b1
+  architecture: amd64
+  source: fbreader (= 0.10.7dfsg-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libzltext0.10
+      version: 0.10.7dfsg-3+b1
+      architecture: amd64
+      missingdep: libzltext-data (>= 0.10.7dfsg-3+b1)
+     
+ -
+  package: zope-maildrophost
+  version: 2.02-1
+  architecture: all
+  source: zope-maildrophost (= 2.2-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: zope-maildrophost
+      version: 2.02-1
+      architecture: all
+      missingdep: zope2.8 | zope2.9 | zope2.10
+     
+ -
+  package: zope-zms
+  version: 1:2.11.1-03-1
+  architecture: all
+  source: zope-zms (= 1:2.11.1-03-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: zope-zms
+      version: 1:2.11.1-03-1
+      architecture: all
+      missingdep: zope2.9 | zope2.10
+     
+ -
+  package: opensync-plugin-palm
+  version: 0.022-2
+  architecture: amd64
+  source: libopensync-plugin-palm (= 0.22-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-plugin-palm
+      version: 0.022-2
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     
+ -
+  package: xserver-xorg-input-fpit
+  version: 1:1.3.0-2
+  architecture: amd64
+  source: xserver-xorg-input-fpit (= 1:1.3.0-2)
+  status: broken
+  reasons:
+   -
+    conflict:
+     pkg1:
+      package: xserver-xorg-input-fpit
+      version: 1:1.3.0-2
+      architecture: amd64
+     pkg2:
+      package: xserver-xorg-core
+      version: 2:1.7.7-5
+      architecture: amd64
+     depchain2:
+      -
+       depchain:
+        -
+         package: xserver-xorg-input-fpit
+         version: 1:1.3.0-2
+         architecture: amd64
+         depends: xserver-xorg-core (>= 2:1.5.99.901)
+ -
+  package: evolution-mapi-dbg
+  version: 0.28.3-2
+  architecture: amd64
+  source: evolution-mapi (= 0.28.3-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libexchangemapi-1.0-0
+      version: 0.28.3-2
+      architecture: amd64
+      missingdep: libedataserver1.2-11 (>= 2.28.3.1)
+     depchains:
+      -
+       depchain:
+        -
+         package: evolution-mapi-dbg
+         version: 0.28.3-2
+         architecture: amd64
+         depends: libexchangemapi-1.0-0 (= 0.28.3-2)
+ -
+  package: python-gnuradio-trellis
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-trellis
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: xserver-xorg-input-mutouch
+  version: 1:1.2.1-2
+  architecture: amd64
+  source: xserver-xorg-input-mutouch (= 1:1.2.1-2)
+  status: broken
+  reasons:
+   -
+    conflict:
+     pkg1:
+      package: xserver-xorg-input-mutouch
+      version: 1:1.2.1-2
+      architecture: amd64
+     pkg2:
+      package: xserver-xorg-core
+      version: 2:1.7.7-5
+      architecture: amd64
+     depchain2:
+      -
+       depchain:
+        -
+         package: xserver-xorg-input-mutouch
+         version: 1:1.2.1-2
+         architecture: amd64
+         depends: xserver-xorg-core (>= 2:1.5.99.901)
+ -
+  package: gnuradio-pager
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: gnuradio-pager
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: zope-cmfbibliographyat
+  version: 0.8.0-3
+  architecture: all
+  source: zope-cmfbibliographyat (= 0.8.0-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: zope-cmfbibliographyat
+      version: 0.8.0-3
+      architecture: all
+      missingdep: zope3.0 | zope2.10 | zope2.9 | zope2.8 | zope2.7
+     
+ -
+  package: phoneuid
+  version: 0.1+git20100502-1
+  architecture: amd64
+  source: phoneuid (= 0.1+git20100502-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: phonefsod
+      version: 0.1+git20100802-2
+      architecture: amd64
+      missingdep: fso-deviced
+     depchains:
+      -
+       depchain:
+        -
+         package: phoneuid
+         version: 0.1+git20100502-1
+         architecture: amd64
+         depends: phonefsod (>= 0.1+git20100515)
+ -
+  package: opensync-plugin-moto
+  version: 0.022-2
+  architecture: all
+  source: libopensync-plugin-moto (= 0.22-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-plugin-moto
+      version: 0.022-2
+      architecture: all
+      missingdep: python-xml
+     
+ -
+  package: libexchangemapi-1.0-dev
+  version: 0.28.3-2
+  architecture: amd64
+  source: evolution-mapi (= 0.28.3-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libexchangemapi-1.0-dev
+      version: 0.28.3-2
+      architecture: amd64
+      missingdep: evolution-data-server-dev (< 2.29)
+     
+ -
+  package: libzlui-gtk
+  version: 0.10.7dfsg-3+b1
+  architecture: amd64
+  source: fbreader (= 0.10.7dfsg-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libzlcore0.10
+      version: 0.10.7dfsg-3+b1
+      architecture: amd64
+      missingdep: libzlcore-data (>= 0.10.7dfsg-3+b1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libzlui-gtk
+         version: 0.10.7dfsg-3+b1
+         architecture: amd64
+         depends: libzlcore0.10 (= 0.10.7dfsg-3+b1)
+ -
+  package: libgnuradio-usrp-dev
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgnuradio-usrp0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libgnuradio-usrp-dev
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgnuradio-usrp0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: zope-scriptablefields
+  version: 1.1.3-1
+  architecture: all
+  source: zope-scriptablefields (= 1.1.3-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: zope-scriptablefields
+      version: 1.1.3-1
+      architecture: all
+      missingdep: zope2.6 | zope2.7 | zope2.8 | zope2.9 | zope2.10 | zope3
+     
+ -
+  package: knights
+  version: 0.6-8.2+b1
+  architecture: amd64
+  source: knights (= 0.6-8.2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: knights
+      version: 0.6-8.2+b1
+      architecture: amd64
+      missingdep: kdebase-kio-plugins
+     
+ -
+  package: opensync-plugin-sunbird
+  version: 0.22-3
+  architecture: amd64
+  source: libopensync-plugin-sunbird (= 0.22-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-plugin-iceowl
+      version: 0.22-3
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     depchains:
+      -
+       depchain:
+        -
+         package: opensync-plugin-sunbird
+         version: 0.22-3
+         architecture: amd64
+         depends: opensync-plugin-iceowl
+ -
+  package: eprover-doc-html
+  version: 1.0.004-1
+  architecture: all
+  source: eprover (= 1.0.004-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: eprover-doc-html
+      version: 1.0.004-1
+      architecture: all
+      missingdep: eprover
+     
+ -
+  package: python-gnuradio-audio-jack
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-audio-jack
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: tuxonice-userui
+  version: 1.0-1+b1
+  architecture: amd64
+  source: tuxonice-userui (= 1.0-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: tuxonice-userui
+      version: 1.0-1+b1
+      architecture: amd64
+      missingdep: libusplash0
+     
+ -
+  package: libusrp2-dev
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgruel0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libusrp2-dev
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libusrp2-0 (= 3.2.2.dfsg-1+b1)
+        -
+         package: libusrp2-0
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgruel0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: pixfrogger
+  version: 1.0-2
+  architecture: all
+  source: pixfrogger (= 1.0-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: pixfrogger
+      version: 1.0-2
+      architecture: all
+      missingdep: fenix
+     
+ -
+  package: stage
+  version: 2.1.1-1
+  architecture: amd64
+  source: stage (= 2.1.1-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: stage
+      version: 2.1.1-1
+      architecture: amd64
+      missingdep: libplayerc2
+     
+ -
+  package: libzlui-maemo
+  version: 0.10.7dfsg-3+b1
+  architecture: amd64
+  source: fbreader (= 0.10.7dfsg-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libzlcore0.10
+      version: 0.10.7dfsg-3+b1
+      architecture: amd64
+      missingdep: libzlcore-data (>= 0.10.7dfsg-3+b1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libzlui-maemo
+         version: 0.10.7dfsg-3+b1
+         architecture: amd64
+         depends: libzlcore0.10 (= 0.10.7dfsg-3+b1)
+ -
+  package: opensync-plugin-barry
+  version: 0.15-1
+  architecture: amd64
+  source: barry (= 0.15-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-plugin-barry
+      version: 0.15-1
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     
+ -
+  package: opendnssec-signer
+  version: 1.1.0-2
+  architecture: all
+  source: opendnssec-signer (= 1.1.0-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opendnssec-signer
+      version: 1.1.0-2
+      architecture: all
+      missingdep: opendnssec-signer-tools (< 1.1.0-2.1~)
+     
+ -
+  package: opensync-plugin-barry-dbg
+  version: 0.15-1
+  architecture: amd64
+  source: barry (= 0.15-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-plugin-barry-dbg
+      version: 0.15-1
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     
+ -
+  package: libstageplugin1
+  version: 2.1.1-1
+  architecture: amd64
+  source: stage (= 2.1.1-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libstageplugin1
+      version: 2.1.1-1
+      architecture: amd64
+      missingdep: libplayercore2
+     
+ -
+  package: opensync-module-python
+  version: 0.022-2
+  architecture: amd64
+  source: libopensync-plugin-python (= 0.22-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-module-python
+      version: 0.022-2
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     
+ -
+  package: libgnuradio-usrp2-0
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgnuradio-usrp2-0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: python-gnuradio-wxgui
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-core
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: python-gnuradio-wxgui
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: python-gnuradio-core (= 3.2.2.dfsg-1+b1)
+ -
+  package: libgnuradio-usrp0
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgnuradio-usrp0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: genesis
+  version: 2.2.1-12+b1
+  architecture: amd64
+  source: genesis (= 2.2.1-12)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: genesis
+      version: 2.2.1-12+b1
+      architecture: amd64
+      missingdep: libnetcdf4
+     
+ -
+  package: python-gnuradio-cvsd-vocoder
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-cvsd-vocoder
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: libgettext-ocaml-dev
+  version: 0.3.3-1+b1
+  architecture: amd64
+  source: ocaml-gettext (= 0.3.3-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgettext-ocaml-dev
+      version: 0.3.3-1+b1
+      architecture: amd64
+      missingdep: libfileutils-ocaml-dev-6m6f8
+     
+ -
+  package: strongswan-dbg
+  version: 4.4.1-3
+  architecture: amd64
+  source: strongswan (= 4.4.1-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: strongswan-dbg
+      version: 4.4.1-3
+      architecture: amd64
+      missingdep: strongswan
+     
+ -
+  package: libgruel-dev
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgruel0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libgruel-dev
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgruel0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: libgnuradio-audio-alsa0
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgnuradio-audio-alsa0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: libdc1394-13-dev
+  version: 1.1.0-5
+  architecture: amd64
+  source: libdc1394 (= 1.1.0-5)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libdc1394-13
+      version: 1.1.0-5
+      architecture: amd64
+      missingdep: libraw1394-8
+     depchains:
+      -
+       depchain:
+        -
+         package: libdc1394-13-dev
+         version: 1.1.0-5
+         architecture: amd64
+         depends: libdc1394-13 (= 1.1.0-5)
+ -
+  package: gnuradio-radio-astronomy
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-usrp
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: gnuradio-radio-astronomy
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: python-gnuradio-usrp
+ -
+  package: libgruel0
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgruel0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: libzlcore-dev
+  version: 0.10.7dfsg-3+b1
+  architecture: amd64
+  source: fbreader (= 0.10.7dfsg-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libzlcore0.10
+      version: 0.10.7dfsg-3+b1
+      architecture: amd64
+      missingdep: libzlcore-data (>= 0.10.7dfsg-3+b1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libzlcore-dev
+         version: 0.10.7dfsg-3+b1
+         architecture: amd64
+         depends: libzlcore0.10 (= 0.10.7dfsg-3+b1)
+ -
+  package: libzlcore0.10
+  version: 0.10.7dfsg-3+b1
+  architecture: amd64
+  source: fbreader (= 0.10.7dfsg-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libzlcore0.10
+      version: 0.10.7dfsg-3+b1
+      architecture: amd64
+      missingdep: libzlcore-data (>= 0.10.7dfsg-3+b1)
+     
+ -
+  package: libnewlib-dev
+  version: 1.18.0-4
+  architecture: amd64
+  source: newlib (= 1.18.0-4)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libnewlib-dev
+      version: 1.18.0-4
+      architecture: amd64
+      missingdep: libnewlib0 (= 1.18.0-4)
+     
+ -
+  package: libzlui-qt4
+  version: 0.10.7dfsg-3+b1
+  architecture: amd64
+  source: fbreader (= 0.10.7dfsg-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libzlcore0.10
+      version: 0.10.7dfsg-3+b1
+      architecture: amd64
+      missingdep: libzlcore-data (>= 0.10.7dfsg-3+b1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libzlui-qt4
+         version: 0.10.7dfsg-3+b1
+         architecture: amd64
+         depends: libzlcore0.10 (= 0.10.7dfsg-3+b1)
+ -
+  package: libusrp-dev
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libusrp0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libusrp-dev
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libusrp0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: libgnuradio-core-dev
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgruel0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libgnuradio-core-dev
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgnuradio-core0 (= 3.2.2.dfsg-1+b1)
+        -
+         package: libgnuradio-core0
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgruel0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: python-gnuradio-gsm-fr-vocoder
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-gsm-fr-vocoder
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: libplayerdrivers3.0
+  version: 3.0.1+dfsg-1.1
+  architecture: amd64
+  source: player (= 3.0.1+dfsg-1.1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libplayerdrivers3.0
+      version: 3.0.1+dfsg-1.1
+      architecture: amd64
+      missingdep: libcv4
+     
+ -
+  package: mozart-stdlib
+  version: 20060615-6
+  architecture: all
+  source: mozart-stdlib (= 20060615-6)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: mozart-stdlib
+      version: 20060615-6
+      architecture: all
+      missingdep: mozart (>= 1.4.0)
+     
+ -
+  package: openchangeserver-dev
+  version: 1:0.8.2+svn1524-1
+  architecture: amd64
+  source: openchange (= 1:0.8.2+svn1524-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-samba
+      version: 4.0.0~alpha8+git20090912-1
+      architecture: amd64
+      missingdep: python (< 2.06)
+     depchains:
+      -
+       depchain:
+        -
+         package: openchangeserver-dev
+         version: 1:0.8.2+svn1524-1
+         architecture: amd64
+         depends: openchangeserver (= 1:0.8.2+svn1524-1)
+        -
+         package: openchangeserver
+         version: 1:0.8.2+svn1524-1
+         architecture: amd64
+         depends: samba4 (>= 4.0.0~)
+        -
+         package: samba4
+         version: 4.0.0~alpha8+git20090912-1
+         architecture: amd64
+         depends: python-samba
+ -
+  package: python-gnuradio
+  version: 3.2.2.dfsg-1
+  architecture: all
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-core
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: python-gnuradio
+         version: 3.2.2.dfsg-1
+         architecture: all
+         depends: python-gnuradio-core
+ -
+  package: openchangeserver
+  version: 1:0.8.2+svn1524-1
+  architecture: amd64
+  source: openchange (= 1:0.8.2+svn1524-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-samba
+      version: 4.0.0~alpha8+git20090912-1
+      architecture: amd64
+      missingdep: python (< 2.06)
+     depchains:
+      -
+       depchain:
+        -
+         package: openchangeserver
+         version: 1:0.8.2+svn1524-1
+         architecture: amd64
+         depends: samba4 (>= 4.0.0~)
+        -
+         package: samba4
+         version: 4.0.0~alpha8+git20090912-1
+         architecture: amd64
+         depends: python-samba
+ -
+  package: libgnuradio-core0
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgruel0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libgnuradio-core0
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgruel0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: python-gnuradio-video-sdl
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-video-sdl
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: libgnuradio-qtgui-dev
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgnuradio-qtgui0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libgnuradio-qtgui-dev
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgnuradio-qtgui0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: libdc1394-examples
+  version: 1.1.0-5
+  architecture: amd64
+  source: libdc1394 (= 1.1.0-5)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libdc1394-examples
+      version: 1.1.0-5
+      architecture: amd64
+      missingdep: libraw1394-8
+     
+ -
+  package: samba4
+  version: 4.0.0~alpha8+git20090912-1
+  architecture: amd64
+  source: samba4 (= 4.0.0~alpha8+git20090912-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-samba
+      version: 4.0.0~alpha8+git20090912-1
+      architecture: amd64
+      missingdep: python (< 2.06)
+     depchains:
+      -
+       depchain:
+        -
+         package: samba4
+         version: 4.0.0~alpha8+git20090912-1
+         architecture: amd64
+         depends: python-samba
+ -
+  package: gnuradio-apps
+  version: 3.2.2.dfsg-1
+  architecture: all
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: gnuradio-pager
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: gnuradio-apps
+         version: 3.2.2.dfsg-1
+         architecture: all
+         depends: gnuradio-pager
+ -
+  package: system-config-printer-kde
+  version: 4:4.4.5-2
+  architecture: all
+  source: kdeadmin (= 4:4.4.5-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: system-config-printer-kde
+      version: 4:4.4.5-2
+      architecture: all
+      missingdep: python-cupsutils (>= 1.0.0-6)
+     
+ -
+  package: python-gnuradio-usrp
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-usrp
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: robot-player-dev
+  version: 3.0.1+dfsg-1.1
+  architecture: all
+  source: player (= 3.0.1+dfsg-1.1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libplayerdrivers3.0
+      version: 3.0.1+dfsg-1.1
+      architecture: amd64
+      missingdep: libcv4
+     depchains:
+      -
+       depchain:
+        -
+         package: robot-player-dev
+         version: 3.0.1+dfsg-1.1
+         architecture: all
+         depends: libplayerdrivers3.0-dev (>= 3.0.1+dfsg-1.1)
+        -
+         package: libplayerdrivers3.0-dev
+         version: 3.0.1+dfsg-1.1
+         architecture: amd64
+         depends: libplayerdrivers3.0 (= 3.0.1+dfsg-1.1)
+ -
+  package: libusrp0
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libusrp0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: libusrp2-0
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgruel0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libusrp2-0
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgruel0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: libzlui-qt
+  version: 0.10.7dfsg-3+b1
+  architecture: amd64
+  source: fbreader (= 0.10.7dfsg-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libzlcore0.10
+      version: 0.10.7dfsg-3+b1
+      architecture: amd64
+      missingdep: libzlcore-data (>= 0.10.7dfsg-3+b1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libzlui-qt
+         version: 0.10.7dfsg-3+b1
+         architecture: amd64
+         depends: libzlcore0.10 (= 0.10.7dfsg-3+b1)
+ -
+  package: python-gnuradio-usrp2
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-usrp2
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: python-gnuradio-audio-oss
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-audio-oss
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: opensync-plugin-gnokii
+  version: 0.22-1+b2
+  architecture: amd64
+  source: libopensync-plugin-gnokii (= 0.22-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-plugin-gnokii
+      version: 0.22-1+b2
+      architecture: amd64
+      missingdep: libgnokii5
+     
+ -
+  package: winbind4
+  version: 4.0.0~alpha8+git20090912-1
+  architecture: amd64
+  source: samba4 (= 4.0.0~alpha8+git20090912-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-samba
+      version: 4.0.0~alpha8+git20090912-1
+      architecture: amd64
+      missingdep: python (< 2.06)
+     depchains:
+      -
+       depchain:
+        -
+         package: winbind4
+         version: 4.0.0~alpha8+git20090912-1
+         architecture: amd64
+         depends: samba4 (= 4.0.0~alpha8+git20090912-1)
+        -
+         package: samba4
+         version: 4.0.0~alpha8+git20090912-1
+         architecture: amd64
+         depends: python-samba
+ -
+  package: libmesh0.6.4
+  version: 0.6.4.dfsg-1
+  architecture: amd64
+  source: libmesh (= 0.6.4.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libmesh0.6.4
+      version: 0.6.4.dfsg-1
+      architecture: amd64
+      missingdep: libpetsc3.0.0
+     
+ -
+  package: eclipse-pydev-gcj
+  version: 1.2.5-4
+  architecture: amd64
+  source: eclipse-pydev (= 1.2.5-4)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: eclipse-pydev-gcj
+      version: 1.2.5-4
+      architecture: amd64
+      missingdep: eclipse-platform-gcj
+     
+ -
+  package: apt-rpm-repository
+  version: 0.5.15lorg3.2-6
+  architecture: amd64
+  source: apt-rpm (= 0.5.15lorg3.2-6)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libapt-rpm-pkg2
+      version: 0.5.15lorg3.2-6
+      architecture: amd64
+      missingdep: librpm4.4 (>= 4.4)
+     depchains:
+      -
+       depchain:
+        -
+         package: apt-rpm-repository
+         version: 0.5.15lorg3.2-6
+         architecture: amd64
+         depends: libapt-rpm-pkg2
+ -
+  package: dhcp3-server-ldap
+  version: 3.1.3-2
+  architecture: amd64
+  source: dhcp3 (= 3.1.3-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: dhcp3-server-ldap
+      version: 3.1.3-2
+      architecture: amd64
+      missingdep: dhcp3-common (= 3.1.3-2)
+     
+ -
+  package: zope-quotafolder
+  version: 0.1.1+0-1
+  architecture: all
+  source: zope-quotafolder (= 0.1.1+0-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: zope-quotafolder
+      version: 0.1.1+0-1
+      architecture: all
+      missingdep: zope2.6 | zope2.7 | zope2.8 | zope2.9 | zope2.10 | zope3
+     
+ -
+  package: bzr-rebase
+  version: 0.5.5-1
+  architecture: all
+  source: bzr-rebase (= 0.5.5-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: bzr-rebase
+      version: 0.5.5-1
+      architecture: all
+      missingdep: bzr (< 2.2~)
+     
+ -
+  package: libosgal-dev
+  version: 0.6.1-2+b3
+  architecture: amd64
+  source: osgal (= 0.6.1-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libosgal1
+      version: 0.6.1-2+b3
+      architecture: amd64
+      missingdep: libopenscenegraph56 (>= 2.08.01)
+     depchains:
+      -
+       depchain:
+        -
+         package: libosgal-dev
+         version: 0.6.1-2+b3
+         architecture: amd64
+         depends: libosgal1 (= 0.6.1-2+b3)
+ -
+  package: libgnuradio-audio-alsa-dev
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgnuradio-audio-alsa0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libgnuradio-audio-alsa-dev
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgnuradio-audio-alsa0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: libexchangemapi-1.0-0
+  version: 0.28.3-2
+  architecture: amd64
+  source: evolution-mapi (= 0.28.3-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libexchangemapi-1.0-0
+      version: 0.28.3-2
+      architecture: amd64
+      missingdep: libedataserver1.2-11 (>= 2.28.3.1)
+     
+ -
+  package: postgresql-8.3-plruby
+  version: 0.5.3-1
+  architecture: amd64
+  source: postgresql-plruby (= 0.5.3-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: postgresql-8.3-plruby
+      version: 0.5.3-1
+      architecture: amd64
+      missingdep: postgresql-8.3
+     
+ -
+  package: opensync-plugin-synce
+  version: 0.15-2
+  architecture: all
+  source: synce-sync-engine (= 0.15-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-module-python
+      version: 0.022-2
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     depchains:
+      -
+       depchain:
+        -
+         package: opensync-plugin-synce
+         version: 0.15-2
+         architecture: all
+         depends: opensync-module-python
+ -
+  package: geg
+  version: 1.0.2-6+b1
+  architecture: amd64
+  source: geg (= 1.0.2-6)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: geg
+      version: 1.0.2-6+b1
+      architecture: amd64
+      missingdep: libglib1.2ldbl (>= 1.2.10-18)
+     
+ -
+  package: zope-cookiecrumbler
+  version: 1.2-7
+  architecture: all
+  source: zope-cookiecrumbler (= 1.2-7)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: zope-cookiecrumbler
+      version: 1.2-7
+      architecture: all
+      missingdep: zope2.9 | zope2.10
+     
+ -
+  package: libmesh-dev
+  version: 0.6.4.dfsg-1
+  architecture: all
+  source: libmesh (= 0.6.4.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libmesh0.6.4
+      version: 0.6.4.dfsg-1
+      architecture: amd64
+      missingdep: libpetsc3.0.0
+     depchains:
+      -
+       depchain:
+        -
+         package: libmesh-dev
+         version: 0.6.4.dfsg-1
+         architecture: all
+         depends: libmesh0.6.4 (>= 0.6.4.dfsg-1)
+ -
+  package: opensync-plugin-gpe
+  version: 0.22-1
+  architecture: amd64
+  source: libopensync-plugin-gpe (= 0.22-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-plugin-gpe
+      version: 0.22-1
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     
+ -
+  package: phonefsod
+  version: 0.1+git20100802-2
+  architecture: amd64
+  source: phonefsod (= 0.1+git20100802-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: phonefsod
+      version: 0.1+git20100802-2
+      architecture: amd64
+      missingdep: fso-deviced
+     
+ -
+  package: libapt-rpm-pkg-dev
+  version: 0.5.15lorg3.2-6
+  architecture: amd64
+  source: apt-rpm (= 0.5.15lorg3.2-6)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libapt-rpm-pkg2
+      version: 0.5.15lorg3.2-6
+      architecture: amd64
+      missingdep: librpm4.4 (>= 4.4)
+     depchains:
+      -
+       depchain:
+        -
+         package: libapt-rpm-pkg-dev
+         version: 0.5.15lorg3.2-6
+         architecture: amd64
+         depends: libapt-rpm-pkg2
+ -
+  package: zope-tinytableplus
+  version: 0.9-19
+  architecture: all
+  source: zope-tinytableplus (= 0.9-19)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: zope-tinytableplus
+      version: 0.9-19
+      architecture: all
+      missingdep: zope2.9 | zope2.10 | zope2.11
+     
+ -
+  package: gforge-web-apache2
+  version: 4.8.3-1
+  architecture: all
+  source: gforge (= 4.8.3-1)
+  status: broken
+  reasons:
+   -
+    conflict:
+     pkg1:
+      package: python2.6-minimal
+      version: 2.6.6-3
+      architecture: amd64
+     pkg2:
+      package: gforge-web-apache2
+      version: 4.8.3-1
+      architecture: all
+     depchain1:
+      -
+       depchain:
+        -
+         package: gforge-web-apache2
+         version: 4.8.3-1
+         architecture: all
+         depends: python
+        -
+         package: python
+         version: 2.6.6-1
+         architecture: all
+         depends: python-minimal (= 2.6.6-1)
+        -
+         package: python-minimal
+         version: 2.6.6-1
+         architecture: all
+         depends: python2.6-minimal (>= 2.6.6-1~)
+ -
+  package: opensync-plugin-google-calendar
+  version: 0.22-7
+  architecture: amd64
+  source: libopensync-plugin-google-calendar (= 0.22-7)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-plugin-google-calendar
+      version: 0.22-7
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     
+ -
+  package: python-gnuradio-audio-alsa
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-audio-alsa
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: python-gnuradio-audio-portaudio
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-audio-portaudio
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: robot-player
+  version: 3.0.1+dfsg-1.1
+  architecture: amd64
+  source: player (= 3.0.1+dfsg-1.1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: robot-player
+      version: 3.0.1+dfsg-1.1
+      architecture: amd64
+      missingdep: libcv4
+     
+ -
+  package: gnuradio-radar-mono
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-usrp
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: gnuradio-radar-mono
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: python-gnuradio-usrp
+ -
+  package: zope-sqlrelayda
+  version: 1:0.39.4-11
+  architecture: all
+  source: sqlrelay (= 1:0.39.4-11)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: zope-sqlrelayda
+      version: 1:0.39.4-11
+      architecture: all
+      missingdep: zope | zope2.8 | zope2.9
+     
+ -
+  package: eprover-examples
+  version: 1.0.004-1
+  architecture: all
+  source: eprover (= 1.0.004-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: eprover-examples
+      version: 1.0.004-1
+      architecture: all
+      missingdep: eprover
+     
+ -
+  package: gnuradio-sounder
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-usrp
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: gnuradio-sounder
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: python-gnuradio-usrp
+ -
+  package: python-samba
+  version: 4.0.0~alpha8+git20090912-1
+  architecture: amd64
+  source: samba4 (= 4.0.0~alpha8+git20090912-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-samba
+      version: 4.0.0~alpha8+git20090912-1
+      architecture: amd64
+      missingdep: python (< 2.06)
+     
+ -
+  package: xserver-xorg-input-citron
+  version: 1:2.2.2-1
+  architecture: amd64
+  source: xserver-xorg-input-citron (= 1:2.2.2-1)
+  status: broken
+  reasons:
+   -
+    conflict:
+     pkg1:
+      package: xserver-xorg-core
+      version: 2:1.7.7-5
+      architecture: amd64
+     pkg2:
+      package: xserver-xorg-input-citron
+      version: 1:2.2.2-1
+      architecture: amd64
+     depchain1:
+      -
+       depchain:
+        -
+         package: xserver-xorg-input-citron
+         version: 1:2.2.2-1
+         architecture: amd64
+         depends: xserver-xorg-core (>= 2:1.5.99.901)
+ -
+  package: squishdot
+  version: 1.5.0-6.1
+  architecture: all
+  source: squishdot (= 1.5.0-6.1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: squishdot
+      version: 1.5.0-6.1
+      architecture: all
+      missingdep: zope2.7 | zope2.8 | zope2.9 | zope2.10 | zope2.11 | zope2.12
+     
+ -
+  package: multisync-tools
+  version: 0.92.0~svn355-2
+  architecture: amd64
+  source: multisync0.90 (= 0.92.0~svn355-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: multisync-tools
+      version: 0.92.0~svn355-2
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     
+ -
+  package: multisync0.90
+  version: 0.92.0~svn355-2
+  architecture: amd64
+  source: multisync0.90 (= 0.92.0~svn355-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: multisync0.90
+      version: 0.92.0~svn355-2
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     
+ -
+  package: postgresql-8.3-pljava-gcj
+  version: 1.4.0-1.1
+  architecture: amd64
+  source: postgresql-pljava (= 1.4.0-1.1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: postgresql-8.3-pljava-gcj
+      version: 1.4.0-1.1
+      architecture: amd64
+      missingdep: libgcj9-0 (>= 4.3)
+     
+ -
+  package: libgnuradio
+  version: 3.2.2.dfsg-1
+  architecture: all
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgruel0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libgnuradio
+         version: 3.2.2.dfsg-1
+         architecture: all
+         depends: libgnuradio-core0
+        -
+         package: libgnuradio-core0
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgruel0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: gnuradio-gpio
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-usrp
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: gnuradio-gpio
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: python-gnuradio-usrp
+ -
+  package: evolution-mapi
+  version: 0.28.3-2
+  architecture: amd64
+  source: evolution-mapi (= 0.28.3-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: evolution-mapi
+      version: 0.28.3-2
+      architecture: amd64
+      missingdep: libcamel1.2-14 (< 2.29)
+     
+ -
+  package: fbreader
+  version: 0.10.7dfsg-3+b1
+  architecture: amd64
+  source: fbreader (= 0.10.7dfsg-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libzlcore0.10
+      version: 0.10.7dfsg-3+b1
+      architecture: amd64
+      missingdep: libzlcore-data (>= 0.10.7dfsg-3+b1)
+     depchains:
+      -
+       depchain:
+        -
+         package: fbreader
+         version: 0.10.7dfsg-3+b1
+         architecture: amd64
+         depends: libzlcore0.10
+ -
+  package: phoneui-apps
+  version: 0.1+git20100801-1
+  architecture: amd64
+  source: phoneui-apps (= 0.1+git20100801-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: phonefsod
+      version: 0.1+git20100802-2
+      architecture: amd64
+      missingdep: fso-deviced
+     depchains:
+      -
+       depchain:
+        -
+         package: phoneui-apps
+         version: 0.1+git20100801-1
+         architecture: amd64
+         depends: phoneuid (>= 0.1+git20100502)
+        -
+         package: phoneuid
+         version: 0.1+git20100502-1
+         architecture: amd64
+         depends: phonefsod (>= 0.1+git20100515)
+ -
+  package: python-usrp
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libusrp0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: python-usrp
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libusrp0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: python-gnuradio-core
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-core
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: zope-ploneformgen
+  version: 1.2.7-1
+  architecture: all
+  source: zope-ploneformgen (= 1.2.7-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: zope-ploneformgen
+      version: 1.2.7-1
+      architecture: all
+      missingdep: zope3.0 | zope2.10 | zope2.9 | zope2.8 | zope2.7
+     
+ -
+  package: libgnuradio-dev
+  version: 3.2.2.dfsg-1
+  architecture: all
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libgruel0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libgnuradio-dev
+         version: 3.2.2.dfsg-1
+         architecture: all
+         depends: libgnuradio (= 3.2.2.dfsg-1)
+        -
+         package: libgnuradio
+         version: 3.2.2.dfsg-1
+         architecture: all
+         depends: libgnuradio-core0
+        -
+         package: libgnuradio-core0
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgruel0 (= 3.2.2.dfsg-1+b1)
+ -
+  package: libqt-perl
+  version: 3.008-4
+  architecture: amd64
+  source: libqt-perl (= 3.008-4)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libqt-perl
+      version: 3.008-4
+      architecture: amd64
+      missingdep: libsmokeqt1 (>= 4:3.5.10)
+     
+ -
+  package: python-gnuradio-qtgui
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-qtgui
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     
+ -
+  package: gnuradio-utils
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-usrp
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: gnuradio-utils
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: python-gnuradio-usrp
+ -
+  package: zope-replacesupport
+  version: 1.0.3-4
+  architecture: all
+  source: zope-replacesupport (= 1.0.3-4)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: zope-replacesupport
+      version: 1.0.3-4
+      architecture: all
+      missingdep: zope2.9 | zope2.10
+     
+ -
+  package: plywood
+  version: 0.5.11
+  architecture: all
+  source: plywood (= 0.5.11)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: plywood
+      version: 0.5.11
+      architecture: all
+      missingdep: tetex-extra (>= 1.0.2)
+     
+ -
+  package: enna
+  version: 0.4.0-4
+  architecture: amd64
+  source: enna (= 0.4.0-4)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: enna
+      version: 0.4.0-4
+      architecture: amd64
+      missingdep: libevas-svn-05-engines-x (>= 0.9.9.063)
+     
+ -
+  package: opensync-plugin-iceowl
+  version: 0.22-3
+  architecture: amd64
+  source: libopensync-plugin-sunbird (= 0.22-3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-plugin-iceowl
+      version: 0.22-3
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     
+ -
+  package: xserver-xorg-input-hyperpen
+  version: 1:1.3.0-1
+  architecture: amd64
+  source: xserver-xorg-input-hyperpen (= 1:1.3.0-1)
+  status: broken
+  reasons:
+   -
+    conflict:
+     pkg1:
+      package: xserver-xorg-core
+      version: 2:1.7.7-5
+      architecture: amd64
+     pkg2:
+      package: xserver-xorg-input-hyperpen
+      version: 1:1.3.0-1
+      architecture: amd64
+     depchain1:
+      -
+       depchain:
+        -
+         package: xserver-xorg-input-hyperpen
+         version: 1:1.3.0-1
+         architecture: amd64
+         depends: xserver-xorg-core (>= 2:1.5.99.901)
+ -
+  package: opensync-plugin-kdepim
+  version: 0.22-4
+  architecture: amd64
+  source: libopensync-plugin-kdepim (= 0.22-4)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-plugin-kdepim
+      version: 0.22-4
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     
+ -
+  package: epiphany-extension-gwget
+  version: 1.0.4-1.1
+  architecture: amd64
+  source: gwget2 (= 1.0.4-1.1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: epiphany-extension-gwget
+      version: 1.0.4-1.1
+      architecture: amd64
+      missingdep: epiphany-browser (< 2.30)
+     
+ -
+  package: gnuradio-examples
+  version: 3.2.2.dfsg-1+b1
+  architecture: amd64
+  source: gnuradio (= 3.2.2.dfsg-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-gnuradio-core
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      missingdep: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: gnuradio-examples
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: python-gnuradio-core
+ -
+  package: zope-mysqlda
+  version: 3.001-1
+  architecture: all
+  source: zope-mysqlda (= 3.1-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: zope-mysqlda
+      version: 3.001-1
+      architecture: all
+      missingdep: zope2.8 | zope2.9 | zope2.10 | zope2.11
+     
+ -
+  package: openchangeproxy
+  version: 1:0.8.2+svn1524-1
+  architecture: amd64
+  source: openchange (= 1:0.8.2+svn1524-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: python-samba
+      version: 4.0.0~alpha8+git20090912-1
+      architecture: amd64
+      missingdep: python (< 2.06)
+     depchains:
+      -
+       depchain:
+        -
+         package: openchangeproxy
+         version: 1:0.8.2+svn1524-1
+         architecture: amd64
+         depends: samba4 (>= 4.0.0~)
+        -
+         package: samba4
+         version: 4.0.0~alpha8+git20090912-1
+         architecture: amd64
+         depends: python-samba
+ -
+  package: libdc1394-13
+  version: 1.1.0-5
+  architecture: amd64
+  source: libdc1394 (= 1.1.0-5)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: libdc1394-13
+      version: 1.1.0-5
+      architecture: amd64
+      missingdep: libraw1394-8
+     
+ -
+  package: scsh
+  version: 0.6.6.3
+  architecture: all
+  source: scsh-defaults (= 0.6.6.3)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: scsh
+      version: 0.6.6.3
+      architecture: all
+      missingdep: scsh-0.6
+     
+ -
+  package: zope-atextensions
+  version: 0.9.2-2
+  architecture: all
+  source: zope-atextensions (= 0.9.2-2)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: zope-atextensions
+      version: 0.9.2-2
+      architecture: all
+      missingdep: zope3.0 | zope2.10 | zope2.9 | zope2.8 | zope2.7
+     
+ -
+  package: opensync-plugin-irmc
+  version: 0.22-3.1
+  architecture: amd64
+  source: libopensync-plugin-irmc (= 0.22-3.1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: opensync-plugin-irmc
+      version: 0.22-3.1
+      architecture: amd64
+      missingdep: libopensync0 (>= 0.22)
+     
+ -
+  package: php-imlib
+  version: 0.007-1
+  architecture: amd64
+  source: php-imlib (= 0.7-1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: php-imlib
+      version: 0.007-1
+      architecture: amd64
+      missingdep: phpapi-20060613
+     
+ 
+total-packages: 29589
+broken-packages: 143
