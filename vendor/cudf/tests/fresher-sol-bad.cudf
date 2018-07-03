@@ -1,0 +1,3 @@
+package: foo
+version: 1
+installed: true
