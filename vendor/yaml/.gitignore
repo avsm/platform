@@ -1,8 +1,0 @@
-_build
-.merlin
-*.install
-.DS_Store
-.*.swp
-output/
-jbuild-workspace.dev
-_opam

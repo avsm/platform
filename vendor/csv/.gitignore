@@ -1,6 +1,0 @@
-#							-*-conf-unix-*-
-_build
-TODO
-.merlin
-*.install
-data/

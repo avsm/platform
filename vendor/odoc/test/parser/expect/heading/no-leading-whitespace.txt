@@ -1,5 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 0-2:\
-   \n'{2 ...}' (section heading) must be followed by space, a tab, or a new line"))
- (warnings ()))

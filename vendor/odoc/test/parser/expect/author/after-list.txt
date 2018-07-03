@@ -1,5 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 14-25:\
-   \n'@author' must begin on its own line"))
- (warnings ()))
