@@ -1,0 +1,40 @@
+preamble: 
+property: suite: enum[stable,testing,unstable] = [stable],
+ bugs: int = [0],
+ description: string = ["no description"]
+univ-checksum: 8c6d8b4d0cf7027cd523ad095d6408b4901ac31c
+
+package: car
+version: 1
+depends: engine, wheel, door, battery
+installed: true
+description: 4-wheeled, motor-powered vehicle
+
+package: battery
+version: 3
+provides: huge-battery
+installed: true
+
+package: wheel
+version: 3
+conflicts: wheel
+installed: true
+suite: testing
+
+package: door
+version: 1
+conflicts: door
+installed: true
+
+package: bicycle
+version: 7
+installed: true
+description: 2-wheeled, "pedal-powered" vehicle
+
+package: electric-engine
+version: 1
+depends: solar-collector | huge-battery
+provides: engine
+conflicts: engine, electric-engine
+installed: true
+bugs: 12

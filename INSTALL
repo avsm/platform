@@ -1,0 +1,55 @@
+
+To build
+========
+
+Build dependencies:
+- ocaml	>= 3.10.2	(Debian package: "ocaml-nox", RPM: "ocaml")
+- findlib		(Debian package: "ocaml-findlib", RPM: "ocaml-findlib")
+- extlib		(Debian package: "libextlib-ocaml-dev",
+  			 RPM: "ocaml-extlib-devel")
+- oUnit			(only needed to run the test suite
+  		 	 Debian package: "libounit-ocaml-dev",
+			 RPM: "ocaml-ounit-devel")
+- glib			(only needed to build the C bindings
+			 Debian package: "libglib2.0-dev",
+			 RPM: "libglib2.0-devel")
+- perl                  (for pod2man, to build cudf-check.1 man page)
+
+To build run:
+
+  $ make all	# build bytecode libs and executables
+  $ make opt	# build native code libs and executables (if you have ocamlopt)
+  $ make test	# run the test suite (need oUnit)
+
+
+C bindings
+----------
+
+To build the C bindings to the OCaml library run:
+
+  $ make -C c-lib		# build C bindings (to OCaml bytecode)
+  $ make -C c-lib-opt		# build C bindings (to OCaml native code)
+  $ make -C c-lib test		# run the test suite for C bindings
+
+
+To install
+==========
+
+To install run, after compilation:
+
+  # make install	# install libs and executables
+
+To install under a non-standard location, say "/my/dest/dir":
+
+  $ make install DESTDIR=/my/dest/dir
+
+
+To uninstall
+============
+
+  # make uninstall
+
+or:
+
+  $ make uninstall DESTDIR=/my/dest/dir
+
