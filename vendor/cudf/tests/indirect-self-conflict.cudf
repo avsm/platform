@@ -1,5 +1,0 @@
-package: foo
-version: 1
-provides: bar
-conflicts: bar
-installed: true

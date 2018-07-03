@@ -1,6 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 2, characters 0-14:\
-   \n'{!modules ...}' is not allowed in the tags section\
-   \nSuggestion: move '{!modules ...}' before any tags"))
- (warnings ()))

@@ -1,5 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 0-14:\
-   \nunknown tag '@deprecatedfoo'"))
- (warnings ()))

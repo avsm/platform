@@ -1,9 +1,0 @@
-<test.ml> or <tests.ml> : pkg_oUnit
-<test.byte> or <test.native> : pkg_oUnit
-
-<*.ml> or <*.mli> : pkg_extlib
-<*.byte> or <*.native> : pkg_extlib
-
-
-<c-lib/*>: not_hygienic
-<java-lib/*>: not_hygienic
