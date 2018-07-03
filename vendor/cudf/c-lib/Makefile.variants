@@ -1,0 +1,76 @@
+# OCaml (polymorphic) variants used by the bindings
+# Will be used to generate cudf-variants.h
+
+ML_VARIANTS =	\
+	$(ML_RELOP_VARIANTS) \
+	$(ML_TYPE_VARIANTS) \
+	$(ML_KEEP_VARIANTS) \
+	$(ML_ITEM_VARIANTS) \
+	$(NULL)
+
+ML_RELOP_VARIANTS = \
+	Eq	\
+	Neq	\
+	Geq	\
+	Gt	\
+	Leq	\
+	Lt	\
+	$(NULL)
+
+ML_TYPE_VARIANTS = \
+	Int		\
+	Posint		\
+	Nat		\
+	Bool		\
+	String		\
+	Enum		\
+	Pkgname		\
+	Ident		\
+	Vpkg		\
+	Vpkgformula	\
+	Vpkglist	\
+	Veqpkg		\
+	Veqpkglist	\
+	Typedecl	\
+	$(NULL)
+
+ML_KEEP_VARIANTS = \
+	Keep_version	\
+	Keep_package	\
+	Keep_feature	\
+	Keep_none	\
+	$(NULL)
+
+ML_ITEM_VARIANTS = \
+	Preamble	\
+	Package		\
+	Request		\
+	$(NULL)
+
+cudf.o: cudf-variants.h
+cudf-variants.h: caml_hash_variant Makefile.variants
+	@echo "/* THIS FILE IS GENERATED, DO NOT EDIT */" > $@
+	@echo "/* See Makefile.variants for generation logics */" >> $@
+	@echo >> $@
+	@echo "#ifndef _CUDF_VARIANTS_H" >> $@
+	@echo "#define _CUDF_VARIANTS_H" >> $@
+	@echo >> $@
+	@(for variant in $(ML_VARIANTS) ; do \
+		./$< $$variant ; \
+	done) >> $@
+	@echo >> $@
+	@echo "#endif\t/* end of cudf-variants.h */" >> $@
+	@echo >> $@
+
+caml_hash_variant: caml_hash_variant.o
+	> dummy.ml
+	ocamlc -o dummy.o -output-obj dummy.ml
+	$(CC) $(CFLAGS) -o $@ $< dummy.o -L$(OCAML_LIBDIR) -lcamlrun -lm -lcurses -ldl
+	@rm -f dummy.*
+
+clean: clean-variants
+clean-variants:
+	rm -f caml_hash_variant cudf-variants.h
+	rm -f dummy.*
+
+.PHONY: clean-variants

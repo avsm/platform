@@ -1,0 +1,11 @@
+package: aa
+version: 1
+installed: false
+keep: version
+
+package: bb
+version: 2
+installed: true
+keep: version
+
+request: nothing
