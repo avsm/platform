@@ -1,6 +1,0 @@
-package: a
-version: 1
-package: b
-version: 2
-
-request: none

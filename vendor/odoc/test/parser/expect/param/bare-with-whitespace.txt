@@ -1,5 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 0-6:\
-   \n'@param' expects parameter name on the same line"))
- (warnings ()))
