@@ -1,0 +1,9 @@
+(executables
+ ((names (test))
+  (libraries (yaml bos ezjsonm alcotest))
+))
+
+(alias
+((name    runtest)
+  (deps    (test.exe (files_recursively_in "yaml")))
+  (action  (run ${<}))))
