@@ -1,0 +1,9 @@
+true : bin_annot, safe_string, package(bytes)
+
+<src> : include
+<src/react_top.*> : package(compiler-libs.toplevel)
+
+<test> : include
+<test/clock.{native,byte}> : use_unix
+<test/breakout.{native,byte}> : use_unix
+<test/js_*.*> : package(js_of_ocaml), package(js_of_ocaml.ppx)
