@@ -14,10 +14,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+
 (** Produces .html files from a .odoc file. *)
 
 val from_odoc :
-  env:Env.builder -> output:Fs.Directory.t -> Fs.File.t -> unit
+  env:Env.builder -> ?syntax:Html.Html_tree.syntax -> ?theme_uri:Html.Html_tree.uri -> output:Fs.Directory.t ->
+  Fs.File.t -> unit
 
-val from_mld : env:Env.builder -> package:Model.Root.Package.t ->
+val from_mld : env:Env.builder -> ?syntax:Html.Html_tree.syntax -> package:Model.Root.Package.t ->
   output:Fs.Directory.t -> Fs.File.t -> unit
