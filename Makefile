@@ -21,8 +21,3 @@ v-pull:
 
 v-merge:
 	duniverse vendor-merge -v
-	rm -rf vendor/sexplib/num
-	rm -rf vendor/alcotest/async
-	rm -rf vendor/csv/tests
-	rm -rf vendor/cstruct/async
-	git commit -m 'trim vendor' vendor/ || true

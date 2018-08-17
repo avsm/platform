@@ -11,8 +11,6 @@ esac
 
 sudo chown -R opam /home/opam/src
 cd /home/opam/src
-opam pin add -n jbuilder --dev
-opam pin add -y dune https://github.com/ocaml/dune.git
-opam install -y ocamlbuild bytes uchar ocamlfind 
+opam install -y dune ocamlbuild bytes uchar ocamlfind 
 cd /home/opam/src
 make
