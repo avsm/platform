@@ -48,10 +48,14 @@ module Trie : sig
   and node =
     | Leaf
     | Internal of t Lazy.t
-    | Included of Namespaced_path.t
+    | Included of include_
     | Alias    of Namespaced_path.t
     | Functor  of functor_parameter * node
     | Apply    of functor_application
+
+  and include_ =
+    | Named of Namespaced_path.t
+    | Items of t Lazy.t
 
   and functor_parameter =
     Ident.t * Location.t * node
@@ -92,10 +96,14 @@ end = struct
   and node =
     | Leaf
     | Internal of t Lazy.t
-    | Included of Namespaced_path.t
+    | Included of include_
     | Alias    of Namespaced_path.t
     | Functor  of functor_parameter * node
     | Apply    of functor_application
+
+  and include_ =
+    | Named of Namespaced_path.t
+    | Items of t Lazy.t
 
   and functor_parameter =
     Ident.t * Location.t * node
@@ -287,10 +295,10 @@ let rec build ~local_buffer ~trie browses : t =
               | `Mod_type _ -> `Modtype
             in
             let p = Namespaced_path.of_path ~namespace path in
-            f (Included p)
+            f (Included (Named p))
           | `Ident p ->
             let p = Namespaced_path.of_path ~namespace:`Modtype p in
-            f (Included p)
+            f (Included (Named p))
           | `Mod_type _
           | `Mod_expr _ as packed -> helper packed
           | `Functor _ ->
@@ -298,8 +306,12 @@ let rec build ~local_buffer ~trie browses : t =
             assert false
           | `Unpack
           | `Apply _ -> f Leaf
-          | `Str str -> build ~local_buffer ~trie [of_structure str]
-          | `Sg  sg -> build ~local_buffer ~trie [of_signature sg]
+          | `Str str ->
+            let str = lazy (build ~local_buffer ~trie [of_structure str]) in
+            f (Included (Items str))
+          | `Sg  sg ->
+            let sg = lazy (build ~local_buffer ~trie [of_signature sg]) in
+            f (Included (Items sg))
         in
         helper packed
       end
@@ -478,14 +490,19 @@ let rec follow ~remember_loc ~state scopes ?before trie path =
             remember_loc loc;
             follow ~remember_loc ~state ~before:loc.Location.loc_start scopes
               trie new_path
-          | Included new_prefix ->
-            let new_path =
-              Namespaced_path.rewrite_head ~new_prefix
-                (Namespaced_path.strip_stamps path)
+          | Included include_ ->
+            let trie, new_path, before =
+              let stampless = Namespaced_path.strip_stamps path in
+              match include_ with
+              | Named new_prefix ->
+                trie,
+                Namespaced_path.rewrite_head ~new_prefix stampless,
+                Some loc.Location.loc_start
+              | Items t ->
+                Lazy.force t, stampless, None
             in
             remember_loc loc;
-            follow ~remember_loc ~state ~before:loc.Location.loc_start scopes
-              trie new_path
+            follow ~remember_loc ~state ?before scopes trie new_path
           | Internal t ->
             let path = Namespaced_path.peal_head_exn path in
             begin match Namespaced_path.head path with
@@ -495,25 +512,30 @@ let rec follow ~remember_loc ~state scopes ?before trie path =
               follow ~remember_loc ~state ?before scopes (Lazy.force t) path
             end
           | Functor ((id, _, _), node) ->
-            let state =
-              match state.functor_arguments with
-              | [] ->
-                (* We can never end up inside a functor without having seen an
-                   application first. *)
-                assert false
-              | Noop :: functor_arguments ->
-                { state with functor_arguments }
-              | Handled (new_prefix, scopes) :: functor_arguments ->
-                assert (Ident.name id <> "*"); (* sigh. *)
-                let subst =
-                  { old_prefix =
-                      Namespaced_path.of_path ~namespace:`Mod (Pident id)
-                  ; new_prefix
-                  ; scopes }
-                in
-                { substs = subst :: state.substs; functor_arguments }
-            in
-            inspect_node state node
+            let path = Namespaced_path.peal_head_exn path in
+            begin match Namespaced_path.head path with
+            | None -> Found (loc, doc)
+            | _ ->
+              let state =
+                match state.functor_arguments with
+                | [] ->
+                  (* We can never end up inside a functor without having seen an
+                    application first. *)
+                  assert false
+                | Noop :: functor_arguments ->
+                  { state with functor_arguments }
+                | Handled (new_prefix, scopes) :: functor_arguments ->
+                  assert (Ident.name id <> "*"); (* sigh. *)
+                  let subst =
+                    { old_prefix =
+                        Namespaced_path.of_path ~namespace:`Mod (Pident id)
+                    ; new_prefix
+                    ; scopes }
+                  in
+                  { substs = subst :: state.substs; functor_arguments }
+              in
+              inspect_node state node
+            end
           | Apply { funct; arg } ->
             let functor_argument =
               match arg with
@@ -598,10 +620,11 @@ let rec dump fmt trie =
   let open Trie in
   let rec dump_node fmt = function
     | Leaf -> ()
-    | Included path ->
+    | Included Named path ->
       Format.fprintf fmt " <%s>" (Namespaced_path.to_string path)
     | Alias path ->
       Format.fprintf fmt " = %s" (Namespaced_path.to_string path)
+    | Included Items t
     | Internal t ->
       if Lazy.is_val t then
         Format.fprintf fmt " = %a" dump (Lazy.force t)

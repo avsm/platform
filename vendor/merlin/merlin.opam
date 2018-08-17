@@ -8,19 +8,19 @@ bug-reports:  "https://github.com/ocaml/merlin/issues"
 dev-repo:     "https://github.com/ocaml/merlin.git"
 
 build: [
-  ["jbuilder" "subst"] {pinned}
-  ["jbuilder" "build" "-p" name "-j" jobs]
+  ["dune" "subst"] {pinned}
+  ["dune" "build" "-p" name "-j" jobs]
 ]
 
 build-test: [
-  ["jbuilder" "runtest" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs]
 ]
 
 depends: [
-  "jbuilder"  {build & >= "1.0+beta20"}
+  "dune"  {build}
   "ocamlfind" {>= "1.5.2"}
   "yojson"
-  "cram" {test}
+  "craml" {test}
 ]
 
 available: [ ocaml-version >= "4.02.1" & ocaml-version < "4.08" ]
