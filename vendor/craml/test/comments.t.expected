@@ -1,0 +1,20 @@
+$ cat repro.t
+First comment
+
+  $ echo toto
+  toto
+
+Second comment (dropped)
+
+  $ echo titi
+  titi
+
+Last comment (dropped)
+$ cram repro.t
+$ cat repro.t.corrected
+First comment
+
+  $ echo toto
+  toto
+  $ echo titi
+  titi
