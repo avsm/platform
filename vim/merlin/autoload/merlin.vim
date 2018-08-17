@@ -11,7 +11,7 @@ elseif has('python')
   let g:merlin_python_version = 2
   command! -nargs=1 MerlinPy python <args>
 else
-  echo "Error: Required vim compiled with +python or +python3"
+  echoerr "Error: Required vim compiled with +python or +python3"
   finish
 endif
 
@@ -74,7 +74,7 @@ if !exists('g:merlin_debug')
 endif
 
 let s:current_dir=expand("<sfile>:p:h")
-MerlinPy import sys, vim
+silent! MerlinPy import sys, vim
 MerlinPy if not vim.eval("s:current_dir") in sys.path:
 \    sys.path.append(vim.eval("s:current_dir"))
 

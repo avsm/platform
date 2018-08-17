@@ -1,17 +1,24 @@
 all: build ocamlmerlin ocamlmerlin-server
 
 dev:
-	jbuilder build --dev -j16
+	dune build --dev -j16
 
 build:
-	jbuilder build
+	dune build
 
-_build/install/default/bin/ocamlmerlin _build/install/default/bin/ocamlmerlin-server: build
-
-ocamlmerlin ocamlmerlin-server: _build/install/default/bin/$@
-	cp -f _build/install/default/bin/$@ ./$@
+ocamlmerlin ocamlmerlin-server:
+	ln -s _build/install/default/bin/$@ ./$@
 
 clean:
-	jbuilder clean
+	dune clean
 
-.PHONY: all build dev ocamlmerlin ocamlmerlin-server clean
+test:
+	dune runtest
+
+preprocess:
+	dune build @preprocess
+
+promote:
+	dune promote
+
+.PHONY: all build dev clean test promote
