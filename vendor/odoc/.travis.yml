@@ -5,7 +5,7 @@ env:
   - OCAML=4.04.2
   - OCAML=4.05.0
   - OCAML=4.06.1
-  - OCAML=4.07.0+beta2
+  - OCAML=4.07.0
 
 before_script:
   - sudo add-apt-repository -y ppa:avsm/ocaml42+opam12
@@ -18,9 +18,8 @@ script:
   - opam pin add -y --no-action odoc .
   - opam install -y --deps-only odoc
   - make test
-  # Disabled while Dune is in the process of having its binary renamed.
-  #- opam pin add -y --dev-repo jbuilder
-  #- make jbuilder-test
+  - opam pin add -y --dev-repo dune
+  - make dune-test
 
 notifications:
   email:
