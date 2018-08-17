@@ -1,0 +1,11 @@
+scratch/
+_build/
+bisect*.out
+_coverage
+*.install
+*.merlin
+*.sexp
+doc/markup.odocl
+doc/html
+doc/publish
+doc/*.zip
