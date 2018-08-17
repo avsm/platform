@@ -40,7 +40,6 @@ let () =
   (synopsis "Meta-quotation: %s parsetree quotation")
   (libraries (ocaml-migrate-parsetree ppx_tools_versioned))
   (kind ppx_rewriter)
-  (ppx_runtime_libraries (ppx_tools_versioned))
   (wrapped false)
   (modules (ppx_metaquot_%s))
   (flags (%s))))

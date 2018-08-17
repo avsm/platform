@@ -496,18 +496,21 @@ let read_i16 i =
 
 let sign_bit_i32 = lnot 0x7FFF_FFFF
 
-let read_i31 ch =
+let read_32 ~i31 ch =
   let ch1 = read_byte ch in
   let ch2 = read_byte ch in
   let ch3 = read_byte ch in
   let ch4 = read_byte ch in
   if ch4 land 128 <> 0 then begin
-    if ch4 land 64 = 0 then raise (Overflow "read_i31");
+    if i31 && ch4 land 64 = 0 then raise (Overflow "read_i31");
     ch1 lor (ch2 lsl 8) lor (ch3 lsl 16) lor ((ch4 land 127) lsl 24) lor sign_bit_i32
   end else begin
-    if ch4 land 64 <> 0 then raise (Overflow "read_i31");
+    if i31 && ch4 land 64 <> 0 then raise (Overflow "read_i31");
     ch1 lor (ch2 lsl 8) lor (ch3 lsl 16) lor (ch4 lsl 24)
   end
+
+let read_i31 ch = read_32 ~i31:true ch
+let read_i32_as_int ch = read_32 ~i31:false ch
 
 let read_i32 = read_i31
 
@@ -570,18 +573,16 @@ let write_32 ch n =
   write_byte ch (n asr 24)
 
 let write_i31 ch n =
+#ifndef WORD_SIZE_32
   if n < -0x4000_0000 || n > 0x3FFF_FFFF then raise (Overflow "write_i31");
+#endif
   write_32 ch n
 
-let write_i32 =
-  let f l ch n =
-    if n < l || n > 0x7FFF_FFFF then raise (Overflow "write_i32");
-    write_32 ch n
-  in
-  if Sys.word_size = 32 then
-    fun ch -> f min_int ch
-  else
-    fun ch -> f (Nativeint.to_int (-0x8000_0000n)) ch
+let write_i32 ch n =
+#ifndef WORD_SIZE_32
+  if n < -0x8000_0000 || n > 0x7FFF_FFFF then raise (Overflow "write_i32");
+#endif
+  write_32 ch n
 
 let write_real_i32 ch n =
   let base = Int32.to_int n in
@@ -622,18 +623,21 @@ let read_i16 i =
 
 let sign_bit_i32 = lnot 0x7FFF_FFFF
 
-let read_i31 ch =
+let read_32 ~i31 ch =
   let ch4 = read_byte ch in
   let ch3 = read_byte ch in
   let ch2 = read_byte ch in
   let ch1 = read_byte ch in
   if ch4 land 128 <> 0 then begin
-    if ch4 land 64 = 0 then raise (Overflow "read_i31");
+    if i31 && ch4 land 64 = 0 then raise (Overflow "read_i31");
     ch1 lor (ch2 lsl 8) lor (ch3 lsl 16) lor ((ch4 land 127) lsl 24) lor sign_bit_i32
   end else begin
-    if ch4 land 64 <> 0 then raise (Overflow "read_i31");
+    if i31 && ch4 land 64 <> 0 then raise (Overflow "read_i31");
     ch1 lor (ch2 lsl 8) lor (ch3 lsl 16) lor (ch4 lsl 24)
   end
+
+let read_i31 ch = read_32 ~i31:true ch
+let read_i32_as_int ch = read_32 ~i31:false ch
 
 let read_i32 = read_i31
 
@@ -680,18 +684,16 @@ let write_32 ch n =
   write_byte ch n
 
 let write_i31 ch n =
+#ifndef WORD_SIZE_32
   if n < -0x4000_0000 || n > 0x3FFF_FFFF then raise (Overflow "write_i31");
+#endif
   write_32 ch n
 
-let write_i32 =
-  let f l ch n =
-    if n < l || n > 0x7FFF_FFFF then raise (Overflow "write_i32");
-    write_32 ch n
-  in
-  if Sys.word_size = 32 then
-    fun ch -> f min_int ch
-  else
-    fun ch -> f (Nativeint.to_int (-0x8000_0000n)) ch
+let write_i32 ch n =
+#ifndef WORD_SIZE_32
+  if n < -0x8000_0000 || n > 0x7FFF_FFFF then raise (Overflow "write_i32");
+#endif
+  write_32 ch n
 
 let write_real_i32 ch n =
   let base = Int32.to_int n in

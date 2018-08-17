@@ -45,6 +45,10 @@ let cmd = Cmd.of_list @@ Cmd.to_list @@ tool "opam" `Host_os
 let shortest x =
   List.hd (List.sort (fun x y -> compare (String.length x) (String.length y)) x)
 
+let drop_initial_v version = match String.head version with
+| Some ('v' | 'V') -> String.with_index_range ~first:1 version
+| None | Some _ -> version
+
 let prepare ~dry_run ?msg ~local_repo ~remote_repo ~version names =
   let msg = match msg with
   | None -> Ok (Cmd.empty)
@@ -90,10 +94,14 @@ let prepare ~dry_run ?msg ~local_repo ~remote_repo ~version names =
   OS.Dir.current () >>= fun cwd ->
   let prepare_package name =
     (* copy opam, descr and url files *)
-    let dir = name ^ "." ^ version in
+    let dir = name ^ "." ^ drop_initial_v version in
     let src = Fpath.(cwd / "_build" / dir) in
     let dst = Fpath.(v "packages" / name / dir) in
-    let cp = Cmd.(v "cp" % "-R" % p src % p dst) in
+    let cp f =
+      OS.File.exists Fpath.(src / f) >>= function
+      | true -> run Cmd.(v "cp" % p Fpath.(src / f) % p Fpath.(dst / f))
+      | _    -> Ok ()
+    in
     OS.Dir.exists src >>= fun exists ->
     (if exists then Ok ()
      else
@@ -101,7 +109,10 @@ let prepare ~dry_run ?msg ~local_repo ~remote_repo ~version names =
        "%a does not exist, did you run:\n  dune-release opam pkg -n %s\n"
        Fpath.pp src name
     ) >>= fun () ->
-    run cp >>= fun () ->
+    OS.Dir.create ~path:true dst >>= fun _ ->
+    cp "opam"  >>= fun () ->
+    cp "url"   >>= fun () ->
+    cp "descr" >>= fun () ->
     (* git add *)
     run Cmd.(git % "add" % p dst)
   in
@@ -264,6 +275,24 @@ module Url = struct
         if dry_run then Ok "<dry-run>"
         else (OS.File.must_exist distrib_file >>= fun _ -> assert false)
 end
+
+let opam_version () =
+  let v =
+    OS.Cmd.run_out Cmd.(cmd % "--version") |> OS.Cmd.out_string ~trim:true
+  in
+  let of_str = function
+  | "1.2.2" -> `v1_2_2
+  | s       ->
+      match String.cut ~sep:"2." s with
+      | Some ("", _) -> `v2
+      | _ -> Fmt.failwith "opam: invalid version %s" s
+  in
+  match v with
+  | Ok (v, (_, `Exited 0)) -> of_str v
+  | Ok (_, (_, s)) -> Fmt.failwith "opam: %a" OS.Cmd.pp_status s
+  | Error (`Msg e) -> Fmt.failwith "opam: %s" e
+
+let version = lazy (opam_version ())
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2016 Daniel C. Bünzli

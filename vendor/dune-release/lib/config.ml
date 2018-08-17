@@ -83,14 +83,11 @@ let create_config ~user ~remote_repo ~local_repo pkgs file =
   let user = read_string default_user ~descr:"What is your GitHub ID?" in
   let default_remote = match remote_repo with
   | Some r -> r
-  | None   -> strf "https://github.com/%s/opam-repository" user
+  | None   -> strf "git@github.com:%s/opam-repository" user
   in
   let default_local = match local_repo with
   | Some r -> Ok r
-  | None ->
-      match OS.Env.var "HOME" with
-      | None   -> R.error_msg "$HOME is undefined"
-      | Some d -> Ok (Fpath.(v d / "git" / "opam-repository") |> Fpath.to_string)
+  | None   -> Ok (Fpath.(v Xdg.home / "git" / "opam-repository" |> to_string))
   in
   default_local >>= fun default_local ->
   let remote = read_string default_remote
@@ -106,32 +103,33 @@ let create_config ~user ~remote_repo ~local_repo pkgs file =
   OS.File.write file v >>= fun () ->
   Ok { user = Some user; remote = Some remote; local = Some local }
 
-let v ~user ~remote_repo ~local_repo pkgs =
-  match OS.Env.var "HOME" with
-  | None   -> R.error_msg "$HOME is undefined"
-  | Some d ->
-      let file = Fpath.(v d / ".dune" / "release.yml") in
-      OS.File.exists file >>= fun exists ->
-      if exists then OS.File.read file >>= of_yaml
-      else create_config ~user ~remote_repo ~local_repo pkgs file
+let config_dir () =
+  let cfg = Fpath.(v Xdg.config_dir / "dune") in
+  let upgrade () =
+    (* Upgrade from 0.2 to 0.3 format *)
+    let old_d = Fpath.(v Xdg.home / ".dune") in
+    OS.Dir.exists old_d >>= function
+    | false -> Ok ()
+    | true  ->
+        Logs.app (fun m ->
+            m "Upgrading configuration files: %a => %a"
+              Fpath.pp old_d Fpath.pp cfg);
+        OS.Dir.create ~path:true cfg >>= fun _ ->
+        OS.Cmd.run Cmd.(v "mv" % p old_d % p cfg)
+  in
+  upgrade () >>= fun () ->
+  Ok cfg
 
+let v ~user ~remote_repo ~local_repo pkgs =
+  config_dir () >>= fun cfg ->
+  let file = Fpath.(cfg / "release.yml") in
+  OS.File.exists file >>= fun exists ->
+  if exists then OS.File.read file >>= of_yaml
+  else create_config ~user ~remote_repo ~local_repo pkgs file
 
 let reset_terminal : (unit -> unit) option ref = ref None
 let cleanup () = match !reset_terminal with None -> () | Some f -> f ()
 let () = at_exit cleanup
-
-let no_stdin_echo f =
-  let open Unix in
-  let attr = tcgetattr stdin in
-  let reset () = tcsetattr stdin TCSAFLUSH attr in
-  reset_terminal := Some reset;
-  tcsetattr stdin TCSAFLUSH
-    { attr with
-      c_echo = false; c_echoe = false; c_echok = false; c_echonl = true; };
-  let v = f () in
-  reset ();
-  reset_terminal := None;
-  v
 
 let get_token () =
   let rec aux () =
@@ -145,19 +143,35 @@ let get_token () =
         print_newline ();
         raise e
   in
-  no_stdin_echo aux
+  aux ()
+
+let validate_token token =
+  let token = String.trim token in
+  if String.is_empty token || String.exists Char.Ascii.is_white token
+  then Error (R.msg "token is malformed")
+  else Ok token
 
 let token ~dry_run () =
-  match OS.Env.var "HOME" with
-  | None   -> R.error_msg "$HOME is undefined"
-  | Some d ->
-      let file = Fpath.(v d / ".dune" / "github.token") in
-      OS.File.exists file >>= fun exists ->
-      if exists then Ok file
-      else if dry_run then Ok Fpath.(v "${token}")
+  config_dir () >>= fun cfg ->
+  let file = Fpath.(cfg / "github.token") in
+  OS.File.exists file >>= fun exists ->
+  let is_valid =
+    if exists
+    then Sos.read_file ~dry_run file >>= validate_token
+    else Error (R.msg "does not exist")
+  in
+  match is_valid with
+  | Ok _ -> Ok file
+  | Error (`Msg msg) ->
+      if dry_run then Ok Fpath.(v "${token}")
       else (
+        let error =
+          if exists
+          then ":" ^ msg
+          else " does not exists"
+        in
         Fmt.pr
-          "%a does not exist!\n\
+          "%a%s!\n\
            \n\
            To create a new token, please visit:\n\
            \n\
@@ -166,9 +180,16 @@ let token ~dry_run () =
            And create a token with a nice name and and the %a scope only.\n\
            \n\
            Copy the token@ here: %!"
-          Fpath.pp file
+          Fpath.pp file error
           Fmt.(styled `Bold string) "public_repo";
-        let token = get_token () in
+        let rec get_valid_token () =
+          match validate_token (get_token ()) with
+          | Ok token -> token
+          | Error (`Msg msg) ->
+              Fmt.pr "Please try again, %s.%!" msg;
+              get_valid_token ()
+        in
+        let token = get_valid_token () in
         OS.Dir.create Fpath.(parent file) >>= fun _ ->
         OS.File.write ~mode:0o600 file token >>= fun () ->
         Ok file

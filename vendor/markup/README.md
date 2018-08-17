@@ -1,6 +1,6 @@
-# Markup.ml &nbsp; [![version 0.7.6][version]][releases] [![Travis status][travis-img]][travis] [![Coverage][coveralls-img]][coveralls]
+# Markup.ml &nbsp; [![version 0.7.7][version]][releases] [![Travis status][travis-img]][travis] [![Coverage][coveralls-img]][coveralls]
 
-[version]:       https://img.shields.io/badge/version-0.7.6-blue.svg
+[version]:       https://img.shields.io/badge/version-0.7.7-blue.svg
 [travis]:        https://travis-ci.org/aantron/markup.ml/branches
 [travis-img]:    https://img.shields.io/travis/aantron/markup.ml/master.svg
 [coveralls]:     https://coveralls.io/github/aantron/markup.ml?branch=master
@@ -12,7 +12,7 @@ is a function from byte streams to parsing signal streams:
 
 ![Usage example][sample]
 
-[sample]: https://github.com/aantron/markup.ml/blob/master/doc/sample.png
+[sample]: https://github.com/aantron/markup.ml/blob/master/docs/sample.png
 
 In addition to being error-correcting, the parsers are:
 
@@ -196,7 +196,7 @@ under the [W3C document license][w3c-license].
 [lambdasoup]:      https://github.com/aantron/lambda-soup
 [cohttp]:          https://github.com/mirage/ocaml-cohttp
 [license]:         https://github.com/aantron/markup.ml/blob/master/LICENSE.md
-[contributing]:    https://github.com/aantron/markup.ml/blob/master/doc/CONTRIBUTING.md
+[contributing]:    https://github.com/aantron/markup.ml/blob/master/docs/CONTRIBUTING.md
 [email]:           mailto:antonbachin@yahoo.com
 [Markup]:          http://aantron.github.io/markup.ml
 [Markup_lwt]:      http://aantron.github.io/markup.ml/Markup_lwt.html

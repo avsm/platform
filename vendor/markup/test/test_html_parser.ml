@@ -216,6 +216,28 @@ let tests = [
         1, 58, E (`Unmatched_end_tag "p");
         1, 62, S (start_element "body")]);
 
+  ("html.parser.whitespace-after-head" >:: fun _ ->
+    expect "<html><head></head> </html>"
+      [ 1,  1, S (start_element "html");
+        1,  7, S (start_element "head");
+        1, 13, S  `End_element;
+        1, 20, S (`Text [" "]);
+        1, 21, S (start_element "body");
+        1, 28, S  `End_element;
+        1, 28, S  `End_element];
+
+    expect "<html><head><title>foo</title></head> </html>"
+      [ 1,  1, S (start_element "html");
+        1,  7, S (start_element "head");
+        1, 13, S (start_element "title");
+        1, 20, S (`Text ["foo"]);
+        1, 23, S  `End_element;
+        1, 31, S  `End_element;
+        1, 38, S (`Text [" "]);
+        1, 39, S (start_element "body");
+        1, 46, S  `End_element;
+        1, 46, S  `End_element]);
+
   ("html.parser.body-content" >:: fun _ ->
     expect "<body><!--foo--> bar</body>"
       [ 1,  1, S (start_element "html");
@@ -494,6 +516,16 @@ let tests = [
         1, 33, S  `End_element]
   );
 
+  ("html.parser.whitespace-at-end" >:: fun _ ->
+    expect "<html><body></body></html> "
+      [ 1,  1, S (start_element "html");
+        1,  7, S (start_element "head");
+        1,  7, S  `End_element;
+        1,  7, S (start_element "body");
+        1, 27, S (`Text [" "]);
+        1, 28, S  `End_element;
+        1, 28, S  `End_element]);
+
   ("html.parser.foreign" >:: fun _ ->
     expect "<body><svg><g/></svg></body>"
       [ 1,  1, S (start_element "html");
@@ -506,6 +538,16 @@ let tests = [
         1, 16, S  `End_element;
         1, 29, S  `End_element;
         1, 29, S  `End_element]);
+
+  ("html.parser.foreign.svg-followed-by-html" >:: fun _ ->
+    expect ~context:(Some (`Fragment "body"))
+      "<svg><feTile></feTile></svg><b></b>"
+      [ 1,  1, S (`Start_element ((svg_ns, "svg"), []));
+        1,  6, S (`Start_element ((svg_ns, "feTile"), []));
+        1, 14, S  `End_element;
+        1, 23, S  `End_element;
+        1, 29, S (start_element "b");
+        1, 32, S  `End_element]);
 
   ("html.parser.reconstruct-active-formatting-elements" >:: fun _ ->
     expect "<p><em><strong>foo<p>bar"

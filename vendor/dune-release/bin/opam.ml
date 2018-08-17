@@ -82,7 +82,7 @@ let rec list_map f = function
 | []   -> Ok []
 | h::t -> f h >>= fun h -> list_map f t >>= fun t -> Ok (h :: t)
 
-let submit ~dry_run opam_pkg_dir local_repo remote_repo opam_repo_user pkgs =
+let submit ~dry_run opam_pkg_dir local_repo remote_repo pkgs =
   Config.token ~dry_run () >>= fun token ->
   get_pkg_dir pkgs opam_pkg_dir
   >>= fun pkg_dir -> Sos.dir_exists ~dry_run pkg_dir
@@ -103,10 +103,6 @@ let submit ~dry_run opam_pkg_dir local_repo remote_repo opam_repo_user pkgs =
       Pkg.distrib_user_and_repo pkg >>= fun (user, repo) ->
       let changes = rewrite_github_refs user repo changes in
       let msg = strf "%s\n\n%s\n" title changes in
-      let user = match opam_repo_user with None -> user | Some u -> u in
-      let remote_repo = match remote_repo with Some r -> r | None ->
-        strf "git@github.com:%s/opam-repository.git" user
-      in
       Opam.prepare ~dry_run ~msg ~local_repo ~remote_repo ~version names
       >>= fun branch ->
       (* open a new PR *)
@@ -136,8 +132,13 @@ let submit ~dry_run opam_pkg_dir local_repo remote_repo opam_repo_user pkgs =
           let auto_open =
             if OpamStd.Sys.(os () = Darwin) then "open" else "xdg-open"
           in
-          Sos.run ~dry_run Cmd.(v auto_open % url) >>= fun () ->
-          Ok 0
+          match Sos.run ~dry_run Cmd.(v auto_open % url) with
+          | Ok ()   -> Ok 0
+          | Error _ ->
+              Logs.app (fun m ->
+                  m "A new pull-request has been created at %s\n" url
+                );
+              Ok 0
 
 let field pkgs field = match field with
 | None -> Logs.err (fun m -> m "Missing FIELD positional argument"); Ok 1
@@ -182,21 +183,22 @@ let opam () dry_run build_dir local_repo remote_repo user keep_v
       in
       pkg ~dry_run pkgs dist_p pkg_opam_dir
   | `Submit ->
+      Config.v ~user ~local_repo ~remote_repo pkgs >>= fun config ->
       (match local_repo with
       | Some r -> Ok Fpath.(v r)
       | None   ->
-          Config.v ~user ~local_repo ~remote_repo pkgs >>= fun config ->
           match config.local with
           | Some r -> Ok r
-          | None   ->
-              Logs.warn (fun l ->
-                  l "No config file found: using ~/git/opam-repository as the \
-                     local clone of opam-repository.");
-              match OS.Env.var "HOME" with
-              | None   -> R.error_msg "$HOME is undefined"
-              | Some d -> Ok Fpath.(v d / "git" / "opam-repository"))
+          | None   -> R.error_msg "Unknown local repository.")
       >>= fun local_repo ->
-      submit ~dry_run pkg_opam_dir local_repo remote_repo user pkgs
+      (match remote_repo with
+      | Some r -> Ok r
+      | None ->
+          match config.remote with
+          | Some r -> Ok r
+          | None   -> R.error_msg "Unknown remote repository.")
+      >>= fun remote_repo ->
+      submit ~dry_run pkg_opam_dir local_repo remote_repo pkgs
   | `Field -> field pkgs field_name
   end
   |> Cli.handle_error
@@ -288,7 +290,7 @@ let pkg_names =
              by the package description."
   in
   let docv = "PKG_NAME" in
-  Arg.(value & opt (list string) [] & info ["n"; "pkg-names"] ~doc ~docv)
+  Arg.(value & opt (list string) [] & info ["p"; "pkg-names"] ~doc ~docv)
 
 let man_xrefs = [`Main; `Cmd "distrib" ]
 let man =

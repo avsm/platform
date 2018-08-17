@@ -33,6 +33,7 @@ let chop_git_prefix u = match String.cut ~sep:"git+" u with
 type t =
   { name : string;
     version : string option;
+    delegate: Cmd.t option;
     build_dir : Fpath.t option;
     drop_v: bool;
     opam : Fpath.t option;
@@ -46,7 +47,7 @@ type t =
     distrib_file : Fpath.t option;
     lint_files: Fpath.t list option;
     publish_msg : string option;
-    publish_artefacts : [`Distrib | `Doc] list option }
+    publish_artefacts : [`Distrib | `Doc | `Alt of string] list option }
 
 let opam_fields p = Lazy.force p.opam_fields
 let opam_field p f = opam_fields p >>| fun fields -> String.Map.find f fields
@@ -59,12 +60,56 @@ let opam_doc p = opam_field_hd p "doc"
 let opam_homepage_sld p = opam_homepage p >>| function
   | None -> None
   | Some uri -> match uri_sld uri with None -> None | Some sld -> Some (uri, sld)
+let opam_doc_sld p = opam_doc p >>| function
+  | None -> None
+  | Some uri -> match uri_sld uri with None -> None | Some sld -> Some (uri, sld)
 
 let name p = Ok p.name
 
 let version p = match p.version with
 | Some v -> Ok v
 | None -> Vcs.get () >>= fun r -> Vcs.describe ~dirty:false r
+
+let delegate p =
+  let not_found = function
+  | None ->
+    R.error_msg
+      "Package delegate command cannot be found (no homepage or doc field). \
+       Try `dune-release help delegate` for more information."
+  | Some cmd ->
+    R.error_msgf
+      "%a: package delegate cannot be found. \
+       Try `dune-release help delegate` for more information."
+      Cmd.pp cmd
+  in
+  match p.delegate with
+  | Some cmd -> Ok (Some cmd)
+  | None ->
+      let delegate =
+        match OS.Env.(value "DUNE_RELEASE_DELEGATE" (some string) ~absent:None) with
+        | Some cmd -> Some cmd
+        | None     -> None
+      in
+      let guess_delegate () =
+        match delegate with
+        | Some d -> Ok d
+        | None   ->
+            let cmd sld = strf "%s-dune-release-delegate" sld in
+            (* first look at `doc:` then `homepage:` *)
+            opam_doc_sld p >>= function
+            | Some (_, sld) -> Ok (cmd sld)
+            | None -> opam_homepage_sld p >>= function
+              | Some (_, sld) -> Ok (cmd sld)
+              | None -> not_found None
+      in
+      guess_delegate () >>= fun cmd ->
+      let x = Cmd.v cmd in
+      OS.Cmd.exists x >>= function
+      | true -> Ok (Some x)
+      | false ->
+          if cmd <> "github-dune-release-delegate"
+          then not_found (Some x)
+          else Ok None
 
 let build_dir p = match p.build_dir with
 | Some b -> Ok b
@@ -276,15 +321,34 @@ let infer_name () =
     if List.for_all (String.is_prefix ~affix:shortest) package_names
     then shortest
     else begin
-      Logs.err (fun m ->
-          m "cannot determine name automatically. Use `-p <name>`");
-      exit 1
+      let err () =
+        Logs.err (fun m ->
+            m "cannot determine name automatically (names are %a).\n\
+               Use `-p <name>`"
+              Fmt.(list ~sep:(unit ",@ ") string) package_names);
+        exit 1
+      in
+      (* look at the README title to infer the name ... *)
+      if Sys.file_exists "README.md" then begin
+        let ic = open_in "README.md" in
+        let title = input_line ic in
+        close_in ic;
+        let title =
+          String.trim ~drop:(function '#'|' ' -> true | _ -> false) title
+        in
+        match
+          List.filter (fun affix -> String.is_prefix ~affix title) package_names
+        with
+        | [name] -> name
+        | _ -> err ()
+
+      end else err ()
     end
   in
   name
 
 let v ~dry_run
-    ?name ?version ?(drop_v=true) ?build_dir ?opam:opam_file ?opam_descr
+    ?name ?version ?delegate ?(drop_v=true) ?build_dir ?opam:opam_file ?opam_descr
     ?readme ?change_log ?license ?distrib_uri ?distrib_file ?publish_msg
     ?publish_artefacts ?(distrib=Distrib.v ()) ?(lint_files = Some []) ()
   =
@@ -294,7 +358,7 @@ let v ~dry_run
   let licenses = match license with Some l -> Some [l] | None -> None in
   let rec opam_fields = lazy (opam p >>= fun o -> Opam.File.fields ~dry_run o)
   and p =
-    { name; version; drop_v; build_dir; opam = opam_file; opam_descr;
+    { name; version; delegate; drop_v; build_dir; opam = opam_file; opam_descr;
       opam_fields; readmes; change_logs; licenses; distrib_uri; distrib_file;
       publish_msg; publish_artefacts; distrib; lint_files }
   in
@@ -437,11 +501,10 @@ let lint_file_with_cmd ~dry_run file_kind ~cmd file errs handle_exit =
   |> Logs.on_error_msg ~use:(fun () -> errs + 1)
 
 let lint_opams ~dry_run p =
-  Logs.on_error_msg ~use:(fun () -> 1) (
-    (* remove opam.1.2-related warnings *)
-    opam_field p "opam-version" >>= fun opam_version ->
-    let args = match opam_version with
-    | Some ["1.2"] -> Cmd.v "--warn=-21-32-48"
+  let tool_version = Lazy.force Opam.version in
+  let lint opam_version =
+    let args = match opam_version, Lazy.force Opam.version with
+    | Some ["1.2"], `v2 -> Cmd.v "--warn=-21-32-48"
     | _ -> Cmd.empty
     in
     opam p >>= fun opam ->
@@ -454,10 +517,10 @@ let lint_opams ~dry_run p =
       ("" | "5" (* dirname version vs opam file version *)) -> `Ok
     | _ ->
         let err = OS.Cmd.err_run_out in
-        match
-          Sos.run_out ~dry_run ~err Cmd.(cmd % p file) ~default:(Sos.out "") OS.Cmd.out_string
-        with
-        | Ok (out, _) -> `Fail out
+        let cmd = Cmd.(cmd % p file)  in
+        let default = Sos.out "" in
+        match Sos.run_out ~dry_run ~err cmd ~default OS.Cmd.out_string with
+        | Ok (out, _     ) -> `Fail out
         | Error (`Msg out) -> `Fail out
     in
     let cmd = Cmd.(cmd % "-s") in
@@ -470,7 +533,18 @@ let lint_opams ~dry_run p =
       doc_user_repo_and_path p >>= fun _ ->
       distrib_user_and_repo p >>| fun _ ->
       d
-    ))
+    )
+  in
+  Logs.on_error_msg ~use:(fun () -> 1) (
+    (* remove opam.1.2-related warnings *)
+    opam_field p "opam-version" >>= fun opam_version ->
+    match opam_version, tool_version with
+    | Some ["2.0"], `v1_2_2 ->
+        Logs.app (fun m ->
+            m "Skipping opam lint as `opam-version` field is \"2.0\" \
+               while `opam --version` is 1.2.2");
+        Ok 0
+    | _ -> lint opam_version)
 
 type lint = [ `Std_files | `Opam ]
 

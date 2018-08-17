@@ -40,7 +40,6 @@ DESCRIPTION
        The basic release script is the following. Each step is refined and
        explained with more details below.
 
-       dune-release browse issues # Review remaining outstanding issues
        dune-release status        # Review the changes since last version
        dune-release log edit      # Write the release notes
        dune-release log commit    # Commit the release notes
@@ -67,4 +66,3 @@ The main differences between `dune-release` and `topkg` are:
 - Bundle everything as a single binary;
 - Use of `Astring`, `Logs`, `Fpath` and`Bos`;
 - Remove the IPC layer (which is used between `topkg` and `topkg-care`);
-- Remove the delegation mechanism: only publishing to GitHub is supported.
