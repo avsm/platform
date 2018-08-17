@@ -1,20 +1,15 @@
-let show_bytes s =
-  if Sys.command (Printf.sprintf "ocamlfind query -format %s bytes" (Filename.quote s)) <> 0 then
-    print_endline "WITH_DUMMY"
+open Printf
 
-let define v =
-  print_endline "-D";
-  print_endline (v ^ " ")
+let show_bytes s =
+    let (_:int) = Sys.command (sprintf "ocamlfind query -format %s bytes" (Filename.quote s)) in ()
 
 let () =
   match Sys.argv with
   | [|_;"-cppo-args"|] ->
-    if Sys.ocaml_version >= "4.00.0" then define "OCAML4";
-    if Sys.ocaml_version >= "4.02.0" then define "OCAML4_02";
-    if Sys.ocaml_version >= "4.03.0" then define "OCAML4_03";
-    if Sys.ocaml_version >= "4.04.0" then define "OCAML4_04";
-    if Sys.ocaml_version >= "4.05.0" then define "OCAML4_05";
-    if Sys.ocaml_version >= "4.06.0" then define "OCAML4_06";
+    let version = Scanf.sscanf Sys.ocaml_version "%d.%d." (fun major minor -> major * 100 + minor) in
+    printf "-D\n";
+    printf "OCAML %d\n" version;
+    if Sys.word_size = 32 then (print_endline "-D"; print_endline "WORD_SIZE_32 ");
     print_endline "-D";
     show_bytes "WITH_BYTES";
     exit 0
