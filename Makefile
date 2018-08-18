@@ -5,7 +5,7 @@ INSTALLS=vendor/ocp-indent/ocp-indent.install vendor/opam-core/opam-client.insta
 build:
 	cd vendor/lwt && ocaml src/util/configure.ml -use-libev false
 	cd vendor/markup && ocaml src/configure.ml
-	dune build --profile=release @install
+	dune build --profile=release @cli
 
 doc:
 	dune build --profile=release @doc
