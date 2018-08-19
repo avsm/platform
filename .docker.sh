@@ -7,6 +7,7 @@ case $DISTRO in
 alpine-*) sudo apk add m4 ;;
 debian-*) sudo apt update; sudo apt -y install m4 pkg-config ;;
 ubuntu-*) sudo apt update; sudo apt -y install m4 pkg-config ;;
+fedora-*) sudo yum -y install m4 pkg-config m4 ;;
 esac
 
 sudo chown -R opam /home/opam/src
