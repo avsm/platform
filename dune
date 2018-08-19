@@ -9,5 +9,5 @@
    vendor/merlin/src/frontend/ocamlmerlin.exe
    vendor/merlin/src/frontend/ocamlmerlin_server.exe
    vendor/odoc/src/odoc/bin/main.exe
-   vendor/utop/src/top/utop.exe
+   vendor/utop/src/top/utop.bc
  ))
