@@ -1,0 +1,11 @@
+.merlin
+/_build
+/dune-workspace
+/ocamlformat.install
+/ocamlformat_reason.install
+/src/mod_dep.dot
+/test/code
+/test/bisect*out
+/bisect*out
+/_coverage
+_opam
