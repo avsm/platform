@@ -10,4 +10,5 @@
    vendor/merlin/src/frontend/ocamlmerlin_server.exe
    vendor/odoc/src/odoc/bin/main.exe
    vendor/utop/src/top/utop.bc
+   vendor/ocamlformat/src/ocamlformat.exe
  ))
