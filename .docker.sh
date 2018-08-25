@@ -12,6 +12,6 @@ esac
 
 sudo chown -R opam /home/opam/src
 cd /home/opam/src
-opam install -y dune ocamlbuild uchar ocamlfind 
+opam install -y dune ocamlfind 
 cd /home/opam/src
 make
