@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 DISTRO=${DISTRO:-alpine-3.7}
+OCAML_VERSION=${OCAML_VERSION:-4.07}
 
 set -ex
 # TODO opam2 depext
