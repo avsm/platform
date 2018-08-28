@@ -71,11 +71,11 @@ jobs:
     docker:
       - image: ocaml/opam2:alpine-3.7-opam
     steps:
-      - run: mkdir /root/ocaml-platform
+      - run: mkdir /home/opam/ocaml-platform
       - attach_workspace:
-          at: /root/ocaml-platform
+          at: /home/opam/ocaml-platform
       - store_artifacts:
-          path: /root/ocaml-platform
+          path: /home/opam/ocaml-platform
           destination: ocaml-platform-4.07.0
 workflows:
   version: 2
