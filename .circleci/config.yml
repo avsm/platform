@@ -1,5 +1,32 @@
 version: 2
 jobs:
+  build-fedora-28:
+    docker:
+      - image: ocaml/opam2:fedora-28-opam
+    steps:
+    - checkout
+    - run: sudo yum -y install m4 pkg-config
+    - run: opam init -ya --disable-sandboxing
+    - run: opam install -y ocamlfind dune
+    - run: opam exec -- make
+  build-debian-9:
+    docker:
+      - image: ocaml/opam2:debian-9-opam
+    steps:
+    - checkout
+    - run: sudo apt-get update && sudo apt-get -y install pkg-config m4
+    - run: opam init -ya --disable-sandboxing
+    - run: opam install -y ocamlfind dune
+    - run: opam exec -- make
+  build-ubuntu-1804:
+    docker:
+      - image: ocaml/opam2:ubuntu-18.04-opam
+    steps:
+    - checkout
+    - run: sudo apt-get update && sudo apt-get -y install pkg-config m4
+    - run: opam init -ya --disable-sandboxing
+    - run: opam install -y ocamlfind dune
+    - run: opam exec -- make
   build-alpine:
     docker:
       - image: ocaml/opam2:alpine-3.7-opam
@@ -28,3 +55,6 @@ workflows:
     jobs:
     - build-macos
     - build-alpine
+    - build-debian-9
+    - build-ubuntu-18-04
+    - build-fedora-28
