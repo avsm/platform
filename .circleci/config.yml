@@ -9,9 +9,10 @@ jobs:
     - run: opam init -ya --disable-sandboxing
     - run: opam install -y ocamlfind dune
     - run: opam exec -- make
-    - store_artifacts:
-        path: _build/default/output
-        destination: ocaml-platform-fedora-28
+    - run: mkdir -p ocaml-platform/4.07.0-1/fedora-28/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/fedora-28/amd64
+    - persist_to_workspace:
+       root: .
+       paths: ocaml-platform
   build-debian-9:
     docker:
       - image: ocaml/opam2:debian-9-opam
@@ -21,9 +22,10 @@ jobs:
     - run: opam init -ya --disable-sandboxing
     - run: opam install -y ocamlfind dune
     - run: opam exec -- make
-    - store_artifacts:
-        path: _build/default/output
-        destination: ocaml-platform-debian-9
+    - run: mkdir -p ocaml-platform/4.07.0-1/debian-9/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/debian-9/amd64
+    - persist_to_workspace:
+       root: .
+       paths: ocaml-platform
   build-ubuntu-1804:
     docker:
       - image: ocaml/opam2:ubuntu-18.04-opam
@@ -33,10 +35,10 @@ jobs:
     - run: opam init -ya --disable-sandboxing
     - run: opam install -y ocamlfind dune
     - run: opam exec -- make
-    - run: mkdir ubuntu-1804 && cp _build/default/output/* ubuntu-1804/
+    - run: mkdir -p ocaml-platform/4.07.0-1/ubuntu-18.04/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/ubuntu-18.04/amd64
     - persist_to_workspace:
        root: .
-       paths: ubuntu-1804
+       paths: ocaml-platform
   build-alpine:
     docker:
       - image: ocaml/opam2:alpine-3.7-opam
@@ -47,9 +49,10 @@ jobs:
     - run: opam install -y ocamlfind dune
     - run: opam exec -- make
     - run: mkdir alpine && cp _build/default/output/* alpine/
+    - run: mkdir -p ocaml-platform/4.07.0-1/alpine-3.7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/alpine-3.7/amd64
     - persist_to_workspace:
        root: .
-       paths: alpine
+       paths: ocaml-platform
   build-macos:
     macos:
       xcode: "9.0"
@@ -63,10 +66,10 @@ jobs:
     - run: opam init -ya
     - run: opam install -y ocamlfind dune
     - run: opam exec -- make
-    - run: mkdir macos && cp _build/default/output/* macos/
+    - run: mkdir -p ocaml-platform/4.07.0-1/macos-10.12/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/macos-10.12/amd64
     - persist_to_workspace:
        root: .
-       paths: macos
+       paths: ocaml-platform
   gather:
     docker:
       - image: ocaml/opam2:alpine-3.7-opam
@@ -76,7 +79,7 @@ jobs:
           at: /home/opam/ocaml-platform
       - store_artifacts:
           path: /home/opam/ocaml-platform
-          destination: ocaml-platform-4.07.0
+          destination: ocaml-platform
 workflows:
   version: 2
   build-platform:
