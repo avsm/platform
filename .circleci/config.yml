@@ -69,7 +69,7 @@ jobs:
        paths: macos
   gather:
     docker:
-      - image: alpine
+      - image: ocaml/opam2:alpine-3.7-opam
     steps:
       - run: mkdir /root/ocaml-platform
       - attach_workspace:
