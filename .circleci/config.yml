@@ -5,7 +5,7 @@ jobs:
       - image: ocaml/opam2:alpine-3.7-opam
     steps:
     - checkout
-    - run: sudo apk add --update pkg-config m4
+    - run: sudo apk add --update pkgconfig m4
     - run: opam init -ya
     - run: opam install -y ocamlfind dune
     - run: opam exec -- make
