@@ -12,7 +12,7 @@ jobs:
     - run: brew install ocaml/ocaml/opam@2
     - run: opam init -ya
     - run: opam install -y ocamlfind dune
-    - run: make
+    - run: opam exec -- make
 workflows:
   version: 2
   build-platform:
