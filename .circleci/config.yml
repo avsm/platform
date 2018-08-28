@@ -71,5 +71,5 @@ workflows:
     - build-macos
     - build-alpine
     - build-debian-9
-    - build-ubuntu-18-04
+    - build-ubuntu-1804
     - build-fedora-28
