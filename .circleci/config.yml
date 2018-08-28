@@ -3,9 +3,6 @@ jobs:
   build-alpine:
     docker:
       - image: ocaml/opam2:alpine-3.7-opam
-    branches:
-      only:
-        - master
     steps:
     - checkout
     - run: apk add --update pkg-config m4
