@@ -1,20 +1,20 @@
 version: 2
- jobs:
-   build:
-     macos:
-       xcode: "9.0"
-     environment:
-       MACOSX_DEPLOYMENT_TARGET: "10.10"
-       TERM: vt100
-     steps:
-       - checkout
-       - run: brew install pkg-config m4
-       - run: brew install ocaml/ocaml/opam@2
-       - run: opam init -ya
-       - run: opam install -y ocamlfind dune
-       - run: make
- workflows:
-   version: 2
-   build-platform:
-     jobs:
-       - build
+jobs:
+  build:
+    macos:
+      xcode: "9.0"
+    environment:
+      MACOSX_DEPLOYMENT_TARGET: "10.10"
+      TERM: vt100
+    steps:
+    - checkout
+    - run: brew install pkg-config m4
+    - run: brew install ocaml/ocaml/opam@2
+    - run: opam init -ya
+    - run: opam install -y ocamlfind dune
+    - run: make
+workflows:
+  version: 2
+  build-platform:
+    jobs:
+    - build
