@@ -6,7 +6,7 @@ jobs:
     steps:
     - checkout
     - run: sudo apk add --update pkgconfig m4
-    - run: opam init -ya
+    - run: opam init -ya --disable-sandboxing
     - run: opam install -y ocamlfind dune
     - run: opam exec -- make
   build-macos:
