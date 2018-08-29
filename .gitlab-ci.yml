@@ -59,8 +59,6 @@ build-macos-amd64:
     - macos
 gather-binaries:
   stage: gather
-  dependencies:
-    - build
   script:
   - find .
 stages:
