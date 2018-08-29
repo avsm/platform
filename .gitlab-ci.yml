@@ -4,7 +4,7 @@ debian-9-arm64:
   script:
   - sudo apt-get update && sudo apt-get -y install pkg-config m4
   - export OPAMROOT=.opam
-  - opam init -ya --disable-sandboxing
+  - opam init -ya --disable-sandboxing --compiler=4.07.0
   - opam install -y ocamlfind dune
   - opam exec -- make
   - mkdir -p ocaml-platform/4.07.0-1/debian-9/arm64 && cp _build/default/output/* ocaml-platform/4.07.0-1/debian-9/arm64
@@ -23,7 +23,7 @@ debian-9-amd64:
   script:
   - sudo apt-get update && sudo apt-get -y install pkg-config m4
   - export OPAMROOT=.opam
-  - opam init -ya --disable-sandboxing
+  - opam init -ya --disable-sandboxing --compiler=4.07.0
   - opam install -y ocamlfind dune
   - opam exec -- make
   - mkdir -p ocaml-platform/4.07.0-1/debian-9/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/debian-9/amd64
@@ -42,7 +42,7 @@ ubuntu-1804-amd64:
   script:
   - sudo apt-get update && sudo apt-get -y install pkg-config m4
   - export OPAMROOT=.opam
-  - opam init -ya --disable-sandboxing
+  - opam init -ya --disable-sandboxing --compiler=4.07.0
   - opam install -y ocamlfind dune
   - opam exec -- make
   - mkdir -p ocaml-platform/4.07.0-1/ubuntu-18.04/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/ubuntu-18.04/amd64
@@ -61,7 +61,7 @@ alpine-3.7-amd64:
   script:
   - sudo apk add --update pkgconfig m4
   - export OPAMROOT=.opam
-  - opam init -ya --disable-sandboxing
+  - opam init -ya --disable-sandboxing --compiler=4.07.0
   - opam install -y ocamlfind dune
   - opam exec -- make
   - mkdir -p ocaml-platform/4.07.0-1/alpine-3.7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/alpine-3.7/amd64
@@ -80,7 +80,7 @@ centos-7-amd64:
   script:
   - sudo yum -y install m4 pkg-config
   - export OPAMROOT=.opam
-  - opam init -ya --disable-sandboxing
+  - opam init -ya --disable-sandboxing --compiler=4.07.0
   - opam install -y ocamlfind dune
   - opam exec -- make
   - mkdir -p ocaml-platform/4.07.0-1/centos-7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/centos-7/amd64
@@ -99,7 +99,7 @@ fedora-28-amd64:
   script:
   - sudo yum -y install m4 pkg-config
   - export OPAMROOT=.opam
-  - opam init -ya --disable-sandboxing
+  - opam init -ya --disable-sandboxing --compiler=4.07.0
   - opam install -y ocamlfind dune
   - opam exec -- make
   - mkdir -p ocaml-platform/4.07.0-1/fedora-28/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/fedora-28/amd64
@@ -130,7 +130,7 @@ freebsd-11-amd64:
   - opam init -ya --compiler=4.07.0
   - opam install -y ocamlfind dune
   - opam config exec -- make
-  - mkdir -p ocaml-platform/4.07.0-1/freebsd/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/macos/amd64
+  - mkdir -p ocaml-platform/4.07.0-1/freebsd/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/freebsd/amd64
   artifacts:
     paths:
       - ocaml-platform
