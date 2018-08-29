@@ -1,9 +1,6 @@
 debian-9-arm64:
   image: ocaml/opam2:debian-9-opam
   stage: build
-  cache:
-    paths:
-      - .opam
   script:
   - sudo apt-get update && sudo apt-get -y install pkg-config m4
   - export OPAMROOT=.opam
@@ -129,10 +126,10 @@ macos-amd64:
 freebsd-11-amd64:
   stage: build
   script:
-  - env ASSUME_ALWAYS_YES=true pkg install ocaml-opam gmake
+  - env ASSUME_ALWAYS_YES=true pkg install ocaml-opam gmake m4
   - opam init -ya --compiler=4.07.0
   - opam install -y ocamlfind dune
-  - opam exec -- make
+  - opam config exec -- make
   - mkdir -p ocaml-platform/4.07.0-1/freebsd/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/macos/amd64
   artifacts:
     paths:
