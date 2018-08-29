@@ -1,0 +1,17 @@
+build-debian-arm64:
+  image: ocaml/opam2:debian-9-opam
+  stage: build
+  script:
+  - sudo apt-get update && sudo apt-get -y install pkg-config m4
+  - opam init -ya --disable-sandboxing
+  - opam install -y ocamlfind dune
+  - opam exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/debian-9/arm64 && cp _build/default/output/* ocaml-platform/4.07.0-1/debian-9/arm64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - docker
+    - arm64
+stages:
+  - build
