@@ -1,4 +1,4 @@
-build-debian-arm64:
+debian-9-arm64:
   image: ocaml/opam2:debian-9-opam
   stage: build
   script:
@@ -13,7 +13,7 @@ build-debian-arm64:
   tags:
     - docker
     - arm64
-build-debian-amd64:
+debian-9-amd64:
   image: ocaml/opam2:debian-9-opam
   stage: build
   script:
@@ -28,7 +28,52 @@ build-debian-amd64:
   tags:
     - docker
     - amd64
-build-fedora-28-amd64:
+ubuntu-1804-amd64:
+  image: ocaml/opam2:ubuntu-18.04-opam
+  stage: build
+  script:
+  - sudo apt-get update && sudo apt-get -y install pkg-config m4
+  - opam init -ya --disable-sandboxing
+  - opam install -y ocamlfind dune
+  - opam exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/ubuntu-18.04/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/ubuntu-18.04/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - docker
+    - amd64
+alpine-3.7-amd64:
+  image: ocaml/opam2:alpine-3.7-opam
+  stage: build
+  script:
+  - sudo apk add --update pkgconfig m4
+  - opam init -ya --disable-sandboxing
+  - opam install -y ocamlfind dune
+  - opam exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/alpine-3.7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/alpine-3.7/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - docker
+    - amd64
+centos-7-amd64:
+  image: ocaml/opam2:centos-7-opam
+  stage: build
+  script:
+  - sudo yum -y install m4 pkg-config
+  - opam init -ya --disable-sandboxing
+  - opam install -y ocamlfind dune
+  - opam exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/centos-7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/centos-7/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - docker
+    - amd64
+fedora-28-amd64:
   image: ocaml/opam2:fedora-28-opam
   stage: build
   script:
@@ -43,7 +88,7 @@ build-fedora-28-amd64:
   tags:
     - docker
     - amd64
-build-macos-amd64:
+macos-amd64:
   stage: build
   script:
   - brew install ocaml/ocaml/opam@2
@@ -60,7 +105,10 @@ build-macos-amd64:
 gather-binaries:
   stage: gather
   script:
-  - find .
+  - tar -zcvf ocaml-platform-$CI_COMMIT_SHA.tar.gz ocaml-platform
+  artifacts:
+    paths:
+      - ocaml-platform-$CI_COMMIT_SHA.tar.gz
 stages:
   - build
   - gather
