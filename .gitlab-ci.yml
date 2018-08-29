@@ -116,16 +116,30 @@ macos-amd64:
   stage: build
   script:
   - brew install ocaml/ocaml/opam@2
-  - rm -rf ~/.opam
+  - export OPAMROOT=.opam
   - opam init -ya 
   - opam install -y ocamlfind dune
   - opam exec -- make
-  - mkdir -p ocaml-platform/4.07.0-1/macos/arm64 && cp _build/default/output/* ocaml-platform/4.07.0-1/macos/arm64
+  - mkdir -p ocaml-platform/4.07.0-1/macos/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/macos/amd64
   artifacts:
     paths:
       - ocaml-platform
   tags:
     - macos
+freebsd-11-amd64:
+  stage: build
+  script:
+  - pkg install ocaml
+  - export OPAMROOT=.opam
+  - opam init -ya
+  - opam install -y ocamlfind dune
+  - opam exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/freebsd/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/macos/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - freebsd
 gather-binaries:
   stage: gather
   script:
