@@ -128,10 +128,13 @@ macos-amd64:
     - macos
 freebsd-11-amd64:
   stage: build
+  cache:
+    paths:
+      - .opam
   script:
   - env ASSUME_ALWAYS_YES=true pkg install ocaml-opam
   - export OPAMROOT=.opam
-  - opam init -ya
+  - opam init -ya --compiler=4.07.0
   - opam install -y ocamlfind dune
   - opam exec -- make
   - mkdir -p ocaml-platform/4.07.0-1/freebsd/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/macos/amd64
