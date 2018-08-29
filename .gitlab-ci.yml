@@ -129,7 +129,7 @@ macos-amd64:
 freebsd-11-amd64:
   stage: build
   script:
-  - pkg install ocaml
+  - env ASSUME_ALWAYS_YES=true pkg install ocaml
   - export OPAMROOT=.opam
   - opam init -ya
   - opam install -y ocamlfind dune
