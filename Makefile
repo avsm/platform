@@ -1,5 +1,5 @@
 PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat
-PINS=ocp-indent odoc tyxml ocamlformat merlin ppx_tools_versioned
+PINS=ocp-indent odoc tyxml ocamlformat merlin lwt
 
 build:
 	cd vendor/lwt && ocaml src/util/configure.ml -use-libev false
@@ -12,11 +12,13 @@ doc:
 clean:
 	dune clean
 
+DUNIVERSE?=duniverse
+
 v-lock:
-	duniverse vendor-lock $(PINS:%=--pin %) $(PACKAGES) -v
+	$(DUNIVERSE) vendor-lock $(PINS:%=--pin %) $(PACKAGES) -v
 
 v-pull:
-	duniverse vendor-pull -v
+	$(DUNIVERSE) vendor-pull -vv
 
 v-merge:
-	duniverse vendor-merge -v
+	$(DUNIVERSE) vendor-merge -v

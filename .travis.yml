@@ -3,11 +3,11 @@ services:
   - docker
 language: c
 script:
-  - docker run -e DISTRO=${DISTRO} -v `pwd`:/home/opam/src ocaml/opam2:${DISTRO} /home/opam/src/.docker.sh
+  - docker run -e DISTRO=${DISTRO} -v `pwd`:/home/opam/src ocaml/opam2:${DISTRO}-ocaml-${OCAML_VERSION} /home/opam/src/.docker.sh
 env:
   matrix:
-  - DISTRO="debian-9"
-  - DISTRO="alpine-3.7"
-  - DISTRO="ubuntu-16.04"
-  - DISTRO="ubuntu-18.04"
-  - DISTRO="fedora-28"
+  - DISTRO="debian-9" OCAML_VERSION="4.07"
+  - DISTRO="alpine-3.7" OCAML_VERSION="4.07"
+  - DISTRO="fedora-28" OCAML_VERSION="4.07"
+  - DISTRO="ubuntu-16.04" OCAML_VERSION="4.06"
+  - DISTRO="ubuntu-18.04" OCAML_VERSION="4.07"

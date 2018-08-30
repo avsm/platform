@@ -1,0 +1,148 @@
+debian-9-arm64:
+  image: ocaml/opam2:debian-9-opam
+  stage: build
+  script:
+  - sudo apt-get update && sudo apt-get -y install pkg-config m4
+  - export OPAMROOT=.opam
+  - opam init -ya --disable-sandboxing --compiler=4.07.0
+  - opam install -y ocamlfind dune
+  - opam exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/debian-9/arm64 && cp _build/default/output/* ocaml-platform/4.07.0-1/debian-9/arm64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - docker
+    - arm64
+debian-9-amd64:
+  image: ocaml/opam2:debian-9-opam
+  stage: build
+  cache:
+    paths:
+      - .opam
+  script:
+  - sudo apt-get update && sudo apt-get -y install pkg-config m4
+  - export OPAMROOT=.opam
+  - opam init -ya --disable-sandboxing --compiler=4.07.0
+  - opam install -y ocamlfind dune
+  - opam exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/debian-9/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/debian-9/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - docker
+    - amd64
+ubuntu-1804-amd64:
+  image: ocaml/opam2:ubuntu-18.04-opam
+  stage: build
+  cache:
+    paths:
+      - .opam
+  script:
+  - sudo apt-get update && sudo apt-get -y install pkg-config m4
+  - export OPAMROOT=.opam
+  - opam init -ya --disable-sandboxing --compiler=4.07.0
+  - opam install -y ocamlfind dune
+  - opam exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/ubuntu-18.04/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/ubuntu-18.04/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - docker
+    - amd64
+alpine-3.7-amd64:
+  image: ocaml/opam2:alpine-3.7-opam
+  stage: build
+  cache:
+    paths:
+      - .opam
+  script:
+  - sudo apk add --update pkgconfig m4
+  - export OPAMROOT=.opam
+  - opam init -ya --disable-sandboxing --compiler=4.07.0
+  - opam install -y ocamlfind dune
+  - opam exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/alpine-3.7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/alpine-3.7/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - docker
+    - amd64
+centos-7-amd64:
+  image: ocaml/opam2:centos-7-opam
+  stage: build
+  cache:
+    paths:
+      - .opam
+  script:
+  - sudo yum -y install m4 pkg-config
+  - export OPAMROOT=.opam
+  - opam init -ya --disable-sandboxing --compiler=4.07.0
+  - opam install -y ocamlfind dune
+  - opam exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/centos-7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/centos-7/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - docker
+    - amd64
+fedora-28-amd64:
+  image: ocaml/opam2:fedora-28-opam
+  stage: build
+  cache:
+    paths:
+      - .opam
+  script:
+  - sudo yum -y install m4 pkg-config
+  - export OPAMROOT=.opam
+  - opam init -ya --disable-sandboxing --compiler=4.07.0
+  - opam install -y ocamlfind dune
+  - opam exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/fedora-28/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/fedora-28/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - docker
+    - amd64
+macos-amd64:
+  stage: build
+  script:
+  - brew install ocaml/ocaml/opam@2
+  - export OPAMROOT=.opam
+  - opam init -ya 
+  - opam install -y ocamlfind dune
+  - opam exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/macos/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/macos/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - macos
+freebsd-11-amd64:
+  stage: build
+  script:
+  - env ASSUME_ALWAYS_YES=true pkg install ocaml-opam gmake m4
+  - opam init -ya --compiler=4.07.0
+  - opam install -y ocamlfind dune
+  - opam config exec -- make
+  - mkdir -p ocaml-platform/4.07.0-1/freebsd/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/freebsd/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - freebsd
+gather-binaries:
+  stage: gather
+  script:
+  - tar -zcvf ocaml-platform-$CI_COMMIT_SHA.tar.gz ocaml-platform
+  artifacts:
+    paths:
+      - ocaml-platform-$CI_COMMIT_SHA.tar.gz
+stages:
+  - build
+  - gather

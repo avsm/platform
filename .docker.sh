@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 DISTRO=${DISTRO:-alpine-3.7}
+OCAML_VERSION=${OCAML_VERSION:-4.07}
 
 set -ex
 # TODO opam2 depext
@@ -12,6 +13,6 @@ esac
 
 sudo chown -R opam /home/opam/src
 cd /home/opam/src
-opam install -y dune ocamlbuild uchar ocamlfind 
+opam install -y dune ocamlfind 
 cd /home/opam/src
 make
