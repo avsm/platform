@@ -548,34 +548,20 @@ let fmt_constant c ~loc ?epi const =
       let fmt_lines lines =
         hvbox 1
           ( str "\""
-          $ list_pn lines (fun ?prev curr ?next ->
-                let drop = function ' ' | '\t' -> true | _ -> false in
-                let line =
-                  if Option.is_none prev then curr
-                  else String.lstrip ~drop curr
-                in
-                fmt_line line
+          $ list_pn lines (fun ?prev:_ curr ?next ->
+                fmt_line curr
                 $ opt next (fun next ->
-                      let spc =
-                        match
-                          String.lfindi next ~f:(fun _ c -> not (drop c))
-                        with
-                        | Some 0 -> ""
-                        | Some i ->
-                            escape_string c (String.sub next ~pos:0 ~len:i)
-                        | None -> escape_string c next
-                      in
-                      fmt "\\n"
-                      $ fmt_if_k
-                          (not (String.is_empty next))
-                          (str spc $ pre_break 0 "\\" 0) ) )
+                      if String.is_empty next then fmt "\\n"
+                      else if Char.equal next.[0] ' ' then
+                        fmt "\\n" $ pre_break 0 "\\" (-1) $ if_newline "\\"
+                      else fmt "\\n" $ pre_break 0 "\\" 0 ) )
           $ str "\"" $ Option.call ~f:epi )
       in
       let s =
         match (c.conf.break_string_literals, c.conf.escape_strings) with
         | `Never, `Preserve -> Source.string_literal c.source `Preserve loc
         | (`Newlines | `Wrap), `Preserve ->
-            Source.string_literal c.source `Normalize_nl loc
+            Source.string_literal c.source `Normalize loc
         | _ -> s
       in
       match c.conf.break_string_literals with
@@ -1153,12 +1139,12 @@ and fmt_body c ({ast= body} as xbody) =
   | _ ->
       close_box $ fmt "@ " $ fmt_expression c ~eol:(fmt "@;<1000 0>") xbody
 
-and fmt_index_op c ctx ~parens ?set (s, opn, cls) l i =
+and fmt_index_op c ctx ~parens ?set (s, opn, cls) l is =
   wrap_if parens "(" ")"
     (hovbox 0
        ( fmt_expression c (sub_exp ~ctx l)
        $ str (Printf.sprintf "%s%c" s opn)
-       $ fmt_expression c (sub_exp ~ctx i)
+       $ list is "@,, " (fun i -> fmt_expression c (sub_exp ~ctx i))
        $ str (Printf.sprintf "%c" cls)
        $
        match set with
@@ -1394,25 +1380,19 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
                         $ fmt_fun_args c xargs $ fmt "@ ->" ) )
                   $ fmt "@ " $ fmt_expression c xbody )) ))
   | Pexp_apply
-      ( { pexp_desc= Pexp_ident {txt= Ldot (Lident "Array", "get")}
-        ; pexp_attributes= [] }
-      , [(Nolabel, s); (Nolabel, i)] ) ->
-      fmt_index_op c ctx ~parens index_op_array s i
+      ( {pexp_desc= Pexp_ident {txt}; pexp_attributes= []}
+      , (Nolabel, s) :: indices )
+    when Option.is_some (index_op_get_sugar txt indices) ->
+      let op, indices = Option.value_exn (index_op_get_sugar txt indices) in
+      fmt_index_op c ctx ~parens op s indices
   | Pexp_apply
-      ( { pexp_desc= Pexp_ident {txt= Ldot (Lident "String", "get")}
-        ; pexp_attributes= [] }
-      , [(Nolabel, s); (Nolabel, i)] ) ->
-      fmt_index_op c ctx ~parens index_op_string s i
-  | Pexp_apply
-      ( { pexp_desc= Pexp_ident {txt= Ldot (Lident "Array", "set")}
-        ; pexp_attributes= [] }
-      , [(Nolabel, s); (Nolabel, i); (Nolabel, e)] ) ->
-      fmt_index_op c ctx ~parens index_op_array s i ~set:e
-  | Pexp_apply
-      ( { pexp_desc= Pexp_ident {txt= Ldot (Lident "String", "set")}
-        ; pexp_attributes= [] }
-      , [(Nolabel, s); (Nolabel, i); (Nolabel, e)] ) ->
-      fmt_index_op c ctx ~parens index_op_string s i ~set:e
+      ( {pexp_desc= Pexp_ident {txt}; pexp_attributes= []}
+      , (Nolabel, s) :: indices_and_e )
+    when Option.is_some (index_op_set_sugar txt indices_and_e) ->
+      let op, indices, e =
+        Option.value_exn (index_op_set_sugar txt indices_and_e)
+      in
+      fmt_index_op c ctx ~parens op s indices ~set:e
   | Pexp_apply
       ( {pexp_desc= Pexp_ident {txt= Lident ":="}; pexp_attributes= []}
       , [(Nolabel, r); (Nolabel, v)] )
@@ -1472,14 +1452,14 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
       , (Nolabel, s) :: (Nolabel, i) :: _ )
     when Option.is_some (index_op_get id) -> (
     match index_op_get id with
-    | Some index_op -> fmt_index_op c ctx ~parens index_op s i
+    | Some index_op -> fmt_index_op c ctx ~parens index_op s [i]
     | None -> impossible "previous match" )
   | Pexp_apply
       ( {pexp_desc= Pexp_ident {txt= Lident id}}
       , (Nolabel, s) :: (Nolabel, i) :: (Nolabel, e) :: _ )
     when Option.is_some (index_op_set id) -> (
     match index_op_set id with
-    | Some index_op -> fmt_index_op c ctx ~parens index_op s i ~set:e
+    | Some index_op -> fmt_index_op c ctx ~parens index_op s [i] ~set:e
     | None -> impossible "previous match" )
   | Pexp_apply (e0, [(Nolabel, e1)]) when is_prefix e0 ->
       hvbox 2
