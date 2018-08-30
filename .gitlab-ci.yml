@@ -101,6 +101,18 @@ freebsd-11-amd64:
       - ocaml-platform
   tags:
     - freebsd
+openbsd-6.3-amd64:
+  stage: build
+  script:
+  - pkg_add gmake
+  - gmake
+  - mkdir -p ocaml-platform/4.07.0-1/openbsd/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/openbsd/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - openbsd
+    - amd64
 gather-binaries:
   stage: gather
   script:
