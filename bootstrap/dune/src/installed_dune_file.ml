@@ -1,25 +1,23 @@
-open Import
+open! Stdune
 
 let parse_sub_systems ~parsing_context sexps =
   List.filter_map sexps ~f:(fun sexp ->
     let name, ver, data =
-      Sexp.Of_sexp.(parse (triple string (located Syntax.Version.t) raw)
-                      parsing_context) sexp
+      Dsexp.Of_sexp.(parse (triple string (located Syntax.Version.dparse) raw)
+                       parsing_context) sexp
     in
-    match Sub_system_name.get name with
-    | None ->
-      (* We ignore sub-systems that are not internally known. These
-         correspond to plugins that are not in use in the current
-         workspace. *)
-      None
-    | Some name -> Some (name, (Sexp.Ast.loc sexp, ver, data)))
+    (* We ignore sub-systems that are not internally known. These
+       correspond to plugins that are not in use in the current
+       workspace. *)
+    Option.map (Sub_system_name.get name) ~f:(fun name ->
+      (name, (Dsexp.Ast.loc sexp, ver, data))))
   |> Sub_system_name.Map.of_list
   |> (function
     | Ok x -> x
     | Error (name, _, (loc, _, _)) ->
-      Loc.fail loc "%S present twice" (Sub_system_name.to_string name))
+      Errors.fail loc "%S present twice" (Sub_system_name.to_string name))
   |> Sub_system_name.Map.mapi ~f:(fun name (_, version, data) ->
-    let (module M) = Jbuild.Sub_system_info.get name in
+    let (module M) = Dune_file.Sub_system_info.get name in
     Syntax.check_supported M.syntax version;
     let parsing_context =
       (* We set the syntax to the version used when generating this subsystem.
@@ -32,10 +30,10 @@ let parse_sub_systems ~parsing_context sexps =
       | (_, _) ->
         Univ_map.add parsing_context (Syntax.key M.syntax) (snd version)
     in
-    M.T (Sexp.Of_sexp.parse M.parse parsing_context data))
+    M.T (Dsexp.Of_sexp.parse M.parse parsing_context data))
 
 let of_sexp =
-  let open Sexp.Of_sexp in
+  let open Dsexp.Of_sexp in
   let version =
     plain_string (fun ~loc -> function
       | "1" -> (0, 0)
@@ -64,45 +62,45 @@ let load fname =
        which point we can decide what lexer to use for the reset of
        the file. *)
     let state = ref 0 in
-    let lexer = ref Sexp.Lexer.token in
+    let lexer = ref Dsexp.Lexer.token in
     let lexer lb =
-      let token : Sexp.Lexer.Token.t = !lexer lb in
+      let token : Dsexp.Lexer.Token.t = !lexer lb in
       (match !state, token with
        | 0, Lparen -> state := 1
        | 1, Atom (A "dune") -> state := 2
-       | 2, Atom (A "1") -> state := 3; lexer := Sexp.Lexer.jbuild_token
-       | 2, Atom (A "2") -> state := 3; lexer := Sexp.Lexer.token
+       | 2, Atom (A "1") -> state := 3; lexer := Dsexp.Lexer.jbuild_token
+       | 2, Atom (A "2") -> state := 3; lexer := Dsexp.Lexer.token
        | 2, Atom (A version) ->
-         Loc.fail (Sexp.Loc.of_lexbuf lexbuf) "Unsupported version %S" version
+         Errors.fail (Loc.of_lexbuf lexbuf) "Unsupported version %S" version
        | 3, _ -> ()
        | _ ->
-         Loc.fail (Sexp.Loc.of_lexbuf lexbuf)
+         Errors.fail (Loc.of_lexbuf lexbuf)
            "This <lib>.dune file looks invalid, it should \
             contain a S-expression of the form (dune x.y ..)"
       );
       token
     in
-    Sexp.Of_sexp.parse of_sexp Univ_map.empty
-      (Sexp.Parser.parse ~lexer ~mode:Single lexbuf))
+    Dsexp.Of_sexp.parse of_sexp Univ_map.empty
+      (Dsexp.Parser.parse ~lexer ~mode:Single lexbuf))
 
 let gen ~(dune_version : Syntax.Version.t) confs =
   let sexps =
     Sub_system_name.Map.to_list confs
     |> List.map ~f:(fun (name, (ver, conf)) ->
-      let (module M) = Jbuild.Sub_system_info.get name in
-      Sexp.List [ Sexp.atom (Sub_system_name.to_string name)
-                ; Syntax.Version.sexp_of_t ver
+      let (module M) = Dune_file.Sub_system_info.get name in
+      Dsexp.List [ Dsexp.atom (Sub_system_name.to_string name)
+                ; Syntax.Version.dgen ver
                 ; conf
                 ])
   in
-  Sexp.List
-    [ Sexp.unsafe_atom_of_string "dune"
-    ; Sexp.unsafe_atom_of_string
+  Dsexp.List
+    [ Dsexp.unsafe_atom_of_string "dune"
+    ; Dsexp.unsafe_atom_of_string
         (match dune_version with
          | (0, 0) -> "1"
          | (x, _) when x >= 1 -> "2"
          | (_, _) ->
            Exn.code_error "Cannot generate dune with unknown version"
-             ["dune_version", Syntax.Version.sexp_of_t dune_version])
+             ["dune_version", Syntax.Version.to_sexp dune_version])
     ; List sexps
     ]

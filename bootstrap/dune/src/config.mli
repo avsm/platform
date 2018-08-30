@@ -7,7 +7,7 @@ val local_install_dir : context:string -> Path.t
 
 val local_install_bin_dir : context:string -> Path.t
 val local_install_man_dir : context:string -> Path.t
-val local_install_lib_dir : context:string -> package:string -> Path.t
+val local_install_lib_dir : context:string -> package:Package.Name.t -> Path.t
 
 val dev_null : Path.t
 
@@ -32,7 +32,7 @@ module Display : sig
     | Verbose  (** Display all commands fully     *)
     | Quiet    (** Only display errors            *)
 
-  val t : t Sexp.Of_sexp.t
+  val dparse : t Dsexp.Of_sexp.t
   val all : (string * t) list
 end
 
@@ -58,7 +58,7 @@ include S with type 'a field = 'a
 
 module Partial : S with type 'a field := 'a option
 
-val t : t Sexp.Of_sexp.t
+val dparse : t Dsexp.Of_sexp.t
 
 val merge : t -> Partial.t -> t
 

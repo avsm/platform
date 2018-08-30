@@ -1,3 +1,36 @@
+next
+----
+
+- Ignore stderr output when trying to find out the number of jobs
+  available (#1118, fix #1116, @diml)
+
+- Fix error message when the source directory of `copy_files` does not exist.
+  (#1120, fix #1099, @emillon)
+
+- Highlight error locations in error messages (#1121, @emillon)
+
+- Display actual stanza when package is ambiguous (#1126, fix #1123, @emillon)
+
+- Add `dune unstable-fmt` to format `dune` files. The interface and syntax are
+  still subject to change, so use with caution. (#1130, fix #940, @emillon)
+
+- Improve error message for `dune utop` without a library name (#1154, fix
+  #1149, @emillon)
+
+- Fix parsing `ocamllex` stanza in jbuild files (#1150, @rgrinberg)
+
+- Highlight multi-line errors (#1131, @anuragsoni)
+
+- Do no try to generate shared libraries when this is not supported by
+  the OS (#1165, fix #1051, @diml)
+
+- Fix `Flags.write_{sexp,lines}` in configurator by avoiding the use of
+  `Stdune.Path` (#1175, fix #1161, @rgrinberg)
+
+- Add support for `findlib.dynload`: when linking an executable using
+  `findlib.dynload`, automatically record linked in libraries and
+  findlib predicates (#1172, @bobot)
+
 1.1.1 (08/08/2018)
 ------------------
 

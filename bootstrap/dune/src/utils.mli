@@ -1,6 +1,6 @@
 (** Utilities that can't go in [Import] *)
 
-open! Import
+open! Stdune
 
 (** Return the absolute path to the shell and the argument to pass it
     (-c or /c). Raise in case in cannot be found. *)
@@ -19,7 +19,7 @@ val describe_target : Path.t -> string
     library should be stored. *)
 val library_object_directory
   :  dir:Path.t
-  -> string
+  -> Lib_name.Local.t
   -> Path.t
 
 (** Return the directory where the object files for the given

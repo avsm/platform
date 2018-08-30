@@ -7,6 +7,7 @@ include struct
   let uncapitalize_ascii = String.uncapitalize
   let uppercase_ascii    = String.uppercase
   let lowercase_ascii    = String.lowercase
+  let equal (a:string) b = Pervasives.(=) a b
 end
 
 include StringLabels
@@ -56,6 +57,15 @@ let drop_prefix s ~prefix =
       Some ""
     else
       Some (sub s ~pos:(length prefix) ~len:(length s - length prefix))
+  else
+    None
+
+let drop_suffix s ~suffix =
+  if is_suffix s ~suffix then
+    if length s = length suffix then
+      Some s
+    else
+      Some (sub s ~pos:0 ~len:(length s - length suffix))
   else
     None
 
@@ -202,6 +212,7 @@ let maybe_quoted s =
     Printf.sprintf {|"%s"|} escaped
 
 module Set = Set.Make(T)
+
 module Map = struct
   include Map.Make(T)
   let pp f fmt t =
@@ -228,3 +239,17 @@ let concat ~sep = function
   | [] -> ""
   | [x] -> x
   | xs -> concat ~sep xs
+
+let take s len =
+  sub s ~pos:0 ~len:(min (length s) len)
+
+let drop s n =
+  let len = length s in
+  sub s ~pos:(min n len) ~len:(max (len - n) 0)
+
+let split_n s n =
+  let len = length s in
+  let n = min n len in
+  ( sub s ~pos:0 ~len:n
+  , sub s ~pos:n ~len:(len - n)
+  )

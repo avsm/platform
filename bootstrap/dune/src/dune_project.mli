@@ -1,3 +1,4 @@
+open! Stdune
 (** dune-project files *)
 
 open Import
@@ -22,27 +23,26 @@ module Name : sig
   (** Convert to a string that is suitable for human readable messages *)
   val to_string_hum : t -> string
 
-  val sexp_of_t : t -> Sexp.t
+  val to_sexp : t Sexp.To_sexp.t
 
   (** Convert to/from an encoded string that is suitable to use in filenames *)
   val encode : t -> string
   val decode : string -> t
+
+  module Infix : Comparable.OPS with type t = t
 end
 
 module Project_file : sig
   type t
 end
 
-(* CR-soon diml: make this abstract *)
-type t = private
-  { kind          : Kind.t
-  ; name          : Name.t
-  ; root          : Path.Local.t
-  ; version       : string option
-  ; packages      : Package.t Package.Name.Map.t
-  ; stanza_parser : Stanza.t list Sexp.Of_sexp.t
-  ; project_file  : Project_file.t
-  }
+type t
+
+val packages : t -> Package.t Package.Name.Map.t
+val version : t -> string option
+val name : t -> Name.t
+val root : t -> Path.Local.t
+val stanza_parser : t -> Stanza.t list Dsexp.Of_sexp.t
 
 module Lang : sig
   (** [register id stanzas_parser] register a new language. Users will
@@ -63,7 +63,7 @@ module Extension : sig
 
       in their [dune-project] file. [parser] is used to describe
       what [<args>] might be. *)
-  val register : Syntax.t -> Stanza.Parser.t list Sexp.Of_sexp.t -> unit
+  val register : Syntax.t -> Stanza.Parser.t list Dsexp.Of_sexp.t -> unit
 end
 
 (** Load a project description from the following directory. [files]
@@ -87,5 +87,5 @@ val ensure_project_file_exists : t -> unit
 val append_to_project_file : t -> string -> unit
 
 (** Set the project we are currently parsing dune files for *)
-val set : t -> ('a, 'k) Sexp.Of_sexp.parser -> ('a, 'k) Sexp.Of_sexp.parser
-val get_exn : unit -> (t, 'k) Sexp.Of_sexp.parser
+val set : t -> ('a, 'k) Dsexp.Of_sexp.parser -> ('a, 'k) Dsexp.Of_sexp.parser
+val get_exn : unit -> (t, 'k) Dsexp.Of_sexp.parser

@@ -1,3 +1,4 @@
+open! Stdune
 open Import
 open Fiber.O
 
@@ -168,7 +169,7 @@ let go ?(log=Log.no_log) ?(config=Config.default)
              String.drop_prefix p ~prefix:of_
            with
            | None | Some "" -> None
-           | Some s -> Some (String.sub s ~pos:1 ~len:(String.length s - 1))
+           | Some s -> Some (String.drop s 1)
          in
          match descendant_simple cwd ~of_:initial_cwd with
          | Some s -> s
@@ -195,7 +196,7 @@ let go ?(log=Log.no_log) ?(config=Config.default)
     ; waiting_for_available_job = Queue.create ()
     }
   in
-  printer := print t;
+  Errors.printer := print t;
   let fiber =
     Fiber.Var.set t_var t
       (Fiber.with_error_handler (fun () -> fiber) ~on_error:Report_error.report)

@@ -1,3 +1,4 @@
+open! Stdune
 open Import
 
 type t =
@@ -7,7 +8,7 @@ type t =
   }
 
 let root t = t.root
-let name t = t.project.name
+let name t = Dune_project.name t.project
 let project t = t.project
 let libs t = t.db
 
@@ -29,7 +30,7 @@ module DB = struct
       | None ->
         if Path.is_root d || not (Path.is_managed d) then
           Exn.code_error "Scope.DB.find_by_dir got an invalid path"
-            [ "dir"    , Path.sexp_of_t dir
+            [ "dir"    , Path.to_sexp dir
             ; "context", Sexp.To_sexp.string t.context
             ];
         let scope = loop (Path.parent_exn d) in
@@ -43,24 +44,24 @@ module DB = struct
     | Some x -> x
     | None ->
       Exn.code_error "Scope.DB.find_by_name"
-        [ "name"   , Dune_project.Name.sexp_of_t name
+        [ "name"   , Dune_project.Name.to_sexp name
         ; "context", Sexp.To_sexp.string t.context
         ; "names",
-          Sexp.To_sexp.(list Dune_project.Name.sexp_of_t)
+          Sexp.To_sexp.(list Dune_project.Name.to_sexp)
             (Project_name_map.keys t.by_name)
         ]
 
-  let create ~projects ~context ~installed_libs internal_libs =
+  let create ~projects ~context ~installed_libs ~ext_lib internal_libs =
     let projects_by_name =
       List.map projects ~f:(fun (project : Dune_project.t) ->
-        (project.name, project))
+        (Dune_project.name project, project))
       |> Project_name_map.of_list
       |> function
       | Ok x -> x
       | Error (_name, project1, project2) ->
         let to_sexp (project : Dune_project.t) =
-          Sexp.To_sexp.(pair Dune_project.Name.sexp_of_t Path.Local.sexp_of_t)
-            (project.name, project.root)
+          Sexp.To_sexp.(pair Dune_project.Name.to_sexp Path.Local.to_sexp)
+            (Dune_project.name project, Dune_project.root project)
         in
         Exn.code_error "Scope.DB.create got two projects with the same name"
           [ "project1", to_sexp project1
@@ -68,49 +69,47 @@ module DB = struct
           ]
     in
     let libs_by_project_name =
-      List.map internal_libs ~f:(fun (dir, (lib : Jbuild.Library.t)) ->
-        (lib.project.name, (dir, lib)))
+      List.map internal_libs ~f:(fun (dir, (lib : Dune_file.Library.t)) ->
+        (Dune_project.name lib.project, (dir, lib)))
       |> Project_name_map.of_list_multi
     in
     let by_name_cell = ref Project_name_map.empty in
     let public_libs =
       let public_libs =
         List.filter_map internal_libs ~f:(fun (_dir, lib) ->
-          match lib.public with
-          | None -> None
-          | Some p -> Some (Jbuild.Public_lib.name p, lib.project))
-        |> String.Map.of_list
+          Option.map lib.public ~f:(fun p ->
+            (Dune_file.Public_lib.name p, lib.project)))
+        |> Lib_name.Map.of_list
         |> function
         | Ok x -> x
         | Error (name, _, _) ->
           match
             List.filter_map internal_libs ~f:(fun (_dir, lib) ->
-              match lib.public with
-              | None   -> None
-              | Some p -> Option.some_if (name = Jbuild.Public_lib.name p)
-                            lib.buildable.loc)
+              Option.bind lib.public ~f:(fun p ->
+                Option.some_if (name = Dune_file.Public_lib.name p)
+                  lib.buildable.loc))
           with
           | [] | [_] -> assert false
           | loc1 :: loc2 :: _ ->
-            die "Public library %S is defined twice:\n\
+            die "Public library %a is defined twice:\n\
                  - %s\n\
                  - %s"
-              name
+              Lib_name.pp_quoted name
               (Loc.to_file_colon_line loc1)
               (Loc.to_file_colon_line loc2)
       in
       Lib.DB.create ()
         ~parent:installed_libs
         ~resolve:(fun name ->
-          match String.Map.find public_libs name with
+          match Lib_name.Map.find public_libs name with
           | None -> Not_found
           | Some project ->
             let scope =
               Option.value_exn
-                (Project_name_map.find !by_name_cell project.name)
+                (Project_name_map.find !by_name_cell (Dune_project.name project))
             in
             Redirect (Some scope.db, name))
-        ~all:(fun () -> String.Map.keys public_libs)
+        ~all:(fun () -> Lib_name.Map.keys public_libs)
     in
     let by_name =
       let build_context_dir = Path.relative Path.build_dir context in
@@ -119,9 +118,10 @@ module DB = struct
           let project = Option.value_exn project in
           let libs = Option.value libs ~default:[] in
           let db =
-            Lib.DB.create_from_library_stanzas libs ~parent:public_libs
+            Lib.DB.create_from_library_stanzas libs ~parent:public_libs ~ext_lib
           in
-          let root = Path.append_local build_context_dir project.root in
+          let root =
+            Path.append_local build_context_dir (Dune_project.root project) in
           Some { project; db; root })
     in
     by_name_cell := by_name;

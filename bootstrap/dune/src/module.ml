@@ -1,13 +1,21 @@
+open! Stdune
 open Import
 
 module Name = struct
-  type t = string
+  module T = struct
+    type t = string
+    let compare = compare
+  end
 
-  let t = Sexp.atom
+  include T
+
+  let dparse = Dsexp.Of_sexp.string
+  let dgen = Dsexp.To_sexp.string
+
+  let to_sexp = Sexp.To_sexp.string
 
   let add_suffix = (^)
 
-  let compare = compare
   let of_string = String.capitalize
   let to_string x = x
 
@@ -19,6 +27,7 @@ module Name = struct
   module Set = String.Set
   module Map = String.Map
   module Top_closure = Top_closure.String
+  module Infix = Comparable.Operators(T)
 end
 
 module Syntax = struct
@@ -63,7 +72,7 @@ let make ?impl ?intf ?obj_name name =
       let fn = Path.basename file.path in
       match String.index fn '.' with
       | None   -> fn
-      | Some i -> String.sub fn ~pos:0 ~len:i
+      | Some i -> String.take fn i
   in
   { name
   ; impl
@@ -113,7 +122,8 @@ let iter t ~f =
   Option.iter t.intf ~f:(f Ml_kind.Intf)
 
 let with_wrapper t ~libname =
-  { t with obj_name = sprintf "%s__%s" libname t.name }
+  { t with obj_name
+           = sprintf "%s__%s" (Lib_name.Local.to_string libname) t.name }
 
 let map_files t ~f =
   { t with

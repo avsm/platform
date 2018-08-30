@@ -1,5 +1,6 @@
+open! Stdune
 open Import
-open Jbuild
+open Dune_file
 
 module A = Action
 module Alias = Build_system.Alias
@@ -70,16 +71,16 @@ let build_system t = t.build_system
 let host t = Option.value t.host ~default:t
 
 let internal_lib_names t =
-  List.fold_left t.stanzas ~init:String.Set.empty
+  List.fold_left t.stanzas ~init:Lib_name.Set.empty
     ~f:(fun acc { Dir_with_jbuild. stanzas; _ } ->
       List.fold_left stanzas ~init:acc ~f:(fun acc -> function
         | Library lib ->
-          String.Set.add
+          Lib_name.Set.add
             (match lib.public with
              | None -> acc
              | Some { name = (_, name); _ } ->
-               String.Set.add acc name)
-            lib.name
+               Lib_name.Set.add acc name)
+            (Lib_name.of_local lib.name)
         | _ -> acc))
 
 let public_libs    t = t.public_libs
@@ -130,7 +131,7 @@ let expand_ocaml_config t pform name =
   match String.Map.find t.ocaml_config name with
   | Some x -> x
   | None ->
-    Loc.fail (String_with_vars.Var.loc pform)
+    Errors.fail (String_with_vars.Var.loc pform)
       "Unknown ocaml configuration variable %S"
       name
 
@@ -144,7 +145,7 @@ let expand_vars t ~mode ~scope ~dir ?(bindings=Pform.Map.empty) s =
       | Macro (Ocaml_config, s) -> expand_ocaml_config t pform s
       | Var Project_root -> [Value.Dir (Scope.root scope)]
       | _ ->
-        Loc.fail (String_with_vars.Var.loc pform)
+        Errors.fail (String_with_vars.Var.loc pform)
           "%s isn't allowed in this position"
           (String_with_vars.Var.describe pform)))
 
@@ -166,7 +167,7 @@ module Pkg_version = struct
 
   module V = Vfile_kind.Make(struct
       type t = string option
-      let t = Sexp.To_sexp.(option string)
+      let dgen = Dsexp.To_sexp.(option string)
       let name = "Pkg_version"
     end)
 
@@ -234,13 +235,13 @@ end = struct
 
     let empty () =
       { failures  = []
-      ; lib_deps  = String.Map.empty
+      ; lib_deps  = Lib_name.Map.empty
       ; sdeps     = Path.Set.empty
       ; ddeps     = String.Map.empty
       }
 
     let add_lib_dep acc lib kind =
-      acc.lib_deps <- String.Map.add acc.lib_deps lib kind
+      acc.lib_deps <- Lib_name.Map.add acc.lib_deps lib kind
 
     let add_fail acc fail =
       acc.failures <- fail :: acc.failures;
@@ -259,8 +260,8 @@ end = struct
   let parse_lib_file ~loc s =
     match String.lsplit2 s ~on:':' with
     | None ->
-      Loc.fail loc "invalid %%{lib:...} form: %s" s
-    | Some x -> x
+      Errors.fail loc "invalid %%{lib:...} form: %s" s
+    | Some (lib, f) -> (Lib_name.of_string_exn ~loc:(Some loc) lib, f)
 
   open Build.O
 
@@ -278,10 +279,10 @@ end = struct
         | Var Targets ->
           begin match targets_written_by_user with
           | Infer ->
-            Loc.fail loc "You cannot use %s with inferred rules."
+            Errors.fail loc "You cannot use %s with inferred rules."
               (String_with_vars.Var.describe pform)
           | Alias ->
-            Loc.fail loc "You cannot use %s in aliases."
+            Errors.fail loc "You cannot use %s in aliases."
               (String_with_vars.Var.describe pform)
           | Static l ->
             Some (Value.L.dirs l) (* XXX hack to signal no dep *)
@@ -329,13 +330,14 @@ end = struct
               end
           end
         | Macro (Lib_available, s) -> begin
-            let lib = s in
+            let lib = Lib_name.of_string_exn ~loc:(Some loc) s in
             Resolved_forms.add_lib_dep acc lib Optional;
             Some (str_exp (string_of_bool (
               Lib.DB.available (Scope.libs scope) lib)))
           end
         | Macro (Version, s) -> begin
-            match Package.Name.Map.find (Scope.project scope).packages
+            match Package.Name.Map.find
+                    (Dune_project.packages (Scope.project scope))
                     (Package.Name.of_string s) with
             | Some p ->
               let x =
@@ -346,7 +348,7 @@ end = struct
               Resolved_forms.add_ddep acc ~key x
             | None ->
               Resolved_forms.add_fail acc { fail = fun () ->
-                Loc.fail loc
+                Errors.fail loc
                   "Package %S doesn't exist in the current project." s
               }
           end
@@ -436,7 +438,7 @@ end = struct
     | node -> node
     | exception Exit ->
       Exn.code_error "Super_context.Env.get called on invalid directory"
-        [ "dir", Path.sexp_of_t dir ]
+        [ "dir", Path.to_sexp dir ]
 
   let ocaml_flags t ~dir =
     let rec loop t node =
@@ -512,6 +514,7 @@ let create
       ~projects
       ~context:context.name
       ~installed_libs
+      ~ext_lib:context.ext_lib
       internal_libs
   in
   let stanzas =
@@ -522,7 +525,7 @@ let create
           src_dir = dir
         ; ctx_dir
         ; stanzas
-        ; scope = Scope.DB.find_by_name scopes project.Dune_project.name
+        ; scope = Scope.DB.find_by_name scopes (Dune_project.name project)
         ; kind
         })
   in
@@ -537,7 +540,8 @@ let create
         List.filter_map stanzas ~f:(fun stanza ->
           let keep =
             match (stanza : Stanza.t) with
-            | Library lib -> Lib.DB.available (Scope.libs scope) lib.name
+            | Library lib ->
+              Lib.DB.available (Scope.libs scope) (Library.best_name lib)
             | Documentation _
             | Install _   -> true
             | _           -> false
@@ -638,7 +642,7 @@ let create
       List.iter stanzas ~f:(function
         | Dune_env.T config ->
           let inherit_from =
-            if ctx_dir = Scope.root scope then
+            if Path.equal ctx_dir (Scope.root scope) then
               context_env_node
             else
               lazy (Env.get t ~dir:(Path.parent_exn ctx_dir))
@@ -693,7 +697,7 @@ module Libs = struct
     prefix_rules t prefix ~f
 
   let lib_files_alias ~dir ~name ~ext =
-    Alias.make (sprintf "lib-%s%s-all" name ext) ~dir
+    Alias.make (sprintf "lib-%s%s-all" (Lib_name.to_string name) ext) ~dir
 
   let setup_file_deps_alias t ~dir ~ext lib files =
     add_alias_deps t
@@ -751,7 +755,7 @@ module Deps = struct
           Build.paths_glob ~loc ~dir (Re.compile re)
           >>^ Path.Set.to_list
         | Error (_pos, msg) ->
-          Loc.fail (String_with_vars.loc s) "invalid glob: %s" msg
+          Errors.fail (String_with_vars.loc s) "invalid glob: %s" msg
       end
     | Source_tree s ->
       let path = expand_vars_path t ~scope ~dir s in
@@ -772,12 +776,12 @@ module Deps = struct
 
   let interpret_named t ~scope ~dir bindings =
     List.map bindings ~f:(function
-      | Jbuild.Bindings.Unnamed p ->
+      | Dune_file.Bindings.Unnamed p ->
         dep t ~scope ~dir p >>^ fun l ->
-        List.map l ~f:(fun x -> Jbuild.Bindings.Unnamed x)
+        List.map l ~f:(fun x -> Dune_file.Bindings.Unnamed x)
       | Named (s, ps) ->
         Build.all (List.map ps ~f:(dep t ~scope ~dir)) >>^ fun l ->
-        [Jbuild.Bindings.Named (s, List.concat l)])
+        [Dune_file.Bindings.Named (s, List.concat l)])
     |> Build.all
     >>^ List.concat
 end
@@ -811,7 +815,7 @@ module Action = struct
     | Some host ->
       fun exe ->
         match Path.extract_build_context_dir exe with
-        | Some (dir, exe) when dir = sctx.context.build_dir ->
+        | Some (dir, exe) when Path.equal dir sctx.context.build_dir ->
           Path.append host.context.build_dir exe
         | _ -> exe
 
@@ -821,7 +825,7 @@ module Action = struct
       ~f:(fun f -> U.partial_expand t ~dir ~map_exe ~f)
 
   let expand_step2 ~dir ~dynamic_expansions ~bindings
-        ~(deps_written_by_user : Path.t Jbuild.Bindings.t)
+        ~(deps_written_by_user : Path.t Dune_file.Bindings.t)
         ~map_exe t =
     U.Partial.expand t ~dir ~map_exe ~f:(fun pform syntax_version ->
       let key = String_with_vars.Var.full_name pform in
@@ -831,18 +835,18 @@ module Action = struct
       | None ->
         Option.map (Pform.Map.expand bindings pform syntax_version) ~f:(function
           | Var Named_local ->
-            begin match Jbuild.Bindings.find deps_written_by_user key with
+            begin match Dune_file.Bindings.find deps_written_by_user key with
             | None ->
               Exn.code_error "Local named variable not present in named deps"
-                [ "pform", String_with_vars.Var.sexp_of_t pform
+                [ "pform", String_with_vars.Var.to_sexp pform
                 ; "deps_written_by_user",
-                  Jbuild.Bindings.sexp_of_t Path.sexp_of_t deps_written_by_user
+                  Dune_file.Bindings.to_sexp Path.to_sexp deps_written_by_user
                 ]
             | Some x -> Value.L.paths x
             end
           | Var Deps ->
             deps_written_by_user
-            |> Jbuild.Bindings.to_list
+            |> Dune_file.Bindings.to_list
             |> Value.L.paths
           | Var First_dep ->
             begin match deps_written_by_user with
@@ -853,13 +857,13 @@ module Action = struct
               assert false
             | Unnamed v :: _ -> [Path v]
             | [] ->
-              Loc.warn loc "Variable '%s' used with no explicit \
+              Errors.warn loc "Variable '%s' used with no explicit \
                             dependencies@." key;
               [Value.String ""]
             end
           | _ ->
             Exn.code_error "Unexpected variable in step2"
-              ["var", String_with_vars.Var.sexp_of_t pform]))
+              ["var", String_with_vars.Var.to_sexp pform]))
 
   let run sctx ~loc ~bindings ~dir ~dep_kind
         ~targets:targets_written_by_user ~targets_dir ~scope t
@@ -871,7 +875,7 @@ module Action = struct
       | [] -> ()
       | x :: _ ->
         let loc = String_with_vars.loc x in
-        Loc.warn loc
+        Errors.warn loc
           "Aliases must not have targets, this target will be ignored.\n\
            This will become an error in the future.";
     end;
@@ -897,7 +901,7 @@ module Action = struct
     let targets = Path.Set.to_list targets in
     List.iter targets ~f:(fun target ->
       if Path.parent_exn target <> targets_dir then
-        Loc.fail loc
+        Errors.fail loc
           "This action has targets in a different directory than the current \
            one, this is not allowed by dune at the moment:\n%s"
           (List.map targets ~f:(fun target ->
@@ -939,3 +943,7 @@ module Action = struct
     | [] -> build
     | fail :: _ -> Build.fail fail >>> build
 end
+
+let opaque t =
+  t.context.profile = "dev"
+  && Ocaml_version.supports_opaque_for_mli t.context.version

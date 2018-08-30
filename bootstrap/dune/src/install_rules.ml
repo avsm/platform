@@ -1,5 +1,6 @@
+open! Stdune
 open Import
-open Jbuild
+open Dune_file
 open Build.O
 open! No_io
 
@@ -15,14 +16,14 @@ module Gen(P : Params) = struct
   let ctx = Super_context.context sctx
 
   let lib_dune_file ~dir ~name =
-    Path.relative dir (name ^ ".dune")
+    Path.relative dir ((Lib_name.to_string name) ^ ".dune")
 
   let gen_lib_dune_file lib =
     SC.add_rule sctx
       (Build.arr (fun () ->
          let dune_version = Option.value_exn (Lib.dune_version lib) in
          Format.asprintf "%a@."
-           (Sexp.pp (Stanza.File_kind.of_syntax dune_version))
+           (Dsexp.pp (Stanza.File_kind.of_syntax dune_version))
            (Lib.Sub_system.dump_config lib
             |> Installed_dune_file.gen ~dune_version))
        >>> Build.write_file_dyn
@@ -31,7 +32,7 @@ module Gen(P : Params) = struct
   let version_from_dune_project (pkg : Package.t) =
     let dir = Path.append (SC.build_dir sctx) pkg.path in
     let project = Scope.project (SC.find_scope_by_dir sctx dir) in
-    project.version
+    Dune_project.version project
 
   type version_method =
     | File of string
@@ -101,8 +102,7 @@ module Gen(P : Params) = struct
              List.iter template ~f:(fun s ->
                if String.is_prefix s ~prefix:"#" then
                  match
-                   String.extract_blank_separated_words
-                     (String.sub s ~pos:1 ~len:(String.length s - 1))
+                   String.extract_blank_separated_words (String.drop s 1)
                  with
                  | ["JBUILDER_GEN" | "DUNE_GEN"] ->
                    Format.fprintf ppf "%a@," Meta.pp meta.entries
@@ -115,7 +115,7 @@ module Gen(P : Params) = struct
            >>>
            Build.write_file_dyn meta)))
 
-  let lib_install_files ~dir_contents ~dir ~sub_dir ~name ~scope ~dir_kind
+  let lib_install_files ~dir_contents ~dir ~sub_dir ~(name : Lib_name.t) ~scope ~dir_kind
         (lib : Library.t) =
     let obj_dir = Utils.library_object_directory ~dir lib.name in
     let make_entry section ?dst fn =
@@ -168,7 +168,7 @@ module Gen(P : Params) = struct
                ; Library.archive ~dir lib ~ext:ctx.ext_lib
                ]
              in
-             if ctx.natdynlink_supported && lib.dynlink then
+             if Dynlink_supported.get lib.dynlink ctx.natdynlink_supported then
                files @ [ Library.archive ~dir lib ~ext:".cmxs" ]
              else
                files)
@@ -178,7 +178,8 @@ module Gen(P : Params) = struct
         ]
     in
     let dlls  =
-      if_ (byte && Library.has_stubs lib && lib.dynlink)
+      if_ (byte && Library.has_stubs lib &&
+           Dynlink_supported.get lib.dynlink ctx.supports_shared_libraries)
         [Library.dll ~dir lib ~ext_dll:ctx.ext_dll]
     in
     let execs =
@@ -194,13 +195,16 @@ module Gen(P : Params) = struct
               List.concat_map lib.buildable.libraries ~f:Lib_dep.to_lib_names
             in
             match
-              List.filter deps ~f:(function
+              List.filter deps ~f:(fun lib_name ->
+                match Lib_name.to_string lib_name with
                 | "ppx_driver" | "ppxlib" | "ppx_type_conv" -> true
                 | _ -> false)
             with
             | [] -> None
             | l ->
-              match Scope.name scope, List.mem ~set:l "ppxlib" with
+              match Scope.name scope
+                  , List.mem ~set:l (Lib_name.of_string_exn ~loc:None "ppxlib")
+              with
               | Named "ppxlib", _ | _, true ->
                 Some "ppxlib.runner"
               | _ ->

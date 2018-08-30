@@ -1,5 +1,6 @@
+open! Stdune
 open Import
-open Jbuild
+open Dune_file
 open Build.O
 open! No_io
 
@@ -12,13 +13,13 @@ module Backend = struct
 
       type t =
         { loc              : Loc.t
-        ; runner_libraries : (Loc.t * string) list
+        ; runner_libraries : (Loc.t * Lib_name.t) list
         ; flags            : Ordered_set_lang.Unexpanded.t
         ; generate_runner  : (Loc.t * Action.Unexpanded.t) option
-        ; extends          : (Loc.t * string) list
+        ; extends          : (Loc.t * Lib_name.t) list
         }
 
-      type Jbuild.Sub_system_info.t += T of t
+      type Dune_file.Sub_system_info.t += T of t
 
       let loc t = t.loc
 
@@ -35,10 +36,10 @@ module Backend = struct
       let parse =
         record
           (let%map loc = loc
-           and runner_libraries = field "runner_libraries" (list (located string)) ~default:[]
+           and runner_libraries = field "runner_libraries" (list (located Lib_name.dparse)) ~default:[]
            and flags = Ordered_set_lang.Unexpanded.field "flags"
-           and generate_runner = field_o "generate_runner" (located Action.Unexpanded.t)
-           and extends = field "extends" (list (located string)) ~default:[]
+           and generate_runner = field_o "generate_runner" (located Action.Unexpanded.dparse)
+           and extends = field "extends" (list (located Lib_name.dparse)) ~default:[]
            in
            { loc
            ; runner_libraries
@@ -65,30 +66,31 @@ module Backend = struct
       { info
       ; lib
       ; runner_libraries =
-          Result.all (List.map info.runner_libraries ~f:resolve)
+          Result.List.all (List.map info.runner_libraries ~f:resolve)
       ; extends =
           let open Result.O in
-          Result.all
+          Result.List.all
             (List.map info.extends
                ~f:(fun ((loc, name) as x) ->
                  resolve x >>= fun lib ->
                  match get ~loc lib with
                  | None ->
-                   Error (Loc.exnf loc "%S is not an %s" name
+                   Error (Errors.exnf loc "%S is not an %s"
+                            (Lib_name.to_string name)
                             (desc ~plural:false))
                  | Some t -> Ok t))
       }
 
-    let to_sexp t =
-      let open Sexp.To_sexp in
-      let lib x = string (Lib.name x) in
-      let f x = string (Lib.name x.lib) in
+    let dgen t =
+      let open Dsexp.To_sexp in
+      let lib x = Lib_name.dgen (Lib.name x) in
+      let f x = Lib_name.dgen (Lib.name x.lib) in
       ((1, 0),
        record_fields
          [ field "runner_libraries" (list lib)
              (Result.ok_exn t.runner_libraries)
-         ; field "flags" Ordered_set_lang.Unexpanded.sexp_of_t t.info.flags
-         ; field_o "generate_runner" Action.Unexpanded.sexp_of_t
+         ; field "flags" Ordered_set_lang.Unexpanded.dgen t.info.flags
+         ; field_o "generate_runner" Action.Unexpanded.dgen
              (Option.map t.info.generate_runner ~f:snd)
          ; field "extends" (list f) (Result.ok_exn t.extends) ~default:[]
          ])
@@ -108,11 +110,11 @@ include Sub_system.Register_end_point(
         { loc       : Loc.t
         ; deps      : Dep_conf.t list
         ; flags     : Ordered_set_lang.Unexpanded.t
-        ; backend   : (Loc.t * string) option
-        ; libraries : (Loc.t * string) list
+        ; backend   : (Loc.t * Lib_name.t) option
+        ; libraries : (Loc.t * Lib_name.t) list
         }
 
-      type Jbuild.Sub_system_info.t += T of t
+      type Dune_file.Sub_system_info.t += T of t
 
       let empty loc =
         { loc
@@ -135,10 +137,10 @@ include Sub_system.Register_end_point(
           ~else_:
             (record
                (let%map loc = loc
-                and deps = field "deps" (list Dep_conf.t) ~default:[]
+                and deps = field "deps" (list Dep_conf.dparse) ~default:[]
                 and flags = Ordered_set_lang.Unexpanded.field "flags"
-                and backend = field_o "backend" (located string)
-                and libraries = field "libraries" (list (located string)) ~default:[]
+                and backend = field_o "backend" (located Lib_name.dparse)
+                and libraries = field "libraries" (list (located Lib_name.dparse)) ~default:[]
                 in
                 { loc
                 ; deps
@@ -160,7 +162,8 @@ include Sub_system.Register_end_point(
       in
 
       let inline_test_dir =
-        Path.relative dir (sprintf ".%s.inline-tests" lib.name)
+        Path.relative dir (sprintf ".%s.inline-tests"
+                             (Lib_name.Local.to_string lib.name))
       in
 
       let name = "run" in
@@ -177,17 +180,17 @@ include Sub_system.Register_end_point(
 
       let bindings =
         Pform.Map.singleton "library-name"
-          (Values [String lib.name])
+          (Values [String (Lib_name.Local.to_string lib.name)])
       in
 
       let runner_libs =
         let open Result.O in
-        Result.concat_map backends
+        Result.List.concat_map backends
           ~f:(fun (backend : Backend.t) -> backend.runner_libraries)
         >>= fun libs ->
-        Lib.DB.find_many (Scope.libs scope) [lib.name]
+        Lib.DB.find_many (Scope.libs scope) [Dune_file.Library.best_name lib]
         >>= fun lib ->
-        Result.all
+        Result.List.all
           (List.map info.libraries
              ~f:(Lib.DB.resolve (Scope.libs scope)))
         >>= fun more_libs ->
@@ -260,9 +263,7 @@ include Sub_system.Register_end_point(
       SC.add_alias_action sctx
         ~loc:(Some info.loc)
         (Build_system.Alias.runtest ~dir)
-        ~stamp:(List [ Sexp.unsafe_atom_of_string "ppx-runner"
-                     ; Quoted_string name
-                     ])
+        ~stamp:("ppx-runner", name)
         (let module A = Action in
          let exe = Path.relative inline_test_dir (name ^ ".exe") in
          Build.path exe >>>

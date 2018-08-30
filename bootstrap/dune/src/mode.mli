@@ -2,7 +2,7 @@ open! Import
 
 type t = Byte | Native
 
-val t : t Sexp.Of_sexp.t
+val dparse : t Dsexp.Of_sexp.t
 
 val all : t list
 
@@ -15,6 +15,8 @@ val cm_kind : t -> Cm_kind.t
 val of_cm_kind : Cm_kind.t -> t
 
 val variant : t -> Variant.t
+
+val pp : t Fmt.t
 
 module Dict : sig
   type mode = t
@@ -35,7 +37,7 @@ module Dict : sig
   module Set : sig
 
     type nonrec t = bool t
-    val t : t Sexp.Of_sexp.t
+    val dparse : t Dsexp.Of_sexp.t
     val all : t
     val is_empty : t -> bool
     val to_list : t -> mode list

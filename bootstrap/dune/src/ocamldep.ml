@@ -1,3 +1,4 @@
+open! Stdune
 open Import
 open Build.O
 
@@ -15,10 +16,10 @@ module Dep_graph = struct
     | Some x -> x
     | None ->
       Exn.code_error "Ocamldep.Dep_graph.deps_of"
-        [ "dir", Path.sexp_of_t t.dir
-        ; "modules", Sexp.To_sexp.(list Module.Name.t)
+        [ "dir", Path.to_sexp t.dir
+        ; "modules", Sexp.To_sexp.(list Module.Name.to_sexp)
                        (Module.Name.Map.keys t.per_module)
-        ; "module", Module.Name.t m.name
+        ; "module", Module.Name.to_sexp m.name
         ]
 
   let top_closed t modules =
@@ -60,6 +61,7 @@ module Dep_graphs = struct
 end
 
 let parse_module_names ~(unit : Module.t) ~modules words =
+  let open Module.Name.Infix in
   List.filter_map words ~f:(fun m ->
     let m = Module.Name.of_string m in
     if m = unit.name then
@@ -68,6 +70,7 @@ let parse_module_names ~(unit : Module.t) ~modules words =
       Module.Name.Map.find modules m)
 
 let is_alias_module cctx (m : Module.t) =
+  let open Module.Name.Infix in
   match CC.alias_module cctx with
   | None -> false
   | Some alias -> alias.name = m.name
@@ -87,35 +90,30 @@ let parse_deps cctx ~file ~unit lines =
   match lines with
   | [] | _ :: _ :: _ -> invalid ()
   | [line] ->
-    match String.index line ':' with
+    match String.lsplit2 line ~on:':' with
     | None -> invalid ()
-    | Some i ->
-      let basename =
-        String.sub line ~pos:0 ~len:i
-        |> Filename.basename
-      in
+    | Some (basename, deps) ->
+      let basename = Filename.basename basename in
       if basename <> Path.basename file then invalid ();
       let deps =
-        String.extract_blank_separated_words
-          (String.sub line ~pos:(i + 1) ~len:(String.length line - (i + 1)))
+        String.extract_blank_separated_words deps
         |> parse_module_names ~unit ~modules
       in
-      (match lib_interface_module with
-       | None -> ()
-       | Some (m : Module.t) ->
-         if unit.name <> m.name && not (is_alias_module cctx unit) &&
-            List.exists deps ~f:(fun x -> Module.name x = m.name) then
-           die "Module %a in directory %s depends on %a.\n\
-                This doesn't make sense to me.\n\
-                \n\
-                %a is the main module of the library and is \
-                the only module exposed \n\
-                outside of the library. Consequently, it should \
-                be the one depending \n\
-                on all the other modules in the library."
-             Module.Name.pp unit.name (Path.to_string dir)
-             Module.Name.pp m.name
-             Module.Name.pp m.name);
+      Option.iter lib_interface_module ~f:(fun (m : Module.t) ->
+        let open Module.Name.Infix in
+        if unit.name <> m.name && not (is_alias_module cctx unit) &&
+           List.exists deps ~f:(fun x -> Module.name x = m.name) then
+          die "Module %a in directory %s depends on %a.\n\
+               This doesn't make sense to me.\n\
+               \n\
+               %a is the main module of the library and is \
+               the only module exposed \n\
+               outside of the library. Consequently, it should \
+               be the one depending \n\
+               on all the other modules in the library."
+            Module.Name.pp unit.name (Path.to_string dir)
+            Module.Name.pp m.name
+            Module.Name.pp m.name);
       match alias_module with
       | None -> deps
       | Some m -> m :: deps

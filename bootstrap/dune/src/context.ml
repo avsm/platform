@@ -1,3 +1,4 @@
+open! Stdune
 open Import
 open Fiber.O
 
@@ -10,8 +11,8 @@ module Kind = struct
   end
   type t = Default | Opam of Opam.t
 
-  let sexp_of_t : t -> Sexp.t = function
-    | Default -> Sexp.unsafe_atom_of_string "default"
+  let to_sexp : t -> Sexp.t = function
+    | Default -> Sexp.To_sexp.string "default"
     | Opam o  ->
       Sexp.To_sexp.(record [ "root"  , string o.root
                            ; "switch", string o.switch
@@ -47,7 +48,7 @@ type t =
   ; findlib_toolchain       : string option
   ; arch_sixtyfour          : bool
   ; opam_var_cache          : (string, string) Hashtbl.t
-  ; natdynlink_supported    : bool
+  ; natdynlink_supported    : Dynlink_supported.By_the_os.t
   ; ocaml_config            : Ocaml_config.t
   ; version_string          : string
   ; version                 : Ocaml_version.t
@@ -81,15 +82,16 @@ type t =
   ; ast_intf_magic_number   : string
   ; cmxs_magic_number       : string
   ; cmt_magic_number        : string
+  ; supports_shared_libraries : Dynlink_supported.By_the_os.t
   ; which_cache             : (string, Path.t option) Hashtbl.t
   }
 
-let sexp_of_t t =
+let to_sexp t =
   let open Sexp.To_sexp in
-  let path = Path.sexp_of_t in
+  let path = Path.to_sexp in
   record
     [ "name", string t.name
-    ; "kind", Kind.sexp_of_t t.kind
+    ; "kind", Kind.to_sexp t.kind
     ; "profile", string t.profile
     ; "merlin", bool t.merlin
     ; "for_host", option string (Option.map t.for_host ~f:(fun t -> t.name))
@@ -101,13 +103,16 @@ let sexp_of_t t =
     ; "ocamlopt", option path t.ocamlopt
     ; "ocamldep", path t.ocamldep
     ; "ocamlmklib", path t.ocamlmklib
-    ; "env", Env.sexp_of_t (Env.diff t.env Env.initial)
+    ; "env", Env.to_sexp (Env.diff t.env Env.initial)
     ; "findlib_path", list path (Findlib.path t.findlib)
     ; "arch_sixtyfour", bool t.arch_sixtyfour
-    ; "natdynlink_supported", bool t.natdynlink_supported
-    ; "opam_vars", string_hashtbl string t.opam_var_cache
-    ; "ocaml_config", Ocaml_config.sexp_of_t t.ocaml_config
-    ; "which", string_hashtbl (option path) t.which_cache
+    ; "natdynlink_supported",
+      bool (Dynlink_supported.By_the_os.get t.natdynlink_supported)
+    ; "supports_shared_libraries",
+      bool (Dynlink_supported.By_the_os.get t.supports_shared_libraries)
+    ; "opam_vars", Hashtbl.to_sexp string string t.opam_var_cache
+    ; "ocaml_config", Ocaml_config.to_sexp t.ocaml_config
+    ; "which", Hashtbl.to_sexp string (option path) t.which_cache
     ]
 
 let compare a b = compare a.name b.name
@@ -173,13 +178,12 @@ let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~targets
     >>= fun findlib_config ->
 
     let get_tool_using_findlib_config prog =
-      Option.bind findlib_config ~f:(fun conf ->
-        match Findlib.Config.get conf prog with
-        | None -> None
-        | Some s ->
-          match Filename.analyze_program_name s with
-          | In_path | Relative_to_current_dir -> which s
-          | Absolute -> Some (Path.of_filename_relative_to_initial_cwd s))
+      let open Option.O in
+      findlib_config >>= fun conf ->
+      Findlib.Config.get conf prog >>= fun s ->
+      match Filename.analyze_program_name s with
+      | In_path | Relative_to_current_dir -> which s
+      | Absolute -> Some (Path.of_filename_relative_to_initial_cwd s)
     in
 
     let ocamlc =
@@ -260,19 +264,22 @@ let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~targets
     in
     let ocaml_config_ok_exn = function
       | Ok x -> x
-      | Error msg ->
+      | Error (Ocaml_config.Origin.Ocamlc_config, msg) ->
         die "Failed to parse the output of '%s -config':@\n\
              %s"
           (Path.to_string ocamlc) msg
+      | Error (Makefile_config file, msg) ->
+        Errors.fail (Loc.in_file (Path.to_string file)) "%s" msg
     in
     Fiber.fork_and_join
       findlib_path
       (fun () ->
          Process.run_capture_lines ~env Strict ocamlc ["-config"]
          >>| fun lines ->
-         let open Result.O in
          ocaml_config_ok_exn
-           (Ocaml_config.Vars.of_lines lines >>= Ocaml_config.make))
+           (match Ocaml_config.Vars.of_lines lines with
+            | Ok vars -> Ocaml_config.make vars
+            | Error msg -> Error (Ocamlc_config, msg)))
     >>= fun (findlib_path, ocfg) ->
     let version = Ocaml_version.of_ocaml_config ocfg in
     let env =
@@ -302,14 +309,19 @@ let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~targets
         | Some prev -> (var, sprintf "%s%c%s" v path_sep prev)
       in
       let vars =
+        let local_lib_path =
+          (Path.relative
+             (Config.local_install_dir ~context:name)
+             "lib")
+        in
         [ extend_var "CAML_LD_LIBRARY_PATH"
             (Path.relative
                (Config.local_install_dir ~context:name)
                "lib/stublibs")
         ; extend_var "OCAMLPATH" ~path_sep:ocamlpath_sep
-            (Path.relative
-               (Config.local_install_dir ~context:name)
-               "lib")
+            local_lib_path
+        ; extend_var "OCAMLFIND_IGNORE_DUPS_IN" ~path_sep:ocamlpath_sep
+            local_lib_path
         ; extend_var "MANPATH"
             (Config.local_install_man_dir ~context:name)
         ; "DUNE_CONFIGURATOR", (Path.to_string ocamlc)
@@ -363,7 +375,8 @@ let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~targets
 
       ; opam_var_cache
 
-      ; natdynlink_supported
+      ; natdynlink_supported =
+          Dynlink_supported.By_the_os.of_bool natdynlink_supported
 
       ; stdlib_dir
       ; ocaml_config = ocfg
@@ -398,6 +411,9 @@ let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~targets
       ; ast_intf_magic_number   = Ocaml_config.ast_intf_magic_number   ocfg
       ; cmxs_magic_number       = Ocaml_config.cmxs_magic_number       ocfg
       ; cmt_magic_number        = Ocaml_config.cmt_magic_number        ocfg
+      ; supports_shared_libraries =
+          Dynlink_supported.By_the_os.of_bool
+            (Ocaml_config.supports_shared_libraries ocfg)
 
       ; which_cache
       }
@@ -435,8 +451,8 @@ let create_for_opam ?root ~env ~env_nodes ~targets ~profile ~switch ~name
       ["config"; "env"; "--root"; root; "--switch"; switch; "--sexp"]
     >>= fun s ->
     let vars =
-      Usexp.parse_string ~fname:"<opam output>" ~mode:Single s
-      |> Sexp.Of_sexp.(parse (list (pair string string)) Univ_map.empty)
+      Dsexp.parse_string ~fname:"<opam output>" ~mode:Single s
+      |> Dsexp.Of_sexp.(parse (list (pair string string)) Univ_map.empty)
       |> Env.Map.of_list_multi
       |> Env.Map.mapi ~f:(fun var values ->
         match List.rev values with

@@ -1,11 +1,14 @@
+open! Stdune
 open! Import
 
 module Name : sig
   type t
 
+  include Dsexp.Sexpable with type t := t
+
   val add_suffix : t -> string -> t
 
-  val t : t Sexp.To_sexp.t
+  val to_sexp : t Sexp.To_sexp.t
   val compare : t -> t -> Ordering.t
   val of_string : string -> t
   val to_string : t -> string
@@ -19,6 +22,8 @@ module Name : sig
   module Map : Map.S with type key = t
 
   module Top_closure : Top_closure.S with type key := t
+
+  module Infix : Comparable.OPS with type t = t
 end
 
 module Syntax : sig
@@ -82,7 +87,7 @@ val iter : t -> f:(Ml_kind.t -> File.t -> unit) -> unit
 val has_impl : t -> bool
 
 (** Prefix the object name with the library name. *)
-val with_wrapper : t -> libname:string -> t
+val with_wrapper : t -> libname:Lib_name.Local.t -> t
 
 val map_files : t -> f:(Ml_kind.t -> File.t -> File.t) -> t
 

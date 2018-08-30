@@ -1,5 +1,6 @@
 (** Merlin rules *)
 
+open! Stdune
 open Import
 
 type t
@@ -7,8 +8,8 @@ type t
 val make
   :  ?requires:Lib.t list Or_exn.t
   -> ?flags:(unit, string list) Build.t
-  -> ?preprocess:Jbuild.Preprocess.t
-  -> ?libname:string
+  -> ?preprocess:Dune_file.Preprocess.t
+  -> ?libname:Lib_name.Local.t
   -> ?source_dirs: Path.Set.t
   -> ?objs_dirs:Path.Set.t
   -> unit

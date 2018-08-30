@@ -1,3 +1,4 @@
+open! Stdune
 open! Import
 
 module Target : sig
@@ -15,7 +16,7 @@ module Rule : sig
     ; build    : (unit, Action.t) Build.t
     ; targets  : Target.t list
     ; sandbox  : bool
-    ; mode     : Jbuild.Rule.Mode.t
+    ; mode     : Dune_file.Rule.Mode.t
     ; locks    : Path.t list
     ; loc      : Loc.t option
     ; (** Directory where all the targets are produced *)
@@ -24,7 +25,7 @@ module Rule : sig
 
   val make
     :  ?sandbox:bool
-    -> ?mode:Jbuild.Rule.Mode.t
+    -> ?mode:Dune_file.Rule.Mode.t
     -> context:Context.t option
     -> ?locks:Path.t list
     -> ?loc:Loc.t

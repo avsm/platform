@@ -1,5 +1,6 @@
 (** Preprocessing of OCaml source files *)
 
+open! Stdune
 open! Import
 
 (** Preprocessing object *)
@@ -11,10 +12,10 @@ val make
   :  Super_context.t
   -> dir:Path.t
   -> dep_kind:Lib_deps_info.Kind.t
-  -> lint:Jbuild.Preprocess_map.t
-  -> preprocess:Jbuild.Preprocess_map.t
+  -> lint:Dune_file.Preprocess_map.t
+  -> preprocess:Dune_file.Preprocess_map.t
   -> preprocessor_deps:(unit, Path.t list) Build.t
-  -> lib_name:string option
+  -> lib_name:Lib_name.Local.t option
   -> scope:Scope.t
   -> dir_kind:File_tree.Dune_file.Kind.t
   -> t
@@ -41,7 +42,7 @@ val get_ppx_driver
   :  Super_context.t
   -> scope:Scope.t
   -> dir_kind:File_tree.Dune_file.Kind.t
-  -> (Loc.t * Jbuild.Pp.t) list
+  -> (Loc.t * Dune_file.Pp.t) list
   -> Path.t Or_exn.t
 
 module Compat_ppx_exe_kind : sig
@@ -55,12 +56,12 @@ end
 (** Compatibility [ppx.exe] program for the findlib method. *)
 val get_compat_ppx_exe
   :  Super_context.t
-  -> name:string
+  -> name:Lib_name.t
   -> kind:Compat_ppx_exe_kind.t
   -> Path.t
 
 (** [cookie_library_name lib_name] is ["--cookie"; lib_name] if [lib_name] is not
     [None] *)
-val cookie_library_name : string option -> string list
+val cookie_library_name : Lib_name.Local.t option -> string list
 
 val gen_rules : Super_context.t -> string list -> unit

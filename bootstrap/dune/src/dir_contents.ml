@@ -1,6 +1,7 @@
+open! Stdune
 open Import
 module Menhir_rules = Menhir
-open Jbuild
+open Dune_file
 open! No_io
 
 module Modules_field_evaluator : sig
@@ -39,7 +40,7 @@ end = struct
           match m with
           | Ok m -> Some m
           | Error s ->
-            Loc.fail loc "Module %a doesn't exist." Module.Name.pp s)
+            Errors.fail loc "Module %a doesn't exist." Module.Name.pp s)
       , modules
       )
 
@@ -100,28 +101,28 @@ end = struct
     if missing_intf_only <> [] then begin
       match Ordered_set_lang.loc buildable.modules_without_implementation with
       | None ->
-        Loc.warn buildable.loc
+        Errors.warn buildable.loc
           "Some modules don't have an implementation.\
            \nYou need to add the following field to this stanza:\
            \n\
            \n  %s\
            \n\
            \nThis will become an error in the future."
-          (let tag = Sexp.unsafe_atom_of_string
+          (let tag = Dsexp.unsafe_atom_of_string
                        "modules_without_implementation" in
            let modules =
              missing_intf_only
              |> uncapitalized
-             |> List.map ~f:Sexp.To_sexp.string
+             |> List.map ~f:Dsexp.To_sexp.string
            in
-           Sexp.to_string ~syntax:Dune (List (tag :: modules)))
+           Dsexp.to_string ~syntax:Dune (List (tag :: modules)))
       | Some loc ->
         let list_modules l =
           uncapitalized l
           |> List.map ~f:(sprintf "- %s")
           |> String.concat ~sep:"\n"
         in
-        Loc.warn loc
+        Errors.warn loc
           "The following modules must be listed here as they don't \
            have an implementation:\n\
            %s\n\
@@ -135,7 +136,7 @@ end = struct
         |> Option.value_exn
       in
       (* CR-soon jdimino for jdimino: report all errors *)
-      Loc.fail loc
+      Errors.fail loc
         "Module %a has an implementation, it cannot be listed here"
         Module.Name.pp module_name
     end
@@ -154,7 +155,7 @@ end = struct
       )
     in
     Module.Name.Map.iteri fake_modules ~f:(fun m loc ->
-      Loc.warn loc "Module %a is excluded but it doesn't exist."
+      Errors.warn loc "Module %a is excluded but it doesn't exist."
         Module.Name.pp m
     );
     check_invalid_module_listing ~buildable:conf ~intf_only ~modules
@@ -162,7 +163,15 @@ end = struct
     modules
 end
 
-module Library_modules = struct
+module Library_modules : sig
+  type t = private
+    { modules          : Module.t Module.Name.Map.t
+    ; alias_module     : Module.t option
+    ; main_module_name : Module.Name.t
+    }
+
+  val make : Library.t -> dir:Path.t -> Module.t Module.Name.Map.t -> t
+end = struct
   type t =
     { modules          : Module.t Module.Name.Map.t
     ; alias_module     : Module.t option
@@ -170,11 +179,13 @@ module Library_modules = struct
     }
 
   let make (lib : Library.t) ~dir (modules : Module.t Module.Name.Map.t) =
-    let main_module_name = Module.Name.of_string lib.name in
+    let main_module_name =
+      Module.Name.of_string (Lib_name.Local.to_string lib.name) in
     let modules =
       if not lib.wrapped then
         modules
       else
+        let open Module.Name.Infix in
         Module.Name.Map.map modules ~f:(fun m ->
           if m.name = main_module_name then
             m
@@ -182,6 +193,7 @@ module Library_modules = struct
             Module.with_wrapper m ~libname:lib.name)
     in
     let alias_module =
+      let lib_name = Lib_name.Local.to_string lib.name in
       if not lib.wrapped ||
          (Module.Name.Map.cardinal modules = 1 &&
           Module.Name.Map.mem modules main_module_name) then
@@ -194,14 +206,14 @@ module Library_modules = struct
         Some
           (Module.make (Module.Name.add_suffix main_module_name "__")
              ~impl:(Module.File.make OCaml
-                      (Path.relative dir (sprintf "%s__.ml-gen" lib.name)))
-             ~obj_name:(lib.name ^ "__"))
+                      (Path.relative dir (sprintf "%s__.ml-gen" lib_name)))
+             ~obj_name:(lib_name ^ "__"))
       else
         Some
           (Module.make main_module_name
              ~impl:(Module.File.make OCaml
-                      (Path.relative dir (lib.name ^ ".ml-gen")))
-             ~obj_name:lib.name)
+                      (Path.relative dir (lib_name ^ ".ml-gen")))
+             ~obj_name:lib_name)
     in
     { modules; alias_module; main_module_name }
 end
@@ -211,14 +223,14 @@ module Executables_modules = struct
 end
 
 type modules =
-  { libraries : Library_modules.t String.Map.t
+  { libraries : Library_modules.t Lib_name.Map.t
   ; executables : Executables_modules.t String.Map.t
   ; (* Map from modules to the buildable they are part of *)
     rev_map : Buildable.t Module.Name.Map.t
   }
 
 let empty_modules =
-  { libraries = String.Map.empty
+  { libraries = Lib_name.Map.empty
   ; executables = String.Map.empty
   ; rev_map = Module.Name.Map.empty
   }
@@ -227,7 +239,7 @@ type t =
   ; dir : Path.t
   ; text_files : String.Set.t
   ; modules : modules Lazy.t
-  ; mlds : (Jbuild.Documentation.t * Path.t list) list Lazy.t
+  ; mlds : (Dune_file.Documentation.t * Path.t list) list Lazy.t
   }
 
 and kind =
@@ -249,12 +261,12 @@ let text_files t = t.text_files
 
 let modules_of_library t ~name =
   let map = (Lazy.force t.modules).libraries in
-  match String.Map.find map name with
+  match Lib_name.Map.find map name with
   | Some m -> m
   | None ->
     Exn.code_error "Dir_contents.modules_of_library"
-      [ "name", Sexp.To_sexp.string name
-      ; "available", Sexp.To_sexp.(list string) (String.Map.keys map)
+      [ "name", Lib_name.to_sexp name
+      ; "available", Sexp.To_sexp.(list Lib_name.to_sexp) (Lib_name.Map.keys map)
       ]
 
 let modules_of_executables t ~first_exe =
@@ -274,13 +286,13 @@ let mlds t (doc : Documentation.t) =
   let map = Lazy.force t.mlds in
   match
     List.find_map map ~f:(fun (doc', x) ->
-      Option.some_if (doc.loc = doc'.loc) x)
+      Option.some_if (Loc.equal doc.loc doc'.loc) x)
   with
   | Some x -> x
   | None ->
     Exn.code_error "Dir_contents.mlds"
-      [ "doc", Loc.sexp_of_t doc.loc
-      ; "available", Sexp.To_sexp.(list Loc.sexp_of_t)
+      [ "doc", Loc.to_sexp doc.loc
+      ; "available", Sexp.To_sexp.(list Loc.to_sexp)
                        (List.map map ~f:(fun (d, _) -> d.Documentation.loc))
       ]
 
@@ -311,7 +323,7 @@ let load_text_files sctx ft_dir d =
         (* Manually add files generated by the (select ...)
            dependencies *)
         List.filter_map buildable.libraries ~f:(fun dep ->
-          match (dep : Jbuild.Lib_dep.t) with
+          match (dep : Dune_file.Lib_dep.t) with
           | Direct _ -> None
           | Select s -> Some s.result_fn)
       | _ -> [])
@@ -373,14 +385,14 @@ let build_modules_map (d : Super_context.Dir_with_jbuild.t) ~modules =
   in
   let libraries =
     match
-      String.Map.of_list_map libs ~f:(fun (lib, m) -> Library.best_name lib, m)
+      Lib_name.Map.of_list_map libs ~f:(fun (lib, m) -> Library.best_name lib, m)
     with
     | Ok x -> x
     | Error (name, _, (lib2, _)) ->
-      Loc.fail lib2.buildable.loc
-        "Library %S appears for the second time \
+      Errors.fail lib2.buildable.loc
+        "Library %a appears for the second time \
          in this directory"
-        name
+        Lib_name.pp_quoted name
   in
   let executables =
     match
@@ -389,7 +401,7 @@ let build_modules_map (d : Super_context.Dir_with_jbuild.t) ~modules =
     with
     | Ok x -> x
     | Error (name, _, (exes2, _)) ->
-      Loc.fail exes2.buildable.loc
+      Errors.fail exes2.buildable.loc
         "Executable %S appears for the second time \
          in this directory"
         name
@@ -409,12 +421,13 @@ let build_modules_map (d : Super_context.Dir_with_jbuild.t) ~modules =
         match Module.Name.Map.of_list rev_modules with
         | Ok x -> x
         | Error (name, _, _) ->
+          let open Module.Name.Infix in
           let locs =
             List.filter_map rev_modules ~f:(fun (n, b) ->
               Option.some_if (n = name) b.loc)
             |> List.sort ~compare
           in
-          Loc.fail (Loc.in_file (List.hd locs).start.pos_fname)
+          Errors.fail (Loc.in_file (List.hd locs).start.pos_fname)
             "Module %a is used in several stanzas:@\n\
              @[<v>%a@]@\n\
              @[%a@]"
@@ -439,7 +452,7 @@ let build_modules_map (d : Super_context.Dir_with_jbuild.t) ~modules =
             List.sort ~compare
               (b.Buildable.loc :: List.map rest ~f:(fun b -> b.Buildable.loc))
           in
-          Loc.warn (Loc.in_file b.loc.start.pos_fname)
+          Errors.warn (Loc.in_file b.loc.start.pos_fname)
             "Module %a is used in several stanzas:@\n\
              @[<v>%a@]@\n\
              @[%a@]@\n\
@@ -475,7 +488,7 @@ let build_mlds_map (d : Super_context.Dir_with_jbuild.t) ~files =
             | Some s ->
               s
             | None ->
-              Loc.fail loc "%s.mld doesn't exist in %s" s
+              Errors.fail loc "%s.mld doesn't exist in %s" s
                 (Path.to_string_maybe_quoted
                    (Path.drop_optional_build_context dir))
           )
@@ -511,7 +524,7 @@ module Dir_status = struct
       match stanza with
       | Include_subdirs (loc, x) ->
         if Option.is_some acc then
-          Loc.fail loc "The 'include_subdirs' stanza cannot appear \
+          Errors.fail loc "The 'include_subdirs' stanza cannot appear \
                         more than once";
         Some x
       | _ -> acc)
@@ -521,7 +534,7 @@ module Dir_status = struct
       match stanza with
       | Library { buildable; _} | Executables { buildable; _ }
       | Tests { exes = { buildable; _ }; _ } ->
-        Loc.fail buildable.loc
+        Errors.fail buildable.loc
           "This stanza is not allowed in a sub-directory of directory with \
            (include_subdirs unqualified).\n\
            Hint: add (include_subdirs no) to this file."
@@ -546,10 +559,13 @@ module Dir_status = struct
                 Is_component_of_a_group_but_not_the_root None
           end
         | Some ft_dir ->
-          let project_root = Path.of_local (File_tree.Dir.project ft_dir).root in
+          let project_root =
+            File_tree.Dir.project ft_dir
+            |> Dune_project.root
+            |> Path.of_local in
           match Super_context.stanzas_in sctx ~dir with
           | None ->
-            if dir = project_root ||
+            if Path.equal dir project_root ||
                is_standalone (get sctx ~dir:(Path.parent_exn dir)) then
               Standalone (Some (ft_dir, None))
             else
@@ -658,7 +674,7 @@ let rec get sctx ~dir =
             ~f:(fun acc (dir, files) ->
               let modules = modules_of_files ~dir ~files in
               Module.Name.Map.union acc modules ~f:(fun name x y ->
-                Loc.fail (Loc.in_file
+                Errors.fail (Loc.in_file
                             (Path.to_string
                                (match File_tree.Dir.dune_file ft_dir with
                                 | None ->

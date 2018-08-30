@@ -1,3 +1,4 @@
+open! Stdune
 open! Import
 
 type t
@@ -25,6 +26,6 @@ val binary
 val file_of_lib
   :  t
   -> loc:Loc.t
-  -> lib:string
+  -> lib:Lib_name.t
   -> file:string
   -> (Path.t, fail) result

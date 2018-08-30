@@ -56,6 +56,14 @@
  (enabled_if (<> %{ocaml-config:system} win)))
 
 (alias
+ (name configurator-gh1166)
+ (deps (package dune) (source_tree test-cases/configurator-gh1166))
+ (action
+  (chdir
+   test-cases/configurator-gh1166
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name copy_files)
  (deps (package dune) (source_tree test-cases/copy_files))
  (action
@@ -200,11 +208,27 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name findlib-dynload)
+ (deps (package dune) (source_tree test-cases/findlib-dynload))
+ (action
+  (chdir
+   test-cases/findlib-dynload
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name findlib-error)
  (deps (package dune) (source_tree test-cases/findlib-error))
  (action
   (chdir
    test-cases/findlib-error
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name fmt)
+ (deps (package dune) (source_tree test-cases/fmt))
+ (action
+  (chdir
+   test-cases/fmt
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -229,6 +253,14 @@
  (action
   (chdir
    test-cases/github1019
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github1099)
+ (deps (package dune) (source_tree test-cases/github1099))
+ (action
+  (chdir
+   test-cases/github1099
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -555,6 +587,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name ocamllex-jbuild)
+ (deps (package dune) (source_tree test-cases/ocamllex-jbuild))
+ (action
+  (chdir
+   test-cases/ocamllex-jbuild
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name odoc)
  (deps (package dune) (source_tree test-cases/odoc))
  (action
@@ -701,6 +741,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name several-packages)
+ (deps (package dune) (source_tree test-cases/several-packages))
+ (action
+  (chdir
+   test-cases/several-packages
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name shadow-bindings)
  (deps (package dune) (source_tree test-cases/shadow-bindings))
  (action
@@ -757,6 +805,22 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name utop-default)
+ (deps (package dune) (source_tree test-cases/utop-default))
+ (action
+  (chdir
+   test-cases/utop-default
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name variants)
+ (deps (package dune) (source_tree test-cases/variants))
+ (action
+  (chdir
+   test-cases/variants
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name windows-diff)
  (deps (package dune) (source_tree test-cases/windows-diff))
  (action
@@ -782,6 +846,7 @@
   (alias byte-code-only)
   (alias c-stubs)
   (alias configurator)
+  (alias configurator-gh1166)
   (alias copy_files)
   (alias cross-compilation)
   (alias custom-build-dir)
@@ -799,10 +864,13 @@
   (alias exec-missing)
   (alias fallback-dune)
   (alias findlib)
+  (alias findlib-dynload)
   (alias findlib-error)
+  (alias fmt)
   (alias force-test)
   (alias gen-opam-install-file)
   (alias github1019)
+  (alias github1099)
   (alias github20)
   (alias github24)
   (alias github25)
@@ -841,6 +909,7 @@
   (alias ocaml-config-macro)
   (alias ocaml-syntax)
   (alias ocamldep-multi-stanzas)
+  (alias ocamllex-jbuild)
   (alias odoc)
   (alias odoc-unique-mlds)
   (alias output-obj)
@@ -858,6 +927,7 @@
   (alias scope-bug)
   (alias scope-ppx-bug)
   (alias select)
+  (alias several-packages)
   (alias shadow-bindings)
   (alias subst)
   (alias syntax-versioning)
@@ -865,6 +935,8 @@
   (alias too-many-parens)
   (alias use-meta)
   (alias utop)
+  (alias utop-default)
+  (alias variants)
   (alias windows-diff)
   (alias workspaces)))
 
@@ -878,6 +950,7 @@
   (alias byte-code-only)
   (alias c-stubs)
   (alias configurator)
+  (alias configurator-gh1166)
   (alias copy_files)
   (alias cross-compilation)
   (alias custom-build-dir)
@@ -896,8 +969,10 @@
   (alias fallback-dune)
   (alias findlib)
   (alias findlib-error)
+  (alias fmt)
   (alias force-test)
   (alias github1019)
+  (alias github1099)
   (alias github20)
   (alias github24)
   (alias github25)
@@ -932,6 +1007,7 @@
   (alias ocaml-config-macro)
   (alias ocaml-syntax)
   (alias ocamldep-multi-stanzas)
+  (alias ocamllex-jbuild)
   (alias output-obj)
   (alias package-dep)
   (alias path-variables)
@@ -943,12 +1019,15 @@
   (alias reporting-of-cycles)
   (alias scope-bug)
   (alias select)
+  (alias several-packages)
   (alias shadow-bindings)
   (alias subst)
   (alias syntax-versioning)
   (alias tests-stanza)
   (alias too-many-parens)
   (alias use-meta)
+  (alias utop-default)
+  (alias variants)
   (alias windows-diff)
   (alias workspaces)))
 

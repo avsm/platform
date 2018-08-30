@@ -1,12 +1,13 @@
+open! Stdune
 (** Dune representation of the source tree *)
 
 open! Import
 
 module Dune_file : sig
   module Kind : sig
-    type t = Usexp.syntax = Jbuild | Dune
+    type t = Dsexp.syntax = Jbuild | Dune
 
-    val lexer : t -> Sexp.Lexer.t
+    val lexer : t -> Dsexp.Lexer.t
   end
 
   module Plain : sig
@@ -15,7 +16,7 @@ module Dune_file : sig
         as we don't need them. *)
     type t =
       { path          : Path.t
-      ; mutable sexps : Sexp.Ast.t list
+      ; mutable sexps : Dsexp.Ast.t list
       }
   end
 
@@ -87,6 +88,9 @@ val files_of : t -> Path.t -> Path.Set.t
 
 (** [true] iff the path is either a directory or a file *)
 val exists : t -> Path.t -> bool
+
+(** [true] iff the path is a directory *)
+val dir_exists : t -> Path.t -> bool
 
 (** [true] iff the path is a file *)
 val file_exists : t -> Path.t -> string -> bool

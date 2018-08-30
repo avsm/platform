@@ -1,3 +1,4 @@
+open! Stdune
 open Import
 
 (** {1 Generals} *)
@@ -7,7 +8,7 @@ type t
 
 (** For libraries defined in the workspace, this is the [public_name] if
     present or the [name] if not. *)
-val name : t -> string
+val name : t -> Lib_name.t
 
 (* CR-someday diml: this should be [Path.t list], since some libraries
    have multiple source directories because of [copy_files]. *)
@@ -21,7 +22,7 @@ val obj_dir : t -> Path.t
 val is_local : t -> bool
 
 val synopsis     : t -> string option
-val kind         : t -> Jbuild.Library.Kind.t
+val kind         : t -> Dune_file.Library.Kind.t
 val archives     : t -> Path.t list Mode.Dict.t
 val plugins      : t -> Path.t list Mode.Dict.t
 val jsoo_runtime : t -> Path.t list
@@ -69,11 +70,21 @@ module L : sig
 
   (** All the library archive files (.a, .cmxa, _stubs.a, ...)  that
       should be linked in when linking an executable. *)
-  val archive_files : t -> mode:Mode.t -> ext_lib:string -> Path.t list
+  val archive_files : t -> mode:Mode.t -> Path.t list
 
   val jsoo_runtime_files : t -> Path.t list
 
   val remove_dups : t -> t
+end
+
+(** Operation on list of libraries and modules *)
+module Lib_and_module : sig
+  type nonrec t =
+    | Lib of t
+    | Module of Module.t * Path.t (** obj_dir *)
+
+  val link_flags : t list -> mode:Mode.t -> stdlib_dir:Path.t -> _ Arg_spec.t
+
 end
 
 (** {1 Raw library descriptions} *)
@@ -82,15 +93,15 @@ end
 module Info : sig
   module Deps : sig
     type t =
-      | Simple  of (Loc.t * string) list
-      | Complex of Jbuild.Lib_dep.t list
+      | Simple  of (Loc.t * Lib_name.t) list
+      | Complex of Dune_file.Lib_dep.t list
   end
 
   (** Raw description of a library, where dependencies are not
       resolved. *)
   type t =
     { loc              : Loc.t
-    ; kind             : Jbuild.Library.Kind.t
+    ; kind             : Dune_file.Library.Kind.t
     ; status           : Status.t
     ; src_dir          : Path.t
     ; obj_dir          : Path.t
@@ -101,15 +112,20 @@ module Info : sig
     ; foreign_archives : Path.t list Mode.Dict.t (** [.a/.lib/...] files *)
     ; jsoo_runtime     : Path.t list
     ; requires         : Deps.t
-    ; ppx_runtime_deps : (Loc.t * string) list
-    ; pps              : (Loc.t * Jbuild.Pp.t) list
+    ; ppx_runtime_deps : (Loc.t * Lib_name.t) list
+    ; pps              : (Loc.t * Dune_file.Pp.t) list
     ; optional         : bool
-    ; virtual_deps     : (Loc.t * string) list
+    ; virtual_deps     : (Loc.t * Lib_name.t) list
     ; dune_version : Syntax.Version.t option
-    ; sub_systems      : Jbuild.Sub_system_info.t Sub_system_name.Map.t
+    ; sub_systems      : Dune_file.Sub_system_info.t Sub_system_name.Map.t
     }
 
-  val of_library_stanza : dir:Path.t -> Jbuild.Library.t -> t
+  val of_library_stanza
+    : dir:Path.t
+    -> ext_lib:string
+    -> Dune_file.Library.t
+    -> t
+
   val of_findlib_package : Findlib.Package.t -> t
 end
 
@@ -120,7 +136,7 @@ module Error : sig
     module Reason : sig
       module Hidden : sig
         type t =
-          { name   : string
+          { name   : Lib_name.t
           ; path   : Path.t
           ; reason : string
           }
@@ -136,7 +152,7 @@ module Error : sig
 
     type nonrec t =
       { loc    : Loc.t (** For names coming from Jbuild files *)
-      ; name   : string
+      ; name   : Lib_name.t
       ; reason : Reason.t
       }
   end
@@ -172,7 +188,7 @@ module Error : sig
   type t =
     | Library_not_available        of Library_not_available.t
     | No_solution_found_for_select of No_solution_found_for_select.t
-    | Dependency_cycle             of (Path.t * string) list
+    | Dependency_cycle             of (Path.t * Lib_name.t) list
     | Conflict                     of Conflict.t
     | Overlap                      of Overlap.t
     | Private_deps_not_allowed     of Private_deps_not_allowed.t
@@ -216,7 +232,7 @@ module Compile : sig
   val pps : t -> L.t Or_exn.t
 
   val optional          : t -> bool
-  val user_written_deps : t -> Jbuild.Lib_deps.t
+  val user_written_deps : t -> Dune_file.Lib_deps.t
 
   (** Sub-systems used in this compilation context *)
   val sub_systems : t -> sub_system list
@@ -236,7 +252,7 @@ module DB : sig
       | Not_found
       | Found    of Info.t
       | Hidden   of Info.t * string
-      | Redirect of t option * string
+      | Redirect of t option * Lib_name.t
   end
 
   (** Create a new library database. [resolve] is used to resolve
@@ -249,15 +265,16 @@ module DB : sig
   *)
   val create
     :  ?parent:t
-    -> resolve:(string -> Resolve_result.t)
-    -> all:(unit -> string list)
+    -> resolve:(Lib_name.t -> Resolve_result.t)
+    -> all:(unit -> Lib_name.t list)
     -> unit
     -> t
 
   (** Create a database from a list of library stanzas *)
   val create_from_library_stanzas
     :  ?parent:t
-    -> (Path.t * Jbuild.Library.t) list
+    -> ext_lib:string
+    -> (Path.t * Dune_file.Library.t) list
     -> t
 
   val create_from_findlib
@@ -265,21 +282,21 @@ module DB : sig
     -> Findlib.t
     -> t
 
-  val find : t -> string -> (lib, Error.Library_not_available.Reason.t) result
+  val find : t -> Lib_name.t -> (lib, Error.Library_not_available.Reason.t) result
   val find_many
     :  t
-    -> string list
+    -> Lib_name.t list
     -> lib list Or_exn.t
 
-  val find_even_when_hidden : t -> string -> lib option
+  val find_even_when_hidden : t -> Lib_name.t -> lib option
 
-  val available : t -> string -> bool
+  val available : t -> Lib_name.t -> bool
 
   (** Retrieve the compile information for the given library. Works
       for libraries that are optional and not available as well. *)
-  val get_compile_info : t -> ?allow_overlaps:bool -> string -> Compile.t
+  val get_compile_info : t -> ?allow_overlaps:bool -> Lib_name.t -> Compile.t
 
-  val resolve : t -> Loc.t * string -> lib Or_exn.t
+  val resolve : t -> Loc.t * Lib_name.t -> lib Or_exn.t
 
   (** Resolve libraries written by the user in a jbuild file. The
       resulting list of libraries is transitively closed and sorted by
@@ -289,13 +306,13 @@ module DB : sig
   val resolve_user_written_deps
     :  t
     -> ?allow_overlaps:bool
-    -> Jbuild.Lib_dep.t list
-    -> pps:(Loc.t * Jbuild.Pp.t) list
+    -> Dune_file.Lib_dep.t list
+    -> pps:(Loc.t * Dune_file.Pp.t) list
     -> Compile.t
 
   val resolve_pps
     :  t
-    -> (Loc.t * Jbuild.Pp.t) list
+    -> (Loc.t * Dune_file.Pp.t) list
     -> L.t Or_exn.t
 
   (** Return the list of all libraries in this database. If
@@ -316,16 +333,16 @@ module Sub_system : sig
   type t = sub_system = ..
 
   module type S = sig
-    module Info : Jbuild.Sub_system_info.S
+    module Info : Dune_file.Sub_system_info.S
     type t
     type sub_system += T of t
     val instantiate
-      :  resolve:(Loc.t * string -> lib Or_exn.t)
+      :  resolve:(Loc.t * Lib_name.t -> lib Or_exn.t)
       -> get:(loc:Loc.t -> lib -> t option)
       -> lib
       -> Info.t
       -> t
-    val to_sexp : (t -> Syntax.Version.t * Sexp.t) option
+    val dgen : (t -> Syntax.Version.t * Dsexp.t) option
   end
 
   module Register(M : S) : sig
@@ -333,13 +350,13 @@ module Sub_system : sig
     val get : lib -> M.t option
   end
 
-  val dump_config : lib -> (Syntax.Version.t * Sexp.t) Sub_system_name.Map.t
+  val dump_config : lib -> (Syntax.Version.t * Dsexp.t) Sub_system_name.Map.t
 end with type lib := t
 
 (** {1 Dependencies for META files} *)
 
 module Meta : sig
-  val requires                               : t -> String.Set.t
-  val ppx_runtime_deps                       : t -> String.Set.t
-  val ppx_runtime_deps_for_deprecated_method : t -> String.Set.t
+  val requires                               : t -> Lib_name.Set.t
+  val ppx_runtime_deps                       : t -> Lib_name.Set.t
+  val ppx_runtime_deps_for_deprecated_method : t -> Lib_name.Set.t
 end

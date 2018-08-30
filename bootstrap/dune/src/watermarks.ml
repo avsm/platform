@@ -1,3 +1,4 @@
+open! Stdune
 open Import
 open Fiber.O
 
@@ -21,11 +22,7 @@ let is_a_source_file fn =
 let make_watermark_map ~name ~version ~commit =
   let opam_file = Opam_file.load (Path.in_source (name ^ ".opam")) in
   let version_num =
-    if String.is_prefix version ~prefix:"v" then
-      String.sub version ~pos:1 ~len:(String.length version - 1)
-    else
-      version
-  in
+    Option.value ~default:version (String.drop_prefix version ~prefix:"v") in
   let opam_var name sep =
     match Opam_file.get_field opam_file name with
     | None -> Error (sprintf "variable %S not found in opam file" name)
@@ -130,7 +127,7 @@ let subst_string s path ~map =
             loop (i + 1) acc
           | Some (Error msg) ->
             let loc = loc_of_offset ~ofs:start ~len:(i + 1 - start) in
-            Loc.fail loc "%s" msg
+            Errors.fail loc "%s" msg
         end
       | _ -> loop (i + 1) acc
   in

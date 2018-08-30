@@ -1,4 +1,4 @@
-open Stdune
+open! Stdune
 
 module Var : sig
   type t =
@@ -40,7 +40,7 @@ module Map : sig
   val superpose : t -> t -> t
 
   (** Map with all named values as [Named_local] *)
-  val of_bindings : _ Jbuild.Bindings.t -> t
+  val of_bindings : _ Dune_file.Bindings.t -> t
 
   val singleton : string -> Var.t -> t
 

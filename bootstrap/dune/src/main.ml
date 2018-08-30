@@ -1,3 +1,4 @@
+open! Stdune
 open Import
 open Fiber.O
 
@@ -78,8 +79,8 @@ let setup ?(log=Log.no_log)
   >>= fun contexts ->
   let contexts = List.concat contexts in
   List.iter contexts ~f:(fun (ctx : Context.t) ->
-    Log.infof log "@[<1>Dune context:@,%a@]@." (Sexp.pp Dune)
-      (Context.sexp_of_t ctx));
+    Log.infof log "@[<1>Dune context:@,%a@]@." Sexp.pp
+      (Context.to_sexp ctx));
   let rule_done  = ref 0 in
   let rule_total = ref 0 in
   let gen_status_line () =
@@ -132,8 +133,8 @@ let external_lib_deps ?log ~packages () =
      Path.Map.map
        (Build_system.all_lib_deps setup.build_system
           ~request:(Build.paths install_files))
-       ~f:(String.Map.filteri ~f:(fun name _ ->
-         not (String.Set.mem internals name))))
+       ~f:(Lib_name.Map.filteri ~f:(fun name _ ->
+         not (Lib_name.Set.mem internals name))))
 
 let ignored_during_bootstrap =
   Path.Set.of_list
@@ -169,6 +170,7 @@ let auto_concurrency =
              | None -> loop rest
              | Some prog ->
                Process.run_capture (Accept All) prog args ~env:Env.initial
+                 ~stderr_to:(File Config.dev_null)
                >>= function
                | Error _ -> loop rest
                | Ok s ->

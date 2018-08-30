@@ -2,7 +2,7 @@
 
 (** A scope is a project + a library database  *)
 
-open Stdune
+open! Stdune
 
 type t
 
@@ -25,7 +25,8 @@ module DB : sig
     :  projects:Dune_project.t list
     -> context:string
     -> installed_libs:Lib.DB.t
-    -> (Path.t * Jbuild.Library.t) list
+    -> ext_lib:string
+    -> (Path.t * Dune_file.Library.t) list
     -> t * Lib.DB.t
 
   val find_by_dir  : t -> Path.t              -> scope

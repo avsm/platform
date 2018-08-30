@@ -1,6 +1,7 @@
+open! Stdune
 open Import
 open Build.O
-open Jbuild
+open Dune_file
 
 module SC = Super_context
 
@@ -26,10 +27,10 @@ module Driver = struct
         ; as_ppx_flags : Ordered_set_lang.Unexpanded.t
         ; lint_flags   : Ordered_set_lang.Unexpanded.t
         ; main         : string
-        ; replaces     : (Loc.t * string) list
+        ; replaces     : (Loc.t * Lib_name.t) list
         }
 
-      type Jbuild.Sub_system_info.t += T of t
+      type Dune_file.Sub_system_info.t += T of t
 
       let loc t = t.loc
 
@@ -52,7 +53,8 @@ module Driver = struct
                ~check:(Syntax.since syntax (1, 1))
            and lint_flags = Ordered_set_lang.Unexpanded.field "lint_flags"
            and main = field "main" string
-           and replaces = field "replaces" (list (located string)) ~default:[]
+           and replaces =
+             field "replaces" (list (located (Lib_name.dparse))) ~default:[]
            in
            { loc
            ; flags
@@ -85,25 +87,26 @@ module Driver = struct
       ; lib = lazy lib
       ; replaces =
           let open Result.O in
-          Result.all
+          Result.List.all
             (List.map info.replaces
                ~f:(fun ((loc, name) as x) ->
                  resolve x >>= fun lib ->
                  match get ~loc lib with
                  | None ->
-                   Error (Loc.exnf loc "%S is not a %s" name
+                   Error (Errors.exnf loc "%a is not a %s"
+                            Lib_name.pp_quoted name
                             (desc ~plural:false))
                  | Some t -> Ok t))
       }
 
-    let to_sexp t =
-      let open Sexp.To_sexp in
-      let f x = string (Lib.name (Lazy.force x.lib)) in
+    let dgen t =
+      let open Dsexp.To_sexp in
+      let f x = Lib_name.dgen (Lib.name (Lazy.force x.lib)) in
       ((1, 0),
        record
-         [ "flags"            , Ordered_set_lang.Unexpanded.sexp_of_t
+         [ "flags"            , Ordered_set_lang.Unexpanded.dgen
                                   t.info.flags
-         ; "lint_flags"       , Ordered_set_lang.Unexpanded.sexp_of_t
+         ; "lint_flags"       , Ordered_set_lang.Unexpanded.dgen
                                   t.info.lint_flags
          ; "main"             , string t.info.main
          ; "replaces"         , list f (Result.ok_exn t.replaces)
@@ -119,9 +122,9 @@ module Driver = struct
 
   let make_error loc msg =
     match loc with
-    | User_file (loc, _) -> Error (Loc.exnf loc "%a" Fmt.text msg)
+    | User_file (loc, _) -> Error (Errors.exnf loc "%a" Fmt.text msg)
     | Dot_ppx (path, pps) ->
-      Error (Loc.exnf (Loc.in_file (Path.to_string path)) "%a" Fmt.text
+      Error (Errors.exnf (Loc.in_file (Path.to_string path)) "%a" Fmt.text
                (sprintf
                   "Failed to create on-demand ppx rewriter for %s; %s"
                   (String.enumerate_and (List.map pps ~f:Pp.to_string))
@@ -138,7 +141,7 @@ module Driver = struct
         | _ ->
           match
             List.filter_map libs ~f:(fun lib ->
-              match Lib.name lib with
+              match Lib_name.to_string (Lib.name lib) with
               | "ocaml-migrate-parsetree" | "ppxlib" | "ppx_driver" as s ->
                 Some s
               | _ -> None)
@@ -170,7 +173,7 @@ module Driver = struct
         (sprintf
            "Too many incompatible ppx drivers were found: %s."
            (String.enumerate_and (List.map ts ~f:(fun t ->
-              Lib.name (lib t)))))
+              Lib_name.to_string (Lib.name (lib t))))))
     | Error (Other exn) ->
       Error exn
 end
@@ -192,11 +195,11 @@ module Jbuild_driver = struct
       let parsing_context =
         Univ_map.singleton (Syntax.key Stanza.syntax) (0, 0)
       in
-      Sexp.parse_string ~mode:Single ~fname:"<internal>" info
-        ~lexer:Sexp.Lexer.jbuild_token
-      |> Sexp.Of_sexp.parse Driver.Info.parse parsing_context
+      Dsexp.parse_string ~mode:Single ~fname:"<internal>" info
+        ~lexer:Dsexp.Lexer.jbuild_token
+      |> Dsexp.Of_sexp.parse Driver.Info.parse parsing_context
     in
-    (Pp.of_string name,
+    (Pp.of_string ~loc:None name,
      { info
      ; lib = lazy (assert false)
      ; replaces = Ok []
@@ -218,9 +221,9 @@ module Jbuild_driver = struct
   |}
 
   let drivers =
-    [ Pp.of_string "ocaml-migrate-parsetree.driver-main" , omp
-    ; Pp.of_string "ppxlib.runner"                       , ppxlib
-    ; Pp.of_string "ppx_driver.runner"                   , ppx_driver
+    [ Pp.of_string ~loc:None "ocaml-migrate-parsetree.driver-main" , omp
+    ; Pp.of_string ~loc:None "ppxlib.runner"                       , ppxlib
+    ; Pp.of_string ~loc:None "ppx_driver.runner"                   , ppx_driver
     ]
 
   let get_driver pps =
@@ -269,7 +272,7 @@ let build_ppx_driver sctx ~lib_db ~dep_kind ~target ~dir_kind pps =
       (* Extend the dependency stack as we don't have locations at
          this point *)
       Dep_path.prepend_exn e
-        (Preprocess (pps : Jbuild.Pp.t list :> string list)))
+        (Preprocess (pps : Dune_file.Pp.t list :> Lib_name.t list)))
       (Lib.DB.resolve_pps lib_db
          (List.map pps ~f:(fun x -> (Loc.none, x)))
        >>= Lib.closure
@@ -295,7 +298,7 @@ let build_ppx_driver sctx ~lib_db ~dep_kind ~target ~dir_kind pps =
        (Lib_deps.info ~kind:dep_kind (Lib_deps.of_pps pps))
      >>>
      Build.of_result_map driver_and_libs ~f:(fun (_, libs) ->
-       Build.paths (Lib.L.archive_files libs ~mode ~ext_lib:ctx.ext_lib))
+       Build.paths (Lib.L.archive_files libs ~mode))
      >>>
      Build.run ~context:ctx (Ok compiler)
        [ A "-o" ; Target target
@@ -320,7 +323,7 @@ let get_rules sctx key ~dir_kind =
     | [] -> []
     | driver :: rest -> List.sort rest ~compare:String.compare @ [driver]
   in
-  let pps = List.map names ~f:Jbuild.Pp.of_string in
+  let pps = List.map names ~f:(Dune_file.Pp.of_string ~loc:None) in
   build_ppx_driver sctx pps ~lib_db ~dep_kind:Required ~target:exe ~dir_kind
 
 let gen_rules sctx components =
@@ -333,10 +336,10 @@ let ppx_driver_exe sctx libs ~dir_kind =
   let names =
     let names = List.rev_map libs ~f:Lib.name in
     match (dir_kind : File_tree.Dune_file.Kind.t) with
-    | Dune -> List.sort names ~compare:String.compare
+    | Dune -> List.sort names ~compare:Lib_name.compare
     | Jbuild ->
       match names with
-      | last :: others -> List.sort others ~compare:String.compare @ [last]
+      | last :: others -> List.sort others ~compare:Lib_name.compare @ [last]
       | [] -> []
   in
   let scope_for_key =
@@ -346,17 +349,14 @@ let ppx_driver_exe sctx libs ~dir_kind =
         | Private scope_name   -> Some scope_name
         | Public _ | Installed -> None
       in
+      let open Dune_project.Name.Infix in
       match acc, scope_for_key with
       | Some a, Some b -> assert (a = b); acc
       | Some _, None   -> acc
       | None  , Some _ -> scope_for_key
       | None  , None   -> None)
   in
-  let key =
-    match names with
-    | [] -> "+none+"
-    | _  -> String.concat names ~sep:"+"
-  in
+  let key = Lib_name.L.to_key names in
   let key =
     match scope_for_key with
     | None            -> key
@@ -371,6 +371,7 @@ module Compat_ppx_exe_kind = struct
 end
 
 let get_compat_ppx_exe sctx ~name ~kind =
+  let name = Lib_name.to_string name in
   match (kind : Compat_ppx_exe_kind.t) with
   | Dune ->
     ppx_exe sctx ~key:name ~dir_kind:Dune
@@ -408,7 +409,8 @@ let workspace_root_var = String_with_vars.virt_var __POS__ "workspace_root"
 let cookie_library_name lib_name =
   match lib_name with
   | None -> []
-  | Some name -> ["--cookie"; sprintf "library-name=%S" name]
+  | Some name ->
+    ["--cookie"; sprintf "library-name=%S" (Lib_name.Local.to_string name)]
 
 (* Generate rules for the reason modules in [modules] and return a
    a new module with only OCaml sources *)
@@ -435,7 +437,7 @@ let setup_reason_rules sctx (m : Module.t) =
           | ".re"  -> ".re.ml"
           | ".rei" -> ".re.mli"
           | _     ->
-            Loc.fail
+            Errors.fail
               (Loc.in_file
                  (Path.to_string (Path.drop_build_context_exn f.path)))
               "Unknown file extension for reason source file: %S"
@@ -461,10 +463,7 @@ let lint_module sctx ~dir ~dep_kind ~lint ~lib_name ~scope ~dir_kind =
     let alias = Build_system.Alias.lint ~dir in
     let add_alias fn build =
       SC.add_alias_action sctx alias build
-        ~stamp:(List [ Sexp.unsafe_atom_of_string "lint"
-                     ; Sexp.To_sexp.(option string) lib_name
-                     ; Path.sexp_of_t fn
-                     ])
+        ~stamp:("lint", lib_name, fn)
     in
     let lint =
       Per_module.map lint ~f:(function
@@ -477,7 +476,7 @@ let lint_module sctx ~dir ~dep_kind ~lint ~lib_name ~scope ~dir_kind =
                let bindings = Pform.Map.input_file src.path in
                add_alias src.path ~loc:None
                  (Build.path src.path
-                  >>^ (fun _ -> Jbuild.Bindings.empty)
+                  >>^ (fun _ -> Dune_file.Bindings.empty)
                   >>> SC.Action.run sctx
                         action
                         ~loc
@@ -489,7 +488,7 @@ let lint_module sctx ~dir ~dep_kind ~lint ~lib_name ~scope ~dir_kind =
                         ~scope)))
         | Pps { loc; pps; flags; staged } ->
           if staged then
-            Loc.fail loc
+            Errors.fail loc
               "Staged ppx rewriters cannot be used as linters.";
           let args : _ Arg_spec.t =
             S [ As flags
@@ -560,7 +559,7 @@ let make sctx ~dir ~dep_kind ~lint ~preprocess
                (preprocessor_deps
                 >>>
                 Build.path src
-                >>^ (fun _ -> Jbuild.Bindings.empty)
+                >>^ (fun _ -> Dune_file.Bindings.empty)
                 >>>
                 SC.Action.run sctx
                   (Redirect

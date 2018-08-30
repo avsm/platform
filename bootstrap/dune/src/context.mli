@@ -18,6 +18,7 @@
     it is obtained by looking in another context.
 *)
 
+open! Stdune
 open! Import
 
 module Kind : sig
@@ -86,7 +87,7 @@ type t =
   ; opam_var_cache : (string, string) Hashtbl.t
 
   ; (** Native dynlink *)
-    natdynlink_supported : bool
+    natdynlink_supported : Dynlink_supported.By_the_os.t
 
   ; ocaml_config            : Ocaml_config.t
   ; version_string          : string
@@ -122,10 +123,12 @@ type t =
   ; cmxs_magic_number       : string
   ; cmt_magic_number        : string
 
+  ; supports_shared_libraries : Dynlink_supported.By_the_os.t
+
   ; which_cache             : (string, Path.t option) Hashtbl.t
   }
 
-val sexp_of_t : t -> Sexp.t
+val to_sexp : t -> Sexp.t
 
 (** Compare the context names *)
 val compare : t -> t -> Ordering.t

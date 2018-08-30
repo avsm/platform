@@ -1,5 +1,6 @@
+open! Stdune
 open Import
-open Jbuild
+open Dune_file
 open Build.O
 open! No_io
 
@@ -40,7 +41,7 @@ let copy_files sctx ~dir ~scope ~src_dir (def: Copy_files.t) =
      ensures that [sources_and_targets_known_so_far] returns the
      right answer for sub-directories only. *)
   if not (Path.is_descendant glob_in_src ~of_:src_dir) then
-    Loc.fail loc "%s is not a sub-directory of %s"
+    Errors.fail loc "%s is not a sub-directory of %s"
       (Path.to_string_maybe_quoted glob_in_src) (Path.to_string_maybe_quoted src_dir);
   let glob = Path.basename glob_in_src in
   let src_in_src = Path.parent_exn glob_in_src in
@@ -49,8 +50,14 @@ let copy_files sctx ~dir ~scope ~src_dir (def: Copy_files.t) =
     | Ok re ->
       Re.compile re
     | Error (_pos, msg) ->
-      Loc.fail (String_with_vars.loc def.glob) "invalid glob: %s" msg
+      Errors.fail (String_with_vars.loc def.glob) "invalid glob: %s" msg
   in
+  let file_tree = Super_context.file_tree sctx in
+  if not (File_tree.dir_exists file_tree src_in_src) then
+    Errors.fail
+      loc
+      "cannot find directory: %a"
+      Path.pp src_in_src;
   (* add rules *)
   let src_in_build = Path.append (SC.context sctx).build_dir src_in_src in
   let files = SC.eval_glob sctx ~dir:src_in_build re in
@@ -83,13 +90,12 @@ let alias sctx ~dir ~scope (alias_conf : Alias_conf.t) =
       Blang.eval_bool blang ~dir ~f
   in
   let stamp =
-    let module S = Sexp.To_sexp in
-    Sexp.List
-      [ Sexp.unsafe_atom_of_string "user-alias"
-      ; Jbuild.Bindings.sexp_of_t Jbuild.Dep_conf.sexp_of_t alias_conf.deps
-      ; S.option Action.Unexpanded.sexp_of_t
-          (Option.map alias_conf.action ~f:snd)
-      ]
+    ( "user-alias"
+    , Dune_file.Bindings.map
+        ~f:Dune_file.Dep_conf.remove_locs alias_conf.deps
+    , Option.map ~f:(fun (_loc, a) -> Action.Unexpanded.remove_locs a)
+        alias_conf.action
+    )
   in
   let loc = Some alias_conf.loc in
   if enabled then

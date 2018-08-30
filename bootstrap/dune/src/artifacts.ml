@@ -1,5 +1,6 @@
+open! Stdune
 open Import
-open Jbuild
+open Dune_file
 
 type t =
   { context     : Context.t
@@ -22,8 +23,9 @@ let create (context : Context.t) ~public_libs l ~f =
                 | None -> Filename.basename src
               in
               let key =
-                if Sys.win32 && Filename.extension name = ".exe" then
-                  String.sub name ~pos:0 ~len:(String.length name - 4)
+                if Sys.win32 then
+                  Option.value ~default:name
+                    (String.drop_suffix name ~suffix:".exe")
                 else
                   name
               in
@@ -73,20 +75,18 @@ let file_of_lib t ~loc ~lib ~file =
   match Lib.DB.find t.public_libs lib with
   | Error reason ->
     Error { fail = fun () ->
-      Lib.not_available ~loc reason "Public library %S" lib  }
+      Lib.not_available ~loc reason "Public library %a" Lib_name.pp_quoted lib }
   | Ok lib ->
     if Lib.is_local lib then begin
-      match String.split (Lib.name lib) ~on:'.' with
-      | [] -> assert false
-      | package :: rest ->
-        let lib_install_dir =
-          Config.local_install_lib_dir ~context:t.context.name ~package
-        in
-        let lib_install_dir =
-          match rest with
-          | [] -> lib_install_dir
-          | _  -> Path.relative lib_install_dir (String.concat rest ~sep:"/")
-        in
-        Ok (Path.relative lib_install_dir file)
+      let (package, rest) = Lib_name.split (Lib.name lib) in
+      let lib_install_dir =
+        Config.local_install_lib_dir ~context:t.context.name ~package
+      in
+      let lib_install_dir =
+        match rest with
+        | [] -> lib_install_dir
+        | _  -> Path.relative lib_install_dir (String.concat rest ~sep:"/")
+      in
+      Ok (Path.relative lib_install_dir file)
     end else
       Ok (Path.relative (Lib.src_dir lib) file)

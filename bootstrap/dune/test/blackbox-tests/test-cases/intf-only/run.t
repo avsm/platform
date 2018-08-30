@@ -24,6 +24,8 @@ Errors:
   $ dune build --display short --root a foo.cma
   Entering directory 'a'
   File "dune", line 1, characters 0-21:
+  1: (library
+  2:  (name foo))
   Warning: Some modules don't have an implementation.
   You need to add the following field to this stanza:
   
@@ -35,6 +37,8 @@ Errors:
   $ dune build --display short --root b foo.cma
   Entering directory 'b'
   File "dune", line 3, characters 33-34:
+   (modules_without_implementation x))
+                                   ^
   Warning: The following modules must be listed here as they don't have an implementation:
   - y
   This will become an error in the future.
@@ -43,10 +47,14 @@ Errors:
   $ dune build --display short --root c foo.cma
   Entering directory 'c'
   File "dune", line 3, characters 33-34:
+   (modules_without_implementation x))
+                                   ^
   Error: Module X doesn't exist.
   [1]
   $ dune build --display short --root d foo.cma
   Entering directory 'd'
   File "dune", line 3, characters 33-34:
+   (modules_without_implementation x))
+                                   ^
   Error: Module X has an implementation, it cannot be listed here
   [1]

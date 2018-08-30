@@ -1,3 +1,4 @@
+open! Stdune
 open Import
 
 module Var = struct
@@ -157,6 +158,7 @@ module Map = struct
 
   let rec expand map ~syntax_version ~pform =
     let open Option.O in
+    let open Syntax.Version.Infix in
     let name = String_with_vars.Var.name pform in
     String.Map.find map name >>= fun v ->
     let describe = String_with_vars.Var.describe in
@@ -214,7 +216,7 @@ module Map = struct
 
   let of_bindings bindings =
     { vars =
-        Jbuild.Bindings.fold bindings ~init:String.Map.empty ~f:(fun x acc ->
+        Dune_file.Bindings.fold bindings ~init:String.Map.empty ~f:(fun x acc ->
           match x with
           | Unnamed _ -> acc
           | Named (s, _) -> String.Map.add acc s (No_info Var.Named_local))

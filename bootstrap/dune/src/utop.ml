@@ -1,5 +1,6 @@
+open! Stdune
 open Import
-open Jbuild
+open Dune_file
 open Build.O
 open! No_io
 
@@ -64,7 +65,8 @@ let setup sctx ~dir ~(libs : Library.t list) ~scope =
     let requires =
       let open Result.O in
       Lib.DB.find_many (Scope.libs scope)
-        ("utop" :: List.map libs ~f:(fun (lib : Library.t) -> lib.name))
+        (Lib_name.of_string_exn ~loc:None "utop"
+         :: List.map libs ~f:Library.best_name)
       >>= Lib.closure
     in
     let cctx =

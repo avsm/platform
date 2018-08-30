@@ -1,6 +1,6 @@
 (** Information about a package defined in the workspace *)
 
-open Stdune
+open! Stdune
 
 module Name : sig
   type t
@@ -9,11 +9,11 @@ module Name : sig
 
   val opam_fn : t -> string
 
-  val pp : Format.formatter -> t -> unit
-
   include Interned.S with type t := t
 
-  val t : t Sexp.Of_sexp.t
+  val dparse : t Dsexp.Of_sexp.t
+
+  module Infix : Comparable.OPS with type t = t
 end
 
 type t =

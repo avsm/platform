@@ -1,3 +1,4 @@
+open! Stdune
 open Import
 
 let system_shell_exn =
@@ -106,7 +107,7 @@ let describe_target fn =
     Path.to_string_maybe_quoted fn
 
 let library_object_directory ~dir name =
-  Path.relative dir ("." ^ name ^ ".objs")
+  Path.relative dir ("." ^ Lib_name.Local.to_string name ^ ".objs")
 
 (* Use "eobjs" rather than "objs" to avoid a potential conflict with a
    library of the same name *)
@@ -114,7 +115,7 @@ let executable_object_directory ~dir name =
   Path.relative dir ("." ^ name ^ ".eobjs")
 
 let program_not_found ?context ?hint ~loc prog =
-  Loc.fail_opt loc
+  Errors.fail_opt loc
     "@{<error>Error@}: Program %s not found in the tree or in PATH%s%a"
     (String.maybe_quoted prog)
     (match context with

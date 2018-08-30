@@ -1,15 +1,20 @@
+open! Stdune
 open! Import
 
 type t = Byte | Native
 
 let all = [Byte; Native]
 
-let t =
-  let open Sexp.Of_sexp in
+let dparse =
+  let open Dsexp.Of_sexp in
   enum
     [ "byte"   , Byte
     ; "native" , Native
     ]
+
+let pp fmt = function
+  | Byte -> Format.pp_print_string fmt "byte"
+  | Native -> Format.pp_print_string fmt "native"
 
 let choose byte native = function
   | Byte   -> byte
@@ -73,7 +78,7 @@ module Dict = struct
       ; native = List.mem Native ~set:l
       }
 
-    let t = Sexp.Of_sexp.(map (list t) ~f:of_list)
+    let dparse = Dsexp.Of_sexp.(map (list dparse) ~f:of_list)
 
     let is_empty t = not (t.byte || t.native)
 

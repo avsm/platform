@@ -1,3 +1,4 @@
+open! Stdune
 open Import
 
 open Fiber.O
@@ -8,14 +9,14 @@ let print ?(skip_trailing_cr=Sys.win32) path1 path2 =
       Path.extract_build_context_dir path1,
       Path.extract_build_context_dir path2
     with
-    | Some (dir1, f1), Some (dir2, f2) when dir1 = dir2 ->
+    | Some (dir1, f1), Some (dir2, f2) when Path.equal dir1 dir2 ->
       (dir1, Path.to_string f1, Path.to_string f2)
     | _ ->
       (Path.root, Path.to_string path1, Path.to_string path2)
   in
   let loc = Loc.in_file file1 in
   let fallback () =
-    die "%aFiles %s and %s differ." Loc.print loc
+    die "%aFiles %s and %s differ." Errors.print loc
       (Path.to_string_maybe_quoted path1)
       (Path.to_string_maybe_quoted path2)
   in
@@ -23,7 +24,7 @@ let print ?(skip_trailing_cr=Sys.win32) path1 path2 =
     match Bin.which "diff" with
     | None -> fallback ()
     | Some prog ->
-      Format.eprintf "%a@?" Loc.print loc;
+      Format.eprintf "%a@?" Errors.print loc;
       Process.run ~dir ~env:Env.initial Strict prog
         (List.concat
            [ ["-u"]

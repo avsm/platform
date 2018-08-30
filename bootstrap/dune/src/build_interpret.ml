@@ -1,3 +1,4 @@
+open! Stdune
 open Import
 open Build.Repr
 
@@ -82,11 +83,11 @@ let static_deps t ~all_targets ~file_tree =
           if Path.Set.is_empty result then begin
             match inspect_path file_tree dir with
             | None ->
-              Loc.warn loc "Directory %s doesn't exist."
+              Errors.warn loc "Directory %s doesn't exist."
                 (Path.to_string_maybe_quoted
                    (Path.drop_optional_build_context dir))
             | Some Reg ->
-              Loc.warn loc "%s is not a directory."
+              Errors.warn loc "%s is not a directory."
                 (Path.to_string_maybe_quoted
                    (Path.drop_optional_build_context dir))
             | Some Dir ->
@@ -155,7 +156,7 @@ let lib_deps =
       | Catch (t, _) -> loop t acc
       | Lazy_no_targets t -> loop (Lazy.force t) acc
   in
-  fun t -> loop (Build.repr t) String.Map.empty
+  fun t -> loop (Build.repr t) Lib_name.Map.empty
 
 let targets =
   let rec loop : type a b. (a, b) t -> Target.t list -> Target.t list = fun t acc ->
@@ -187,7 +188,7 @@ let targets =
           match loop a [], loop b [] with
           | [], [] -> acc
           | a, b ->
-            let targets x = Path.Set.sexp_of_t (Target.paths x) in
+            let targets x = Path.Set.to_sexp (Target.paths x) in
             Exn.code_error "Build_interpret.targets: cannot have targets \
                             under a [if_file_exists]"
               [ "targets-a", targets a
@@ -206,20 +207,20 @@ module Rule = struct
     ; build    : (unit, Action.t) Build.t
     ; targets  : Target.t list
     ; sandbox  : bool
-    ; mode     : Jbuild.Rule.Mode.t
+    ; mode     : Dune_file.Rule.Mode.t
     ; locks    : Path.t list
     ; loc      : Loc.t option
     ; dir      : Path.t
     }
 
-  let make ?(sandbox=false) ?(mode=Jbuild.Rule.Mode.Not_a_rule_stanza)
+  let make ?(sandbox=false) ?(mode=Dune_file.Rule.Mode.Not_a_rule_stanza)
         ~context ?(locks=[]) ?loc build =
     let targets = targets build in
     let dir =
       match targets with
       | [] ->
         begin match loc with
-        | Some loc -> Loc.fail loc "Rule has no targets specified"
+        | Some loc -> Errors.fail loc "Rule has no targets specified"
         | None -> Exn.code_error "Build_interpret.Rule.make: no targets" []
         end
       | x :: l ->
@@ -230,11 +231,11 @@ module Rule = struct
             match loc with
             | None ->
               Exn.code_error "rule has targets in different directories"
-                [ "targets", Sexp.To_sexp.list Path.sexp_of_t
+                [ "targets", Sexp.To_sexp.list Path.to_sexp
                                (List.map targets ~f:Target.path)
                 ]
             | Some loc ->
-              Loc.fail loc
+              Errors.fail loc
                 "Rule has targets in different directories.\nTargets:\n%s"
                 (String.concat ~sep:"\n"
                    (List.map targets ~f:(fun t ->

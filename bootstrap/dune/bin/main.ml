@@ -1,3 +1,4 @@
+open! Stdune
 open Dune
 open Import
 open Cmdliner
@@ -582,22 +583,25 @@ let installed_libraries =
        let findlib = ctx.findlib in
        if na then begin
          let pkgs = Findlib.all_unavailable_packages findlib in
-         let longest = String.longest_map pkgs ~f:fst in
+         let longest =
+           String.longest_map pkgs ~f:(fun (n, _) -> Lib_name.to_string n) in
          let ppf = Format.std_formatter in
          List.iter pkgs ~f:(fun (n, r) ->
-           Format.fprintf ppf "%-*s -> %a@\n" longest n
+           Format.fprintf ppf "%-*s -> %a@\n" longest (Lib_name.to_string n)
              Findlib.Unavailable_reason.pp r);
          Format.pp_print_flush ppf ();
          Fiber.return ()
        end else begin
          let pkgs = Findlib.all_packages findlib in
-         let max_len = String.longest_map pkgs ~f:Findlib.Package.name in
+         let max_len = String.longest_map pkgs ~f:(fun n ->
+           Findlib.Package.name n
+           |> Lib_name.to_string) in
          List.iter pkgs ~f:(fun pkg ->
            let ver =
              Option.value (Findlib.Package.version pkg) ~default:"n/a"
            in
            Printf.printf "%-*s (version: %s)\n" max_len
-             (Findlib.Package.name pkg) ver);
+             (Lib_name.to_string (Findlib.Package.name pkg)) ver);
          Fiber.return ()
        end)
   in
@@ -630,7 +634,7 @@ let target_hint (setup : Main.setup) path =
     (* Only suggest hints for the basename, otherwise it's slow when there are lots of
        files *)
     List.filter_map candidates ~f:(fun path ->
-      if Path.parent_exn path = sub_dir then
+      if Path.equal (Path.parent_exn path) sub_dir then
         Some (Path.to_string path)
       else
         None)
@@ -694,7 +698,7 @@ let resolve_target common ~(setup : Main.setup) s =
       else
         (1, true)
     in
-    let s = String.sub s ~pos ~len:(String.length s - pos) in
+    let s = String.drop s pos in
     let path = Path.relative Path.root (prefix_target common s) in
     check_path setup.contexts path;
     if Path.is_root path then
@@ -828,11 +832,11 @@ let clean =
   (term, Term.info "clean" ~doc ~man)
 
 let format_external_libs libs =
-  String.Map.to_list libs
+  Lib_name.Map.to_list libs
   |> List.map ~f:(fun (name, kind) ->
     match (kind : Lib_deps_info.Kind.t) with
-    | Optional -> sprintf "- %s (optional)" name
-    | Required -> sprintf "- %s" name)
+    | Optional -> sprintf "- %s (optional)" (Lib_name.to_string name)
+    | Required -> sprintf "- %s" (Lib_name.to_string name))
   |> String.concat ~sep:"\n"
 
 let external_lib_deps =
@@ -875,20 +879,20 @@ let external_lib_deps =
                   | Some x -> x)
              in
              let externals =
-               String.Map.filteri lib_deps ~f:(fun name _ ->
-                 not (String.Set.mem internals name))
+               Lib_name.Map.filteri lib_deps ~f:(fun name _ ->
+                 not (Lib_name.Set.mem internals name))
              in
              if only_missing then begin
                let context =
                  List.find_exn setup.contexts ~f:(fun c -> c.name = context_name)
                in
                let missing =
-                 String.Map.filteri externals ~f:(fun name _ ->
+                 Lib_name.Map.filteri externals ~f:(fun name _ ->
                    not (Findlib.available context.findlib name))
                in
-               if String.Map.is_empty missing then
+               if Lib_name.Map.is_empty missing then
                  acc
-               else if String.Map.for_alli missing
+               else if Lib_name.Map.for_alli missing
                          ~f:(fun _ kind -> kind = Lib_deps_info.Kind.Optional)
                then begin
                  Format.eprintf
@@ -906,13 +910,14 @@ let external_lib_deps =
                     Hint: try: opam install %s@."
                    context_name
                    (format_external_libs missing)
-                   (String.Map.to_list missing
+                   (Lib_name.Map.to_list missing
                     |> List.filter_map ~f:(fun (name, kind) ->
                       match (kind : Lib_deps_info.Kind.t) with
                       | Optional -> None
-                      | Required -> Some (Findlib.root_package_name name))
-                    |> String.Set.of_list
-                    |> String.Set.to_list
+                      | Required -> Some (Lib_name.package_name name))
+                    |> Package.Name.Set.of_list
+                    |> Package.Name.Set.to_list
+                    |> List.map ~f:Package.Name.to_string
                     |> String.concat ~sep:" ");
                  true
                end
@@ -985,11 +990,11 @@ let rules =
        in
        Build_system.build_rules setup.build_system ~request ~recursive >>= fun rules ->
        let sexp_of_action action =
-         Action.for_shell action |> Action.For_shell.sexp_of_t
+         Action.for_shell action |> Action.For_shell.dgen
        in
        let print oc =
          let ppf = Format.formatter_of_out_channel oc in
-         Sexp.prepare_formatter ppf;
+         Dsexp.prepare_formatter ppf;
          Format.pp_open_vbox ppf 0;
          if makefile_syntax then begin
            List.iter rules ~f:(fun (rule : Build_system.Rule.t) ->
@@ -1000,25 +1005,25 @@ let rules =
                (fun ppf ->
                   Path.Set.iter rule.deps ~f:(fun dep ->
                     Format.fprintf ppf "@ %s" (Path.to_string dep)))
-               Sexp.pp_split_strings (sexp_of_action rule.action))
+               Dsexp.pp_split_strings (sexp_of_action rule.action))
          end else begin
            List.iter rules ~f:(fun (rule : Build_system.Rule.t) ->
              let sexp =
                let paths ps =
-                 Sexp.To_sexp.list Path.sexp_of_t (Path.Set.to_list ps)
+                 Dsexp.To_sexp.list Path_dsexp.dgen (Path.Set.to_list ps)
                in
-               Sexp.To_sexp.record (
+               Dsexp.To_sexp.record (
                  List.concat
                    [ [ "deps"   , paths rule.deps
                      ; "targets", paths rule.targets ]
                    ; (match rule.context with
                       | None -> []
                       | Some c -> ["context",
-                                   Sexp.atom_or_quoted_string c.name])
+                                   Dsexp.atom_or_quoted_string c.name])
                    ; [ "action" , sexp_of_action rule.action ]
                    ])
              in
-             Format.fprintf ppf "%a@," Sexp.pp_split_strings sexp)
+             Format.fprintf ppf "%a@," Dsexp.pp_split_strings sexp)
          end;
          Format.pp_print_flush ppf ();
          Fiber.return ()
@@ -1293,7 +1298,7 @@ let exec =
   in
   (term, Term.info "exec" ~doc ~man)
 
-(** A string that is "1.1.1" but not expanded by [dune subst] *)
+(** A string that is "%%VERSION%%" but not expanded by [dune subst] *)
 let literal_version =
   "%%" ^ "VERSION%%"
 
@@ -1374,12 +1379,15 @@ let utop =
     ] in
   let term =
     let%map common = common
-    and dir = Arg.(value & pos 0 dir "" & Arg.info [] ~docv:"PATH")
+    and dir = Arg.(value & pos 0 string "" & Arg.info [] ~docv:"PATH")
     and ctx_name = context_arg ~doc:{|Select context where to build/run utop.|}
     and args = Arg.(value & pos_right 0 string [] (Arg.info [] ~docv:"ARGS"))
     in
     set_dirs common;
-    let utop_target = dir |> Path.of_string |> Utop.utop_exe |> Path.to_string in
+    let dir = Path.of_string dir in
+    if not (Path.is_directory dir) then
+      die "cannot find directory: %a" Path.pp dir;
+    let utop_target = dir |> Utop.utop_exe |> Path.to_string in
     set_common_other common ~targets:[utop_target];
     let log = Log.create common in
     let (build_system, context, utop_path) =
@@ -1387,10 +1395,10 @@ let utop =
        let context = Main.find_context_exn setup ~name:ctx_name in
        let setup = { setup with contexts = [context] } in
        let target =
-         match resolve_targets_exn ~log common setup [utop_target] with
-         | [] -> die "no libraries defined in %s" dir
-         | [File target] -> target
-         | _ -> assert false
+         match resolve_target common ~setup utop_target with
+         | Error _ -> die "no library is defined in %a" Path.pp dir
+         | Ok [File target] -> target
+         | Ok _ -> assert false
        in
        do_build setup [File target] >>| fun () ->
        (setup.build_system, context, Path.to_string target)
@@ -1469,7 +1477,7 @@ let printenv =
       Build_system.do_build setup.build_system ~request
       >>| fun l ->
       let pp ppf = Format.fprintf ppf "@[<v1>(@,@[<v>%a@]@]@,)"
-                     (Format.pp_print_list (Sexp.pp Dune)) in
+                     (Format.pp_print_list (Dsexp.pp Dune)) in
       match l with
       | [(_, env)] ->
         Format.printf "%a@." pp env
@@ -1479,6 +1487,43 @@ let printenv =
     )
   in
   (term, Term.info "printenv" ~doc ~man )
+
+let fmt =
+  let doc = "Format dune files" in
+  let man =
+    [ `S "DESCRIPTION"
+    ; `P {|$(b,dune unstable-fmt) reads a dune file and outputs a formatted
+           version. This feature is unstable, and its interface or behaviour
+           might change.
+         |}
+    ] in
+  let term =
+    let%map path_opt =
+      let docv = "FILE" in
+      let doc = "Path to the dune file to parse." in
+      Arg.(value & pos 0 (some path) None & info [] ~docv ~doc)
+    and inplace =
+      let doc = "Modify the file in place" in
+      Arg.(value & flag & info ["inplace"] ~doc)
+    in
+    if true then
+      let (input, output) =
+        match path_opt, inplace with
+        | None, false ->
+          (None, None)
+        | Some path, true ->
+          let path = Arg.Path.path path in
+          (Some path, Some path)
+        | Some path, false ->
+          (Some (Arg.Path.path path), None)
+        | None, true ->
+          die "--inplace requires a file name"
+      in
+      Dune_fmt.format_file ~input ~output
+    else
+      die "This command is unstable. Please pass --unstable to use it nonetheless."
+  in
+  (term, Term.info "unstable-fmt" ~doc ~man )
 
 module Help = struct
   let config =
@@ -1600,6 +1645,7 @@ let all =
   ; promote
   ; printenv
   ; Help.help
+  ; fmt
   ]
 
 let default =
@@ -1610,7 +1656,7 @@ let default =
     `Help (`Pager, None)
   in
   (term,
-   Term.info "dune" ~doc ~version:"1.1.1"
+   Term.info "dune" ~doc ~version:"%%VERSION%%"
      ~man:
        [ `S "DESCRIPTION"
        ; `P {|Dune is a build system designed for OCaml projects only. It

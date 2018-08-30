@@ -1,6 +1,0 @@
-(library
- (name usexp)
- (synopsis "[Internal] S-expression library")
- (public_name dune.usexp))
-
-(ocamllex dune_lexer jbuild_lexer)

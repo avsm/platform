@@ -5,8 +5,9 @@
     Super context are used for generating rules.
 *)
 
+open! Stdune
 open Import
-open Jbuild
+open Dune_file
 
 (** A directory with a jbuild *)
 module Dir_with_jbuild : sig
@@ -62,7 +63,7 @@ val public_libs : t -> Lib.DB.t
 val installed_libs : t -> Lib.DB.t
 
 (** All non-public library names *)
-val internal_lib_names : t -> String.Set.t
+val internal_lib_names : t -> Lib_name.Set.t
 
 (** Compute the ocaml flags based on the directory environment and a
     buildable stanza *)
@@ -74,7 +75,7 @@ val ocaml_flags
   -> Ocaml_flags.t
 
 (** Dump a directory environment in a readable form *)
-val dump_env : t -> dir:Path.t -> (unit, Sexp.t list) Build.t
+val dump_env : t -> dir:Path.t -> (unit, Dsexp.t list) Build.t
 
 val find_scope_by_dir  : t -> Path.t              -> Scope.t
 val find_scope_by_name : t -> Dune_project.Name.t -> Scope.t
@@ -121,7 +122,7 @@ val prefix_rules
 val add_rule
   :  t
   -> ?sandbox:bool
-  -> ?mode:Jbuild.Rule.Mode.t
+  -> ?mode:Dune_file.Rule.Mode.t
   -> ?locks:Path.t list
   -> ?loc:Loc.t
   -> (unit, Action.t) Build.t
@@ -129,7 +130,7 @@ val add_rule
 val add_rule_get_targets
   :  t
   -> ?sandbox:bool
-  -> ?mode:Jbuild.Rule.Mode.t
+  -> ?mode:Dune_file.Rule.Mode.t
   -> ?locks:Path.t list
   -> ?loc:Loc.t
   -> (unit, Action.t) Build.t
@@ -150,7 +151,7 @@ val add_alias_action
   -> Build_system.Alias.t
   -> loc:Loc.t option
   -> ?locks:Path.t list
-  -> stamp:Sexp.t
+  -> stamp:_
   -> (unit, Action.t) Build.t
   -> unit
 
@@ -271,3 +272,5 @@ module Scope_key : sig
 
   val to_string : string -> Dune_project.Name.t -> string
 end
+
+val opaque : t -> bool

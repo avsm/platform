@@ -1,5 +1,6 @@
+open! Stdune
 open Import
-open Jbuild
+open Dune_file
 
 module Jbuild = struct
   type t =
@@ -73,7 +74,7 @@ module Jbuilds = struct
             (match (kind : File_tree.Dune_file.Kind.t) with
              | Jbuild -> ()
              | Dune ->
-               Loc.fail loc
+               Errors.fail loc
                  "#require is no longer supported in dune files.\n\
                   You can use the following function instead of \
                   Unix.open_process_in:\n\
@@ -84,7 +85,7 @@ module Jbuilds = struct
             | [] -> acc
             | ["unix"] -> Unix
             | _ ->
-              Loc.fail loc
+              Errors.fail loc
                 "Using libraries other that \"unix\" is not supported.\n\
                  See the manual for details.";
         in
@@ -207,7 +208,7 @@ end
              Did you forgot to call [Jbuild_plugin.V*.send]?"
           (Path.to_string file);
       Fiber.return
-        (Io.Sexp.load generated_jbuild ~mode:Many
+        (Dsexp.Io.load generated_jbuild ~mode:Many
            ~lexer:(File_tree.Dune_file.Kind.lexer kind)
          |> Jbuild.parse ~dir ~file ~project ~kind ~ignore_promoted_rules))
     >>| fun dynamic ->
@@ -242,13 +243,13 @@ let load ?extra_ignored_subtrees ?(ignore_promoted_rules=false) () =
       ~f:(fun dir acc ->
         let p = File_tree.Dir.project dir in
         match Path.kind (File_tree.Dir.path dir) with
-        | Local d when d = p.root -> p :: acc
+        | Local d when Path.Local.equal d (Dune_project.root p) -> p :: acc
         | _ -> acc)
   in
   let packages =
     List.fold_left projects ~init:Package.Name.Map.empty
       ~f:(fun acc (p : Dune_project.t) ->
-        Package.Name.Map.merge acc p.packages ~f:(fun name a b ->
+        Package.Name.Map.merge acc (Dune_project.packages p) ~f:(fun name a b ->
           match a, b with
           | None, None -> None
           | None, Some _ -> b

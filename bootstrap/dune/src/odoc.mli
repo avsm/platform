@@ -1,7 +1,8 @@
 (** Odoc rules *)
 
+open! Stdune
 open Import
-open Jbuild
+open Dune_file
 
 module Gen (S : sig val sctx : Super_context.t end) : sig
 
