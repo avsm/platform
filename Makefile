@@ -1,5 +1,5 @@
-PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat dune ocamlfind
-PINS=ocp-indent odoc tyxml ocamlformat merlin lwt dune ocamlfind
+PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat ocamlfind
+PINS=ocp-indent odoc tyxml ocamlformat merlin lwt ocamlfind ocp-index
 
 build:
 	cd bootstrap/ocaml && ./configure --prefix `pwd`/../../_obj && $(MAKE) -j $(J) world.opt && $(MAKE) install
