@@ -12,7 +12,7 @@
 SHELL=bash
 
 .PHONY: default
-default: exe
+default: exe gen-help
 
 dune-workspace: dune-workspace.in
 	sed -e "s|@OPAM_SWITCH[@]|$$(opam switch show)|g" $< > $@
@@ -23,6 +23,10 @@ setup: dune-workspace
 .PHONY: exe
 exe: setup
 	dune build _build/dev/src/ocamlformat.exe _build/release/src/ocamlformat.exe
+
+.PHONY: gen-help
+gen-help:
+	dune build _build/release/ocamlformat-help.txt
 
 .PHONY: bc
 bc: setup
@@ -38,7 +42,7 @@ opt: setup
 
 .PHONY: reason
 reason: setup
-	dune build _build/release/src/ocamlformat_reason.exe
+	dune build _build/dev/src/ocamlformat_reason.exe _build/release/src/ocamlformat_reason.exe
 
 .PHONY: clean cleanbisect
 clean: cleanbisect
