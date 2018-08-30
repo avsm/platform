@@ -2,7 +2,7 @@ PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat oca
 PINS=ocp-indent odoc tyxml ocamlformat merlin lwt ocamlfind ocp-index
 
 build:
-	cd bootstrap/ocaml && ./configure --prefix `pwd`/../../_obj && $(MAKE) -j $(J) world.opt && $(MAKE) install
+	cd bootstrap/ocaml && ./configure --prefix `pwd`/../../_obj && $(MAKE) world.opt && $(MAKE) install
 	cd bootstrap/dune && env PATH=`pwd`/../../_obj/bin:$$PATH $(MAKE)
 	cd vendor/lwt && env PATH=`pwd`/../../_obj/bin:$$PATH ocaml src/util/configure.ml -use-libev false
 	cd vendor/markup && env PATH=`pwd`/../../_obj/bin:$$PATH ocaml src/configure.ml
