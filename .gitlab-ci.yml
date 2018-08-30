@@ -56,7 +56,7 @@ centos-7-amd64:
   stage: build
   script:
   - sudo yum -y install m4 pkg-config
-  - -- make
+  - make
   - mkdir -p ocaml-platform/4.07.0-1/centos-7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/centos-7/amd64
   artifacts:
     paths:
@@ -83,7 +83,7 @@ macos-amd64:
   script:
   - brew install ocaml/ocaml/opam@2
   - export OPAMROOT=.opam
-  - make
+  - make J=1
   - mkdir -p ocaml-platform/4.07.0-1/macos/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/macos/amd64
   artifacts:
     paths:
@@ -94,7 +94,7 @@ freebsd-11-amd64:
   stage: build
   script:
   - env ASSUME_ALWAYS_YES=true pkg install ocaml-opam gmake m4
-  - make
+  - gmake
   - mkdir -p ocaml-platform/4.07.0-1/freebsd/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/freebsd/amd64
   artifacts:
     paths:
