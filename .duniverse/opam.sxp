@@ -4,7 +4,7 @@
  (excludes ())
  (pins
   ((ocp-indent --dev) (odoc --dev) (tyxml --dev) (ocamlformat --dev)
-   (merlin --dev) (ppx_tools_versioned --dev)))
+   (merlin --dev) (ppx_tools_versioned --dev) (lwt --dev)))
  (pkgs
   (((package ((name result) (version (1.3))))
     (dev_repo (Github (janestreet result))) (tag (1.3)))
