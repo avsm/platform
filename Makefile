@@ -1,8 +1,7 @@
-PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat
+PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat dune
 PINS=ocp-indent odoc tyxml ocamlformat merlin lwt
 
 build:
-	cd vendor/lwt && ocaml src/util/configure.ml -use-libev false
 	cd vendor/markup && ocaml src/configure.ml
 	dune build --profile=release @cli
 
