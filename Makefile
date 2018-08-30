@@ -1,5 +1,5 @@
 PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat dune ocamlfind
-PINS=ocp-indent odoc tyxml ocamlformat merlin lwt dune
+PINS=ocp-indent odoc tyxml ocamlformat merlin lwt dune ocamlfind
 
 build:
 	ls -la vendor/dune
