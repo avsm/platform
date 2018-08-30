@@ -10,7 +10,8 @@ doc:
 	dune build --profile=release @doc
 
 clean:
-	dune clean
+	rm -rf _build
+	rm -rf vendor/dune/_build
 
 DUNIVERSE?=duniverse
 
