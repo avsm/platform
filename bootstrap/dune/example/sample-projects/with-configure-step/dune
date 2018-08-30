@@ -1,0 +1,10 @@
+(rule
+ ((fallback)
+  (targets (config))
+  (deps    (config.defaults))
+  (action  (copy %{first-dep} %{targets}))))
+
+(rule
+ ((targets (config.full))
+  (deps    (config_common.ml config))
+  (action  (run %{OCAML} %{dep:real_configure.ml}))))

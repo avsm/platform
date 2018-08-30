@@ -2,10 +2,9 @@ PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat dun
 PINS=ocp-indent odoc tyxml ocamlformat merlin lwt dune ocamlfind
 
 build:
-	ls -la vendor/dune
-	cd vendor/dune && $(MAKE)
+	cd bootstrap/dune && $(MAKE)
 	cd vendor/markup && ocaml src/configure.ml
-	./vendor/dune/_build/install/default/bin/dune build --profile=release @cli
+	./bootstrap/dune/_build/install/default/bin/dune build --profile=release @cli
 
 doc:
 	dune build --profile=release @doc
