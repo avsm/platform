@@ -3,6 +3,7 @@ PINS=ocp-indent odoc tyxml ocamlformat merlin lwt dune ocamlfind
 
 build:
 	cd bootstrap/dune && $(MAKE)
+	cd vendor/lwt && ocaml src/util/configure.ml
 	cd vendor/markup && ocaml src/configure.ml
 	./bootstrap/dune/_build/install/default/bin/dune build --profile=release @cli
 
