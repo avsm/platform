@@ -10,6 +10,8 @@
     (ref v0.11.0))
    ((dir uutf) (upstream git://github.com/dune-universe/uutf.git)
     (ref duniverse-v1.0.1))
+   ((dir ocamlfind) (upstream git://github.com/dune-universe/lib-findlib.git)
+    (ref duniverse-master))
    ((dir topkg) (upstream git://github.com/dune-universe/topkg.git)
     (ref duniverse-v0.9.1))
    ((dir biniou) (upstream https://github.com/mjambon/biniou.git)
