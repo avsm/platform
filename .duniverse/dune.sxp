@@ -48,7 +48,7 @@
     (upstream https://github.com/ocaml-ppx/ocamlformat.git))
    ((dir spawn) (upstream https://github.com/janestreet/spawn.git)
     (ref v0.12.0))
-   ((dir lwt) (upstream https://github.com/ocsigen/lwt.git))
+   ((dir lwt) (upstream https://github.com/avsm/lwt.git) (ref remove-ocamlfind))
    ((dir fmt) (upstream git://github.com/dune-universe/fmt.git)
     (ref duniverse-v0.8.5))
    ((dir bos) (upstream git://github.com/dune-universe/bos.git)
