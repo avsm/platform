@@ -3,9 +3,7 @@ debian-9-arm64:
   stage: build
   script:
   - sudo apt-get update && sudo apt-get -y install pkg-config m4
-  - export OPAMROOT=.opam
-  - opam init -ya --disable-sandboxing --compiler=4.07.0
-  - opam exec -- make
+  - make
   - mkdir -p ocaml-platform/4.07.0-1/debian-9/arm64 && cp _build/default/output/* ocaml-platform/4.07.0-1/debian-9/arm64
   artifacts:
     paths:
@@ -18,9 +16,7 @@ debian-9-amd64:
   stage: build
   script:
   - sudo apt-get update && sudo apt-get -y install pkg-config m4
-  - export OPAMROOT=.opam
-  - opam init -ya --disable-sandboxing --compiler=4.07.0
-  - opam exec -- make
+  - make
   - mkdir -p ocaml-platform/4.07.0-1/debian-9/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/debian-9/amd64
   artifacts:
     paths:
@@ -33,9 +29,7 @@ ubuntu-1804-amd64:
   stage: build
   script:
   - sudo apt-get update && sudo apt-get -y install pkg-config m4
-  - export OPAMROOT=.opam
-  - opam init -ya --disable-sandboxing --compiler=4.07.0
-  - opam exec -- make
+  - make
   - mkdir -p ocaml-platform/4.07.0-1/ubuntu-18.04/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/ubuntu-18.04/amd64
   artifacts:
     paths:
@@ -49,8 +43,7 @@ alpine-3.7-amd64:
   script:
   - sudo apk add --update pkgconfig m4
   - export OPAMROOT=.opam
-  - opam init -ya --disable-sandboxing --compiler=4.07.0
-  - opam exec -- make
+  - make
   - mkdir -p ocaml-platform/4.07.0-1/alpine-3.7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/alpine-3.7/amd64
   artifacts:
     paths:
@@ -63,9 +56,7 @@ centos-7-amd64:
   stage: build
   script:
   - sudo yum -y install m4 pkg-config
-  - export OPAMROOT=.opam
-  - opam init -ya --disable-sandboxing --compiler=4.07.0
-  - opam exec -- make
+  - make
   - mkdir -p ocaml-platform/4.07.0-1/centos-7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/centos-7/amd64
   artifacts:
     paths:
@@ -79,8 +70,7 @@ fedora-28-amd64:
   script:
   - sudo yum -y install m4 pkg-config
   - export OPAMROOT=.opam
-  - opam init -ya --disable-sandboxing --compiler=4.07.0
-  - opam exec -- make
+  - make
   - mkdir -p ocaml-platform/4.07.0-1/fedora-28/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/fedora-28/amd64
   artifacts:
     paths:
@@ -93,8 +83,7 @@ macos-amd64:
   script:
   - brew install ocaml/ocaml/opam@2
   - export OPAMROOT=.opam
-  - opam init -ya 
-  - opam exec -- make
+  - make J=1
   - mkdir -p ocaml-platform/4.07.0-1/macos/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/macos/amd64
   artifacts:
     paths:
@@ -105,8 +94,7 @@ freebsd-11-amd64:
   stage: build
   script:
   - env ASSUME_ALWAYS_YES=true pkg install ocaml-opam gmake m4
-  - opam init -ya --compiler=4.07.0
-  - opam config exec -- make
+  - gmake
   - mkdir -p ocaml-platform/4.07.0-1/freebsd/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/freebsd/amd64
   artifacts:
     paths:
