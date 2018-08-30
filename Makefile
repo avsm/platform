@@ -18,7 +18,7 @@ v-lock:
 	$(DUNIVERSE) vendor-lock $(PINS:%=--pin %) $(PACKAGES) -v
 
 v-pull:
-	$(DUNIVERSE) vendor-pull -v
+	$(DUNIVERSE) vendor-pull -vv
 
 v-merge:
 	$(DUNIVERSE) vendor-merge -v
