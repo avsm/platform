@@ -7,7 +7,6 @@ jobs:
     - checkout
     - run: sudo yum -y install m4 pkg-config
     - run: opam init -ya --disable-sandboxing
-    - run: opam install -y ocamlfind dune
     - run: opam exec -- make
     - run: mkdir -p ocaml-platform/4.07.0-1/fedora-28/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/fedora-28/amd64
     - persist_to_workspace:
@@ -20,7 +19,6 @@ jobs:
     - checkout
     - run: sudo apt-get update && sudo apt-get -y install pkg-config m4
     - run: opam init -ya --disable-sandboxing
-    - run: opam install -y ocamlfind dune
     - run: opam exec -- make
     - run: mkdir -p ocaml-platform/4.07.0-1/debian-9/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/debian-9/amd64
     - persist_to_workspace:
@@ -33,7 +31,6 @@ jobs:
     - checkout
     - run: sudo apt-get update && sudo apt-get -y install pkg-config m4
     - run: opam init -ya --disable-sandboxing
-    - run: opam install -y ocamlfind dune
     - run: opam exec -- make
     - run: mkdir -p ocaml-platform/4.07.0-1/ubuntu-18.04/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/ubuntu-18.04/amd64
     - persist_to_workspace:
@@ -46,7 +43,6 @@ jobs:
     - checkout
     - run: sudo apk add --update pkgconfig m4
     - run: opam init -ya --disable-sandboxing
-    - run: opam install -y ocamlfind dune
     - run: opam exec -- make
     - run: mkdir alpine && cp _build/default/output/* alpine/
     - run: mkdir -p ocaml-platform/4.07.0-1/alpine-3.7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/alpine-3.7/amd64
@@ -64,7 +60,6 @@ jobs:
     - run: brew install pkg-config m4
     - run: brew install ocaml/ocaml/opam@2
     - run: opam init -ya
-    - run: opam install -y ocamlfind dune
     - run: opam exec -- make
     - run: mkdir -p ocaml-platform/4.07.0-1/macos-10.12/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/macos-10.12/amd64
     - persist_to_workspace:
