@@ -12,11 +12,13 @@ doc:
 clean:
 	dune clean
 
+DUNIVERSE?=duniverse
+
 v-lock:
-	duniverse vendor-lock $(PINS:%=--pin %) $(PACKAGES) -v
+	$(DUNIVERSE) vendor-lock $(PINS:%=--pin %) $(PACKAGES) -v
 
 v-pull:
-	duniverse vendor-pull -v
+	$(DUNIVERSE) vendor-pull -v
 
 v-merge:
-	duniverse vendor-merge -v
+	$(DUNIVERSE) vendor-merge -v
