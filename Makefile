@@ -10,6 +10,11 @@ build:
 	cp bootstrap/dune/_build/install/default/bin/dune _build/default/output/
 	cp bootstrap/dune/_build/install/default/bin/jbuilder _build/default/output/
 
+quick:
+	cd vendor/lwt && ocaml src/util/configure.ml -use-libev false
+	cd vendor/markup && ocaml src/configure.ml
+	./bootstrap/dune/_build/install/default/bin/dune build --profile=release @cli
+
 doc:
 	dune build --profile=release @doc
 
