@@ -46,18 +46,6 @@ ubuntu-1804-amd64:
   tags:
     - docker
     - amd64
-.bytecode-only:
-  image: ocaml/opam2:alpine-3.7-opam
-  stage: build
-  script:
-  - make bytecode-only
-  - mkdir -p ocaml-platform/4.07.0-1/alpine-3.7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/alpine-3.7/amd64
-  artifacts:
-    paths:
-      - ocaml-platform
-  tags:
-    - docker
-    - amd64
 alpine-3.7-amd64:
   image: ocaml/opam2:alpine-3.7-opam
   stage: build
@@ -150,6 +138,22 @@ openbsd-6.3-amd64:
       - ocaml-platform
   tags:
     - openbsd
+    - amd64
+.bytecode-only:
+  image: ocaml/opam2:alpine-3.7-opam
+  stage: build
+  script:
+  - make bytecode-only
+  tags:
+    - docker
+    - amd64
+flambda:
+  image: ocaml/opam2:alpine-3.7-opam
+  stage: build
+  script:
+  - make flambda
+  tags:
+    - docker
     - amd64
 gather-binaries:
   stage: gather

@@ -7,6 +7,9 @@ build:
 bytecode-only:
 	./build.sh bytecode-only
 
+flambda:
+	./build.sh flambda
+
 quick:
 	cd vendor/lwt && ocaml src/util/configure.ml -use-libev false
 	cd vendor/markup && ocaml src/configure.ml
