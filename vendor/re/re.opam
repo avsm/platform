@@ -22,7 +22,6 @@ build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
 depends: [
   "jbuilder" {build & >= "1.0+beta10"}
   "ounit" {test}
-  "seq"
 ]
 
 available: [ocaml-version >= "4.02.3"]
