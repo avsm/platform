@@ -1,5 +1,5 @@
-PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat ocamlfind
-PINS=ocp-indent odoc tyxml ocamlformat merlin lwt ocamlfind ocp-index
+PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat ocamlfind ocp-index
+PINS=ocp-indent odoc tyxml ocamlformat merlin lwt ocamlfind ocp-index markup
 
 build:
 	./build.sh
