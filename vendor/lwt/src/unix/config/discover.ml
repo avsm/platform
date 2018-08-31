@@ -285,7 +285,7 @@ let ocamlc_config = ref ""
 let lwt_config = ref ""
 let ext_obj = ref ".o"
 let exec_name = ref "a.out"
-let use_libev = ref true
+let use_libev = ref false
 let use_pthread = ref true
 let use_unix = ref true
 let os_type = ref "Unix"
@@ -581,7 +581,7 @@ let () =
     (* set up the defaults as per the original _oasis file *)
     get android_target "android_target" false;
     get use_pthread "use_pthread" (!os_type <> "Win32");
-    get use_libev "use_libev" (!os_type <> "Win32" && !android_target = false);
+    get use_libev "use_libev" false;
     get libev_default "libev_default"
       (List.mem !system (* as per _oasis *)
         ["linux"; "linux_elf"; "linux_aout"; "linux_eabi"; "linux_eabihf"]);
@@ -759,12 +759,12 @@ Lwt can use pthread or the win32 API.
   let () =
     let f =
       try Some (Sys.getenv "LWT_FORCE_LIBEV_BY_DEFAULT")
-      with Not_found -> None in
+      with Not_found -> Some "no" in
     let libev_default =
       match f with
-      | Some "yes" -> printf "setting libev default to be used\n%!"; true
-      | Some "no" -> printf "setting libev default to be disabled\n%!"; false
-      | _ -> printf "no libev default detected so set to %b\n%!" !libev_default; !libev_default
+      | Some "yes" -> printf "setting libev default to be used\n"; true
+      | Some "no" -> printf "setting libev default to be disabled\n"; false
+      | _ -> !libev_default
     in
     Printf.fprintf config_ml "let libev_default = %b\n" libev_default
   in
@@ -773,6 +773,7 @@ Lwt can use pthread or the win32 API.
 
   close_out config;
   close_out config_ml;
+
 
   let get_flags lib =
     (try List.assoc (lib ^ "_opt") !setup_data with _ -> []),
