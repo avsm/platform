@@ -83,6 +83,17 @@ fedora-28-amd64:
   tags:
     - docker
     - amd64
+fedora-28-amd64-rpm:
+  image: ocaml/opam2:fedora-28-opam
+  stage: build
+  script:
+  - mkdir -p ocaml-platform/4.07.0-1/fedora-28/amd64 && cd packaging/rpm && ./build-rpm.sh && cp *.rpm ../../ocaml-platform/4.07.0-1/fedora-28/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - docker
+    - amd64
 opensuse-42.3-amd64:
   image: ocaml/opam2:opensuse-42.3-opam
   stage: build
