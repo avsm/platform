@@ -1,5 +1,5 @@
 PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat ocamlfind 
-PINS=ocp-indent odoc tyxml ocamlformat merlin lwt ocamlfind markup
+PINS=ocp-indent odoc tyxml ocamlformat merlin lwt ocamlfind markup mccs,https://github.com/avsm/ocaml-mccs.git,fix-warnings
 
 build:
 	./build.sh native
@@ -25,7 +25,7 @@ clean:
 DUNIVERSE?=duniverse
 
 v-lock:
-	$(DUNIVERSE) vendor-lock $(PINS:%=--pin %) $(PACKAGES) -v
+	$(DUNIVERSE) vendor-lock $(PINS:%=--pin %) $(PACKAGES) -vv
 
 v-pull:
 	$(DUNIVERSE) vendor-pull -vv
