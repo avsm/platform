@@ -95,6 +95,16 @@ opensuse-42.3-amd64:
   tags:
     - docker
     - amd64
+ubuntu-16.04-arm32v7:
+  stage: build
+  script:
+  - make
+  - mkdir -p ocaml-platform/4.07.0-1/ubuntu-16.04/arm32v7 && cp _build/default/output/* ocaml-platform/4.07.0-1/ubuntu-16.04/arm32v7
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - arm32v7
 macos-amd64:
   stage: build
   script:
