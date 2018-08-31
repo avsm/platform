@@ -29,6 +29,7 @@ if [ $WITH_OCAML -eq 1 ]; then
   cd ../..
 fi
 
+export LWT_FORCE_LIBEV_BY_DEFAULT=no
 cd bootstrap/dune
 $MAKE
 cd ../..
