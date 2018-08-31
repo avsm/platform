@@ -147,7 +147,7 @@ openbsd-6.3-amd64:
   tags:
     - docker
     - amd64
-flambda:
+flambda-amd64:
   image: ocaml/opam2:alpine-3.7-opam
   stage: build
   script:
@@ -155,6 +155,14 @@ flambda:
   tags:
     - docker
     - amd64
+flambda-ppc64le:
+  image: ocaml/opam2:alpine-3.7-opam
+  stage: build
+  script:
+  - make flambda
+  tags:
+    - docker
+    - ppc64le
 gather-binaries:
   stage: gather
   script:
