@@ -4,25 +4,13 @@ default: build
 
 # build the usual development packages
 .PHONY: build
-build: check-config
+build:
 	dune build
 
 # run unit tests for package lwt
 .PHONY: test
 test: build
 	dune runtest -j 1 --no-buffer
-
-# configuration
-.PHONY: check-config
-check-config:
-	@if [ ! -f src/jbuild-ignore ] ; \
-	then \
-	    make default-config ; \
-	fi
-
-.PHONY: default-config
-default-config:
-	ocaml src/util/configure.ml -use-libev false
 
 # Install dependencies needed during development.
 .PHONY : dev-deps
@@ -79,7 +67,7 @@ clean:
 	dune clean
 	find . -name '.merlin' | xargs rm -f
 	rm -fr docs/api
-	rm -f src/jbuild-ignore src/unix/lwt_config src/core/flambda.flag
+	rm -f src/jbuild-ignore src/unix/lwt_config
 	for TEST in `ls -d test/packaging/*/*` ; \
 	do \
 	    make -wC $$TEST clean ; \
@@ -89,7 +77,7 @@ clean:
 BISECT_FILES_PATTERN := _build/default/test/*/bisect*.out
 
 .PHONY: coverage
-coverage: clean check-config
+coverage: clean
 	BISECT_ENABLE=yes make build
 	BISECT_ENABLE=yes dune runtest -j 1 --no-buffer
 	bisect-ppx-report \
