@@ -581,7 +581,7 @@ let () =
     (* set up the defaults as per the original _oasis file *)
     get android_target "android_target" false;
     get use_pthread "use_pthread" (!os_type <> "Win32");
-    get use_libev "use_libev" (!os_type <> "Win32" && !android_target = false);
+    get use_libev "use_libev" false;
     get libev_default "libev_default"
       (List.mem !system (* as per _oasis *)
         ["linux"; "linux_elf"; "linux_aout"; "linux_eabi"; "linux_eabihf"]);
