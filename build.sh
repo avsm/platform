@@ -32,12 +32,6 @@ fi
 cd bootstrap/dune
 $MAKE
 cd ../..
-cd vendor/lwt
-ocaml src/util/configure.ml -use-libev false
-cd ../..
-cd vendor/markup 
-ocaml src/configure.ml
-cd ../..
 ./bootstrap/dune/_build/install/default/bin/dune build --profile=release @cli
 cp bootstrap/dune/_build/install/default/bin/dune _build/default/output/
 cp bootstrap/dune/_build/install/default/bin/jbuilder _build/default/output/
