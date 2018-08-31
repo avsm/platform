@@ -757,11 +757,14 @@ Lwt can use pthread or the win32 API.
   end;
 
   let () =
-    let force_libev_default =
-      try Sys.getenv "LWT_FORCE_LIBEV_BY_DEFAULT" = "yes"
-      with Not_found -> false
-    in
-    let libev_default = !libev_default || force_libev_default in
+    let f =
+      try Some (Sys.getenv "LWT_FORCE_LIBEV_BY_DEFAULT")
+      with Not_found -> None in
+    let libev_default =
+      match f with
+      | None -> !libev_default
+      | Some "yes" -> true
+      | Some "no" -> false in
     Printf.fprintf config_ml "let libev_default = %b\n" libev_default
   in
 

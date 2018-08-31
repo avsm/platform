@@ -2,7 +2,10 @@ PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat oca
 PINS=ocp-indent odoc tyxml ocamlformat merlin lwt ocamlfind markup
 
 build:
-	./build.sh
+	./build.sh native
+
+bytecode-only:
+	./build.sh bytecode-only
 
 quick:
 	cd vendor/lwt && ocaml src/util/configure.ml -use-libev false

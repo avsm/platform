@@ -2,6 +2,9 @@
 
 WITH_OCAML=0
 
+MODE=$1
+shift
+
 if [ -x "$(command -v ocamlc)" ]; then
   if [ "$(ocamlc -version)" != "4.07.0" ]; then
       echo 'OCaml compiler detected is not 4.07.0, so building local version'
@@ -22,21 +25,21 @@ fi
 if [ $WITH_OCAML -eq 1 ]; then
   PREFIX="`pwd`/_obj"
   cd bootstrap/ocaml
-  ./configure --prefix $PREFIX 
-  $MAKE world.opt
+  if [ "$MODE" = "bytecode-only" ]; then
+    ./configure --prefix $PREFIX --no-native-compiler
+    $MAKE world
+  else
+    ./configure --prefix $PREFIX
+    $MAKE world.opt
+  fi
   $MAKE install
   export PATH=$PREFIX/bin:$PATH
   cd ../..
 fi
 
+export LWT_FORCE_LIBEV_BY_DEFAULT=no
 cd bootstrap/dune
 $MAKE
-cd ../..
-cd vendor/lwt
-ocaml src/util/configure.ml -use-libev false
-cd ../..
-cd vendor/markup 
-ocaml src/configure.ml
 cd ../..
 ./bootstrap/dune/_build/install/default/bin/dune build --profile=release @cli
 cp bootstrap/dune/_build/install/default/bin/dune _build/default/output/
