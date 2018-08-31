@@ -46,11 +46,22 @@ ubuntu-1804-amd64:
   tags:
     - docker
     - amd64
+bytecode-only:
+  image: ocaml/opam2:alpine-3.7-opam
+  stage: build
+  script:
+  - make bytecode-only
+  - mkdir -p ocaml-platform/4.07.0-1/alpine-3.7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/alpine-3.7/amd64
+  artifacts:
+    paths:
+      - ocaml-platform
+  tags:
+    - docker
+    - amd64
 alpine-3.7-amd64:
   image: ocaml/opam2:alpine-3.7-opam
   stage: build
   script:
-  - export OPAMROOT=.opam
   - make
   - mkdir -p ocaml-platform/4.07.0-1/alpine-3.7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/alpine-3.7/amd64
   artifacts:

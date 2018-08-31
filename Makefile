@@ -4,6 +4,9 @@ PINS=ocp-indent odoc tyxml ocamlformat merlin lwt ocamlfind markup
 build:
 	./build.sh
 
+bytecode-only:
+	./build.sh bytecode-only
+
 quick:
 	cd vendor/lwt && ocaml src/util/configure.ml -use-libev false
 	cd vendor/markup && ocaml src/configure.ml
