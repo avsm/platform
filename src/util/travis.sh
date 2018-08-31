@@ -99,12 +99,7 @@ case $COMPILER in
        *) echo Unsupported compiler $COMPILER; exit 1;;
 esac
 
-if [ "$FLAMBDA" = yes ]
-then
-    SWITCH="$OCAML_VERSION+flambda"
-else
-    SWITCH="$OCAML_VERSION"
-fi
+SWITCH="$OCAML_VERSION"
 
 if [ -n "$DO_SWITCH" ]
 then
@@ -141,7 +136,7 @@ else
     LIBEV_FLAG=false
 fi
 
-ocaml src/util/configure.ml -use-libev $LIBEV_FLAG
+ocaml src/unix/config/configure.ml -use-libev $LIBEV_FLAG
 make build
 make test
 make coverage
