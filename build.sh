@@ -5,10 +5,15 @@ WITH_OCAML=0
 MODE=$1
 shift
 
-if [ -x "$(command -v ocamlc)" ]; then
+if [ "$MODE" != "native" ]; then
+  echo Forcing a local compiler to be built for $MODE
+  WITH_OCAML=1
+elif [ -x "$(command -v ocamlc)" ]; then
   if [ "$(ocamlc -version)" != "4.07.0" ]; then
-      echo 'OCaml compiler detected is not 4.07.0, so building local version'
-      WITH_OCAML=1
+    echo 'OCaml compiler detected is not 4.07.0, so building local version'
+    WITH_OCAML=1
+  else
+    echo 'Using system OCaml 4.07 compiler'
   fi
 else
   echo 'OCaml compiler not detected, building a local version of 4.07.0' 
@@ -25,13 +30,20 @@ fi
 if [ $WITH_OCAML -eq 1 ]; then
   PREFIX="`pwd`/_obj"
   cd bootstrap/ocaml
-  if [ "$MODE" = "bytecode-only" ]; then
+  case MODE in
+  bytecode-only)
     ./configure --prefix $PREFIX --no-native-compiler
     $MAKE world
-  else
+    ;;
+  flambda)
+    ./configure --prefix $PREFIX --flambda
+    $MAKE world.opt
+    ;;
+  *)
     ./configure --prefix $PREFIX
     $MAKE world.opt
-  fi
+    ;;
+  esac
   $MAKE install
   export PATH=$PREFIX/bin:$PATH
   cd ../..
