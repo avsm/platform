@@ -1,19 +1,18 @@
 opam-version: "1.2"
-version: "v0.11.0"
 maintainer: "opensource@janestreet.com"
 authors: ["Jane Street Group, LLC <opensource@janestreet.com>"]
 homepage: "https://github.com/janestreet/stdio"
 bug-reports: "https://github.com/janestreet/stdio/issues"
 dev-repo: "git+https://github.com/janestreet/stdio.git"
-license: "Apache-2.0"
+license: "MIT"
 build: [
   ["jbuilder" "build" "-p" name "-j" jobs]
 ]
 depends: [
-  "base"     {>= "v0.11" & < "v0.12"}
+  "base"
   "jbuilder" {build & >= "1.0+beta18.1"}
 ]
-available: [ ocaml-version >= "4.04.1" ]
+available: [ ocaml-version >= "4.04.2" ]
 descr: "
 Standard IO library for OCaml
 

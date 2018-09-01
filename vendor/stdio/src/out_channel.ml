@@ -63,8 +63,16 @@ let eprintf  = Caml.Printf.eprintf
 let fprintf  = Caml.Printf.fprintf
 let kfprintf = Caml.Printf.kfprintf
 
+let print_string = Caml.print_string
 let print_endline = Caml.print_endline
 let prerr_endline = Caml.prerr_endline
+
+let print_s ?mach sexp =
+  print_endline
+    (match mach with
+     | Some () -> Sexp.to_string_mach sexp
+     | None    -> Sexp.to_string_hum  sexp)
+;;
 
 let with_file ?binary ?append ?fail_if_exists ?perm file ~f =
   Exn.protectx (create ?binary ?append ?fail_if_exists ?perm file) ~f ~finally:close

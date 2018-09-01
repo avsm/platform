@@ -6,6 +6,10 @@
 
     Note that this is simply another interface on the [out_channel] type in the OCaml
     standard library.
+
+    As for the output functions in the standard library, all the functions in this module,
+    unless otherwise specified,  can raise [Sys_error] when the system calls they invoke
+    fail.
 *)
 
 open! Base
@@ -28,6 +32,7 @@ type 'a with_create_args =
   -> ?fail_if_exists:bool (** defaults to [false] *)
   -> ?perm:int
   -> 'a
+
 
 val create : (string -> t) with_create_args
 val with_file : (string -> f:(t -> 'a) -> 'a) with_create_args
@@ -86,12 +91,19 @@ val fprintf : t -> ('a, t, unit) format -> 'a
 (** [printf fmt] is the same as [fprintf stdout fmt] *)
 val printf : ('a, t, unit) format -> 'a
 
+(** [print_s sexp] outputs [sexp] on [stdout], by default using [Sexp.to_string_hum],
+    or, with [~mach:()], [Sexp.to_string_mach]. *)
+val print_s : ?mach : unit -> Sexp.t -> unit
+
 (** [printf fmt] is the same as [fprintf stderr fmt] *)
 val eprintf : ('a, t, unit) format -> 'a
 
 (** [kfprintf k t fmt] is the same as [fprintf t fmt], but instead of returning
     immediately, passes the out channel to [k] at the end of printing. *)
 val kfprintf : (t -> 'a) -> t -> ('b, t, unit, 'a) format4 -> 'b
+
+(** [print_string s] = [output_string stdout s] *)
+val print_string : string -> unit
 
 (** [print_endline str] outputs [str] to [stdout] followed by a newline then flushes
     [stdout] *)
@@ -108,5 +120,6 @@ val length : t -> int64
 (** The first argument of these is the file name to write to. *)
 val write_lines : string -> string list -> unit
 val write_all : string -> data:string -> unit
+
 
 
