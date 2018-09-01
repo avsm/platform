@@ -23,15 +23,14 @@ module Or_unequal_lengths = struct
     | Ok of 'a
     | Unequal_lengths
   [@@deriving_inline sexp_of]
-  let sexp_of_t : type
-    a.(a -> Ppx_sexp_conv_lib.Sexp.t) -> a t -> Ppx_sexp_conv_lib.Sexp.t =
-    fun _of_a  ->
+  let sexp_of_t : type a.
+    (a -> Ppx_sexp_conv_lib.Sexp.t) -> a t -> Ppx_sexp_conv_lib.Sexp.t =
+    fun _of_a ->
       function
       | Ok v0 ->
-        let v0 = _of_a v0  in
+        let v0 = _of_a v0 in
         Ppx_sexp_conv_lib.Sexp.List [Ppx_sexp_conv_lib.Sexp.Atom "Ok"; v0]
-      | Unequal_lengths  -> Ppx_sexp_conv_lib.Sexp.Atom "Unequal_lengths"
-
+      | Unequal_lengths -> Ppx_sexp_conv_lib.Sexp.Atom "Unequal_lengths"
   [@@@end]
 end
 
@@ -770,6 +769,14 @@ let partition_tf t ~f =
   partition_map t ~f
 ;;
 
+let partition_result t =
+  let f x =
+    match x with
+    | Ok v -> `Fst v
+    | Error e -> `Snd e
+  in
+  partition_map t ~f
+
 module Assoc = struct
 
   type ('a, 'b) t = ('a * 'b) list [@@deriving_inline sexp]
@@ -777,40 +784,34 @@ module Assoc = struct
     'a 'b .
     (Ppx_sexp_conv_lib.Sexp.t -> 'a) ->
     (Ppx_sexp_conv_lib.Sexp.t -> 'b) ->
-    Ppx_sexp_conv_lib.Sexp.t -> ('a,'b) t
+    Ppx_sexp_conv_lib.Sexp.t -> ('a, 'b) t
     =
-    let _tp_loc = "src/list.ml.Assoc.t"  in
-    fun _of_a  ->
-    fun _of_b  ->
-    fun t  ->
+    let _tp_loc = "src/list.ml.Assoc.t" in
+    fun _of_a ->
+    fun _of_b ->
+    fun t ->
       list_of_sexp
         (function
           | Ppx_sexp_conv_lib.Sexp.List (v0::v1::[]) ->
             let v0 = _of_a v0
-
-            and v1 = _of_b v1
-            in (v0, v1)
+            and v1 = _of_b v1 in (v0, v1)
           | sexp ->
             Ppx_sexp_conv_lib.Conv_error.tuple_of_size_n_expected _tp_loc
               2 sexp) t
-
   let sexp_of_t :
     'a 'b .
     ('a -> Ppx_sexp_conv_lib.Sexp.t) ->
     ('b -> Ppx_sexp_conv_lib.Sexp.t) ->
-    ('a,'b) t -> Ppx_sexp_conv_lib.Sexp.t
+    ('a, 'b) t -> Ppx_sexp_conv_lib.Sexp.t
     =
-    fun _of_a  ->
-    fun _of_b  ->
-    fun v  ->
+    fun _of_a ->
+    fun _of_b ->
+    fun v ->
       sexp_of_list
         (function
-          | (v0,v1) ->
+          | (v0, v1) ->
             let v0 = _of_a v0
-
-            and v1 = _of_b v1
-            in Ppx_sexp_conv_lib.Sexp.List [v0; v1]) v
-
+            and v1 = _of_b v1 in Ppx_sexp_conv_lib.Sexp.List [v0; v1]) v
   [@@@end]
 
   let find t ~equal key =
@@ -871,7 +872,11 @@ let split_n t_orig n =
     loop n t_orig []
 
 let take t n = fst (split_n t n)
-let drop t n = snd (split_n t n)
+
+let rec drop t n =
+  match t with
+  | _ :: tl when n > 0 -> drop tl (n - 1)
+  | t -> t
 
 let chunks_of l ~length =
   if length <= 0
@@ -895,7 +900,11 @@ let split_while xs ~f =
 ;;
 
 let take_while t ~f = fst (split_while t ~f)
-let drop_while t ~f = snd (split_while t ~f)
+
+let rec drop_while t ~f =
+  match t with
+  | hd :: tl when f hd -> drop_while tl ~f
+  | t -> t
 
 let cartesian_product list1 list2 =
   if is_empty list2 then [] else
@@ -971,7 +980,7 @@ let rec compare cmp a b =
 
 let hash_fold_t = hash_fold_list
 
-let equal t1 t2 ~equal =
+let equal equal t1 t2 =
   let rec loop ~equal t1 t2 =
     match t1, t2 with
     | [], [] -> true
@@ -999,13 +1008,12 @@ let () =
     ([%extension_constructor Transpose_got_lists_of_different_lengths])
     (function
       | Transpose_got_lists_of_different_lengths v0 ->
-        let v0 = sexp_of_list sexp_of_int v0  in
+        let v0 = sexp_of_list sexp_of_int v0 in
         Ppx_sexp_conv_lib.Sexp.List
           [Ppx_sexp_conv_lib.Sexp.Atom
              "src/list.ml.Transpose_got_lists_of_different_lengths";
            v0]
       | _ -> assert false)
-
 [@@@end]
 
 let transpose_exn l =

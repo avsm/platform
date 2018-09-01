@@ -253,22 +253,20 @@ module Tree0 = struct
     Ppx_sexp_conv_lib.Conv.Exn_converter.add
       ([%extension_constructor Set_min_elt_exn_of_empty_set])
       (function
-        | Set_min_elt_exn_of_empty_set  ->
+        | Set_min_elt_exn_of_empty_set ->
           Ppx_sexp_conv_lib.Sexp.Atom
             "src/set.ml.Tree0.Set_min_elt_exn_of_empty_set"
         | _ -> assert false)
-
   [@@@end]
   exception Set_max_elt_exn_of_empty_set [@@deriving_inline sexp]
   let () =
     Ppx_sexp_conv_lib.Conv.Exn_converter.add
       ([%extension_constructor Set_max_elt_exn_of_empty_set])
       (function
-        | Set_max_elt_exn_of_empty_set  ->
+        | Set_max_elt_exn_of_empty_set ->
           Ppx_sexp_conv_lib.Sexp.Atom
             "src/set.ml.Tree0.Set_max_elt_exn_of_empty_set"
         | _ -> assert false)
-
   [@@@end]
 
   let min_elt_exn t =
@@ -639,7 +637,7 @@ module Tree0 = struct
     Sequence.merge_with_duplicates
       (to_sequence comparator ~order ?greater_or_equal_to ?less_or_equal_to t)
       (to_sequence comparator ~order ?greater_or_equal_to ?less_or_equal_to t')
-      ~cmp:begin
+      ~compare:begin
         match order with
         | `Increasing -> comparator.compare
         | `Decreasing -> Fn.flip comparator.compare
@@ -1284,6 +1282,10 @@ let compare_m__t (module Elt : Compare_m) t1 t2 =
 
 let hash_fold_m__t (type elt) (module Elt : Hash_fold_m with type t = elt) state =
   hash_fold_direct Elt.hash_fold_t state
+
+let hash_m__t folder t =
+  let state = hash_fold_m__t folder (Hash.create ()) t in
+  Hash.get_hash_value state
 
 module Poly = struct
   type comparator_witness = Comparator.Poly.comparator_witness

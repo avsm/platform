@@ -6,10 +6,8 @@ module T = struct
   let (hash_fold_t :
          Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
     hash_fold_int64
-
   and (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
-    let func = hash_int64  in fun x  -> func x
-
+    let func = hash_int64 in fun x -> func x
   let t_of_sexp : Ppx_sexp_conv_lib.Sexp.t -> t = int64_of_sexp
   let sexp_of_t : t -> Ppx_sexp_conv_lib.Sexp.t = sexp_of_int64
   [@@@end]
@@ -66,7 +64,10 @@ include Comparable.Validate_with_zero (struct
     let zero = zero
   end)
 
-include Int64_replace_polymorphic_compare
+(* Open replace_polymorphic_compare after including functor instantiations so they do not
+   shadow its definitions. This is here so that efficient versions of the comparison
+   functions are available within this module. *)
+open Int64_replace_polymorphic_compare
 
 let between t ~low ~high = low <= t && t <= high
 let clamp_unchecked t ~min ~max =
@@ -118,6 +119,74 @@ let to_nativeint = Conv.int64_to_nativeint
 let to_nativeint_exn = Conv.int64_to_nativeint_exn
 let to_nativeint_trunc = Conv.int64_to_nativeint_trunc
 
+module Pow2 = struct
+  open! Import
+  open Int64_replace_polymorphic_compare
+
+  module Sys = Sys0
+
+  let raise_s = Error.raise_s
+
+  let non_positive_argument () =
+    Printf.invalid_argf "argument must be strictly positive" ()
+
+  let ( lor ) = Caml.Int64.logor;;
+  let ( lsr ) = Caml.Int64.shift_right_logical;;
+  let ( land ) = Caml.Int64.logand;;
+
+  (** "ceiling power of 2" - Least power of 2 greater than or equal to x. *)
+  let ceil_pow2 x =
+    if x <= Caml.Int64.zero then non_positive_argument ();
+    let x = Caml.Int64.pred x in
+    let x = x lor (x lsr 1) in
+    let x = x lor (x lsr 2) in
+    let x = x lor (x lsr 4) in
+    let x = x lor (x lsr 8) in
+    let x = x lor (x lsr 16) in
+    let x = x lor (x lsr 32) in
+    Caml.Int64.succ x
+  ;;
+
+  (** "floor power of 2" - Largest power of 2 less than or equal to x. *)
+  let floor_pow2 x =
+    if x <= Caml.Int64.zero then non_positive_argument ();
+    let x = x lor (x lsr 1) in
+    let x = x lor (x lsr 2) in
+    let x = x lor (x lsr 4) in
+    let x = x lor (x lsr 8) in
+    let x = x lor (x lsr 16) in
+    let x = x lor (x lsr 32) in
+    Caml.Int64.sub x (x lsr 1)
+  ;;
+
+  let is_pow2 x =
+    if x <= Caml.Int64.zero then non_positive_argument ();
+    (x land (Caml.Int64.pred x)) = Caml.Int64.zero
+  ;;
+
+  (* C stub for int clz to use the CLZ/BSR instruction where possible *)
+  external int64_clz : int64 -> int = "Base_int_math_int64_clz" [@@noalloc]
+
+  (** Hacker's Delight Second Edition p106 *)
+  let floor_log2 i =
+    if i <= Caml.Int64.zero then
+      raise_s (Sexp.message "[Int64.floor_log2] got invalid input"
+                 ["", sexp_of_int64 i]);
+    num_bits - 1 - int64_clz i
+  ;;
+
+  (** Hacker's Delight Second Edition p106 *)
+  let ceil_log2 i =
+    if Pervasives.( <= ) i Caml.Int64.zero then
+      raise_s (Sexp.message "[Int64.ceil_log2] got invalid input"
+                 ["", sexp_of_int64 i]);
+    if Caml.Int64.equal i Caml.Int64.one
+    then 0
+    else num_bits - int64_clz (Caml.Int64.pred i)
+  ;;
+end
+include Pow2
+
 include Conv.Make (T)
 
 include Conv.Make_hex(struct
@@ -127,10 +196,8 @@ include Conv.Make_hex(struct
     let (hash_fold_t :
            Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
       hash_fold_int64
-
     and (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
-      let func = hash_int64  in fun x  -> func x
-
+      let func = hash_int64 in fun x -> func x
     [@@@end]
 
     let zero = zero
@@ -185,3 +252,9 @@ module O = struct
 end
 
 include O (* [Int64] and [Int64.O] agree value-wise *)
+
+(* Include type-specific [Replace_polymorphic_compare] at the end, after
+   including functor application that could shadow its definitions. This is
+   here so that efficient versions of the comparison functions are exported by
+   this module. *)
+include Int64_replace_polymorphic_compare

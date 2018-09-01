@@ -47,15 +47,35 @@ module type Basic_using_map2 = sig
   val map : [`Define_using_map2 | `Custom of ('a t -> f:('a -> 'b) -> 'b t)]
 end
 
-module type S = sig
+module type Applicative_infix = sig
+  type 'a t
 
+  val ( <*> ) : ('a -> 'b) t -> 'a t -> 'b t (** same as [apply] *)
+
+  val ( <*  ) : 'a t -> unit t -> 'a t
+  val (  *> ) : unit t -> 'a t -> 'a t
+
+  val ( >>| ) : 'a t -> ('a -> 'b) -> 'b t
+end
+
+module type For_let_syntax = sig
   type 'a t
 
   val return : 'a -> 'a t
 
-  val apply : ('a -> 'b) t -> 'a t -> 'b t
-
   val map : 'a t -> f:('a -> 'b) -> 'b t
+
+  val both : 'a t -> 'b t -> ('a * 'b) t
+
+  include Applicative_infix with type 'a t := 'a t
+
+end
+
+module type S = sig
+
+  include For_let_syntax
+
+  val apply : ('a -> 'b) t -> 'a t -> 'b t
 
   val map2 : 'a t -> 'b t -> f:('a -> 'b -> 'c) -> 'c t
 
@@ -67,16 +87,32 @@ module type S = sig
 
   val all_ignore : unit t list -> unit t [@@deprecated "[since 2018-02] Use [all_unit]"]
 
-  val both : 'a t -> 'b t -> ('a * 'b) t
+  module Applicative_infix : Applicative_infix with type 'a t := 'a t
+end
 
-  module Applicative_infix : sig
-    val ( <*> ) : ('a -> 'b) t -> 'a t -> 'b t (** same as [apply] *)
+module type Let_syntax = sig
+  type 'a t
 
-    val ( <*  ) : 'a t -> unit t -> 'a t
-    val (  *> ) : unit t -> 'a t -> 'a t
+  module Open_on_rhs_intf : sig
+    module type S
   end
 
-  include module type of Applicative_infix
+  module Let_syntax : sig
+
+    val return : 'a -> 'a t
+    include Applicative_infix with type 'a t := 'a t
+
+    module Let_syntax : sig
+
+      val return : 'a -> 'a t
+
+      val map : 'a t -> f:('a -> 'b) -> 'b t
+
+      val both : 'a t -> 'b t -> ('a * 'b) t
+
+      module Open_on_rhs : Open_on_rhs_intf.S
+    end
+  end
 end
 
 (** Argument lists and associated N-ary map and apply functions. *)
@@ -194,21 +230,10 @@ module type S2 = sig
     val ( <*> ) : ('a -> 'b, 'e) t -> ('a, 'e) t -> ('b, 'e) t
     val ( <*  ) : ('a, 'e) t -> (unit, 'e) t -> ('a, 'e) t
     val (  *> ) : (unit, 'e) t -> ('a, 'e) t -> ('a, 'e) t
+    val ( >>| ) : ('a, 'e) t -> ('a -> 'b) -> ('b, 'e) t
   end
 
   include module type of Applicative_infix
-end
-
-(** This module serves mostly as a partial check that [S2] and [S] are in sync, but
-    actually calling it is occasionally useful. *)
-module S_to_S2 (X : S) : (S2 with type ('a, 'e) t = 'a X.t) = struct
-  type ('a, 'e) t = 'a X.t
-  include (X : S with type 'a t := 'a X.t)
-end
-
-module S2_to_S (X : S2) : (S with type 'a t = ('a, unit) X.t) = struct
-  type 'a t = ('a, unit) X.t
-  include (X : S2 with type ('a, 'e) t := ('a, 'e) X.t)
 end
 
 module type Args2 = sig
@@ -227,32 +252,37 @@ module type Args2 = sig
   val applyN : ('f, 'e) arg -> ('f, 'r, 'e) t -> ('r, 'e) arg
 end
 
-module Args_to_Args2 (X : Args) : (
-  Args2 with type ('a, 'e) arg = 'a X.arg
-  with type ('f, 'r, 'e) t = ('f, 'r) X.t
-) = struct
-  type ('a, 'e) arg = 'a X.arg
-  type ('f, 'r, 'e) t = ('f, 'r) X.t
-  include (X : Args with type 'a arg := 'a X.arg and type ('f, 'r) t := ('f, 'r) X.t)
-end
-
 module type Applicative = sig
 
+  module type Applicative_infix = Applicative_infix
   module type Args              = Args
   module type Args2             = Args2
   module type Basic             = Basic
   module type Basic2            = Basic2
   module type Basic2_using_map2 = Basic2_using_map2
   module type Basic_using_map2  = Basic_using_map2
+  module type Let_syntax        = Let_syntax
   module type S                 = S
   module type S2                = S2
 
-  module Args_to_Args2 = Args_to_Args2
-  module S2_to_S       = S2_to_S
-  module S_to_S2       = S_to_S2
+  module Args_to_Args2 (X : Args) :
+    Args2
+    with type ('a, 'e) arg = 'a X.arg
+    with type ('f, 'r, 'e) t = ('f, 'r) X.t
+
+  module S2_to_S (X : S2) : S with type 'a t = ('a, unit) X.t
+
+  module S_to_S2 (X : S) : S2 with type ('a, 'e) t = 'a X.t
 
   module Make  (X : Basic ) : S  with type  'a      t :=  'a      X.t
   module Make2 (X : Basic2) : S2 with type ('a, 'e) t := ('a, 'e) X.t
+
+  module Make_let_syntax
+      (X : For_let_syntax)
+      (Intf : sig module type S end)
+      (Impl : Intf.S)
+    : Let_syntax with type 'a t := 'a X.t
+      with module Open_on_rhs_intf := Intf
 
   module Make_using_map2  (X : Basic_using_map2 ) : S  with type  'a      t :=  'a      X.t
   module Make2_using_map2 (X : Basic2_using_map2) : S2 with type ('a, 'e) t := ('a, 'e) X.t

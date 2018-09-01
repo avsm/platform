@@ -8,10 +8,8 @@ module T = struct
   let (hash_fold_t :
          Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
     hash_fold_int
-
   and (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
-    let func = hash_int  in fun x  -> func x
-
+    let func = hash_int in fun x -> func x
   let t_of_sexp : Ppx_sexp_conv_lib.Sexp.t -> t = int_of_sexp
   let sexp_of_t : t -> Ppx_sexp_conv_lib.Sexp.t = sexp_of_int
   [@@@end]
@@ -24,9 +22,6 @@ module T = struct
 
   let to_string = to_string
 end
-
-include T
-include Comparator.Make(T)
 
 let num_bits = Int_conversions.num_bits_int
 
@@ -49,12 +44,45 @@ let zero = 0
 let one = 1
 let minus_one = -1
 
+include T
+include Comparator.Make(T)
 include Comparable.Validate_with_zero (struct
     include T
     let zero = zero
   end)
 
-include Int_replace_polymorphic_compare
+module Conv = Int_conversions
+include Conv.Make (T)
+include Conv.Make_hex(struct
+    open Int_replace_polymorphic_compare
+    type t = int [@@deriving_inline compare, hash]
+    let compare : t -> t -> int = compare_int
+    let (hash_fold_t :
+           Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
+      hash_fold_int
+    and (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
+      let func = hash_int in fun x -> func x
+    [@@@end]
+
+    let zero = zero
+    let neg = (~-)
+    let (<) = (<)
+    let to_string i = Printf.sprintf "%x" i
+    let of_string s = Caml.Scanf.sscanf s "%x" Fn.id
+
+    let module_name = "Base.Int.Hex"
+  end)
+
+include Pretty_printer.Register (struct
+    type nonrec t = t
+    let to_string = to_string
+    let module_name = "Base.Int"
+  end)
+
+(* Open replace_polymorphic_compare after including functor instantiations so
+   they do not shadow its definitions. This is here so that efficient versions
+   of the comparison functions are available within this module. *)
+open! Int_replace_polymorphic_compare
 
 let between t ~low ~high = low <= t && t <= high
 let clamp_unchecked t ~min ~max =
@@ -87,7 +115,6 @@ let min_value = Pervasives.min_int
 
 let max_value_30_bits = 0x3FFF_FFFF
 
-module Conv = Int_conversions
 let of_int32 = Conv.int32_to_int
 let of_int32_exn = Conv.int32_to_int_exn
 let of_int32_trunc = Conv.int32_to_int_trunc
@@ -103,31 +130,6 @@ let of_nativeint_exn = Conv.nativeint_to_int_exn
 let of_nativeint_trunc = Conv.nativeint_to_int_trunc
 let to_nativeint = Conv.int_to_nativeint
 let to_nativeint_exn = to_nativeint
-
-include Conv.Make (T)
-
-include Conv.Make_hex(struct
-
-    type t = int [@@deriving_inline compare, hash]
-    let compare : t -> t -> int = compare_int
-    let (hash_fold_t :
-           Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
-      hash_fold_int
-
-    and (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
-      let func = hash_int  in fun x  -> func x
-
-    [@@@end]
-
-    let zero = zero
-    let neg = (~-)
-    let (<) = (<)
-    let to_string i = Printf.sprintf "%x" i
-    let of_string s = Caml.Scanf.sscanf s "%x" Fn.id
-
-    let module_name = "Base.Int.Hex"
-
-  end)
 
 let abs x = abs x
 
@@ -156,19 +158,75 @@ let bit_xor a b = a lxor b
 let pow = Int_math.int_pow
 let ( ** ) b e = pow b e
 
-include Int_pow2
+module Pow2 = struct
+  open! Import
+
+  module Sys = Sys0
+
+  let raise_s = Error.raise_s
+
+  let non_positive_argument () =
+    Printf.invalid_argf "argument must be strictly positive" ()
+
+  (** "ceiling power of 2" - Least power of 2 greater than or equal to x. *)
+  let ceil_pow2 x =
+    if x <= 0 then non_positive_argument ();
+    let x = x - 1 in
+    let x = x lor (x lsr 1) in
+    let x = x lor (x lsr 2) in
+    let x = x lor (x lsr 4) in
+    let x = x lor (x lsr 8) in
+    let x = x lor (x lsr 16) in
+    (* The next line is superfluous on 32-bit architectures, but it's faster to do it
+       anyway than to branch *)
+    let x = x lor (x lsr 32) in
+    x + 1
+
+  (** "floor power of 2" - Largest power of 2 less than or equal to x. *)
+  let floor_pow2 x =
+    if x <= 0 then non_positive_argument ();
+    let x = x lor (x lsr 1) in
+    let x = x lor (x lsr 2) in
+    let x = x lor (x lsr 4) in
+    let x = x lor (x lsr 8) in
+    let x = x lor (x lsr 16) in
+    (* The next line is superfluous on 32-bit architectures, but it's faster to do it
+       anyway than to branch *)
+    let x = x lor (x lsr 32) in
+    x - (x lsr 1)
+
+  let is_pow2 x =
+    if x <= 0 then non_positive_argument ();
+    (x land (x-1)) = 0
+  ;;
+
+  (* C stub for int clz to use the CLZ/BSR instruction where possible *)
+  external int_clz : int -> int = "Base_int_math_int_clz" [@@noalloc]
+
+  (** Hacker's Delight Second Edition p106 *)
+  let floor_log2 i =
+    if i <= 0 then
+      raise_s (Sexp.message "[Int.floor_log2] got invalid input"
+                 ["", sexp_of_int i]);
+    Sys.word_size_in_bits - 1 - int_clz i
+  ;;
+
+  let ceil_log2 i =
+    if i <= 0 then
+      raise_s (Sexp.message "[Int.ceil_log2] got invalid input"
+                 ["", sexp_of_int i]);
+    if i = 1
+    then 0
+    else Sys.word_size_in_bits - int_clz (i - 1)
+  ;;
+end
+include Pow2
 
 (* This is already defined by Comparable.Validate_with_zero, but Sign.of_int is
    more direct. *)
 let sign = Sign.of_int
 
 let popcount = Popcount.int_popcount
-
-include Pretty_printer.Register (struct
-    type nonrec t = t
-    let to_string = to_string
-    let module_name = "Base.Int"
-  end)
 
 module Pre_O = struct
   let ( + ) = ( + )
@@ -245,3 +303,8 @@ include O (* [Int] and [Int.O] agree value-wise *)
 module Private = struct
   module O_F = O.F
 end
+
+(* Include type-specific [Replace_polymorphic_compare] at the end, after including functor
+   application that could shadow its definitions. This is here so that efficient versions
+   of the comparison functions are exported by this module. *)
+include Int_replace_polymorphic_compare

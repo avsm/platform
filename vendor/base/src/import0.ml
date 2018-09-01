@@ -27,11 +27,11 @@ include
        with module Queue     := Caml.Queue
        with module Random    := Caml.Random
        with module Set       := Caml.Set
+       with module Stack     := Caml.Stack
        with module String    := Caml.String
        with module Sys       := Caml.Sys
        with module Uchar     := Caml.Uchar
      ))
-
 type 'a ref = 'a Caml.ref = { mutable contents: 'a }
 
 (* Reshuffle [Caml] so that we choose the modules using labels when available. *)
@@ -124,8 +124,7 @@ module Caml = struct
   module Uchar     = Caml.Uchar
 
   module Pervasives = Caml.Pervasives
-
-  include Caml.Pervasives
+  include Pervasives
 
   exception Not_found = Caml.Not_found
 end
@@ -193,6 +192,22 @@ module Int_replace_polymorphic_compare = struct
 end
 
 include Int_replace_polymorphic_compare
+
+module Int32_replace_polymorphic_compare = struct
+  let ( <  ) (x : Caml.Int32.t) y = Poly.( <  ) x y
+  let ( <= ) (x : Caml.Int32.t) y = Poly.( <= ) x y
+  let ( <> ) (x : Caml.Int32.t) y = Poly.( <> ) x y
+  let ( =  ) (x : Caml.Int32.t) y = Poly.( =  ) x y
+  let ( >  ) (x : Caml.Int32.t) y = Poly.( >  ) x y
+  let ( >= ) (x : Caml.Int32.t) y = Poly.( >= ) x y
+
+  let ascending  (x : Caml.Int32.t) y = Poly.ascending  x y
+  let descending (x : Caml.Int32.t) y = Poly.descending x y
+  let compare    (x : Caml.Int32.t) y = Poly.compare    x y
+  let equal      (x : Caml.Int32.t) y = Poly.equal      x y
+  let max        (x : Caml.Int32.t) y = if x >= y then x else y
+  let min        (x : Caml.Int32.t) y = if x <= y then x else y
+end
 
 module Int64_replace_polymorphic_compare = struct
   let ( <  ) (x : Caml.Int64.t) y = Poly.( <  ) x y

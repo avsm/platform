@@ -16,19 +16,21 @@ module T = struct
   let (hash_fold_t :
          Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
     hash_fold_float
-
   and (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
-    let func = hash_float  in fun x  -> func x
-
+    let func = hash_float in fun x -> func x
   let t_of_sexp : Ppx_sexp_conv_lib.Sexp.t -> t = float_of_sexp
   let sexp_of_t : t -> Ppx_sexp_conv_lib.Sexp.t = sexp_of_float
   [@@@end]
   let compare = Float_replace_polymorphic_compare.compare
-  let equal   = Float_replace_polymorphic_compare.equal
 end
 
 include T
 include Comparator.Make(T)
+
+(* Open replace_polymorphic_compare after including functor instantiations so they do not
+   shadow its definitions. This is here so that efficient versions of the comparison
+   functions are available within this module. *)
+open Float_replace_polymorphic_compare
 
 let to_float x = x
 let of_float x = x
@@ -482,13 +484,7 @@ let neg = (~-.)
 let abs = Pervasives.abs_float
 let scale = ( *. )
 
-let min (x : t) y =
-  if is_nan x || is_nan y then nan
-  else if x < y then x else y
-
-let max (x : t) y =
-  if is_nan x || is_nan y then nan
-  else if x > y then x else y
+let square x = x *. x
 
 module Parts : sig
   type t
@@ -620,30 +616,10 @@ module Class = struct
     | Subnormal
     | Zero
   [@@deriving_inline compare, enumerate, sexp]
-  let compare : t -> t -> int =
-    fun a__001_  ->
-    fun b__002_  ->
-      if Ppx_compare_lib.phys_equal a__001_ b__002_
-      then 0
-      else
-        (match (a__001_, b__002_) with
-         | (Infinite ,Infinite ) -> 0
-         | (Infinite ,_) -> (-1)
-         | (_,Infinite ) -> 1
-         | (Nan ,Nan ) -> 0
-         | (Nan ,_) -> (-1)
-         | (_,Nan ) -> 1
-         | (Normal ,Normal ) -> 0
-         | (Normal ,_) -> (-1)
-         | (_,Normal ) -> 1
-         | (Subnormal ,Subnormal ) -> 0
-         | (Subnormal ,_) -> (-1)
-         | (_,Subnormal ) -> 1
-         | (Zero ,Zero ) -> 0)
-
+  let compare : t -> t -> int = Ppx_compare_lib.polymorphic_compare
   let all : t list = [Infinite; Nan; Normal; Subnormal; Zero]
   let t_of_sexp : Ppx_sexp_conv_lib.Sexp.t -> t =
-    let _tp_loc = "src/float.ml.Class.t"  in
+    let _tp_loc = "src/float.ml.Class.t" in
     function
     | Ppx_sexp_conv_lib.Sexp.Atom ("infinite"|"Infinite") -> Infinite
     | Ppx_sexp_conv_lib.Sexp.Atom ("nan"|"Nan") -> Nan
@@ -672,11 +648,11 @@ module Class = struct
     | sexp -> Ppx_sexp_conv_lib.Conv_error.unexpected_stag _tp_loc sexp
   let sexp_of_t : t -> Ppx_sexp_conv_lib.Sexp.t =
     function
-    | Infinite  -> Ppx_sexp_conv_lib.Sexp.Atom "Infinite"
-    | Nan  -> Ppx_sexp_conv_lib.Sexp.Atom "Nan"
-    | Normal  -> Ppx_sexp_conv_lib.Sexp.Atom "Normal"
-    | Subnormal  -> Ppx_sexp_conv_lib.Sexp.Atom "Subnormal"
-    | Zero  -> Ppx_sexp_conv_lib.Sexp.Atom "Zero"
+    | Infinite -> Ppx_sexp_conv_lib.Sexp.Atom "Infinite"
+    | Nan -> Ppx_sexp_conv_lib.Sexp.Atom "Nan"
+    | Normal -> Ppx_sexp_conv_lib.Sexp.Atom "Normal"
+    | Subnormal -> Ppx_sexp_conv_lib.Sexp.Atom "Subnormal"
+    | Zero -> Ppx_sexp_conv_lib.Sexp.Atom "Zero"
   [@@@end]
 
   let to_string t = string_of_sexp (sexp_of_t t)
@@ -969,8 +945,6 @@ let sign_exn t : Sign.t =
   else Error.raise_s (Sexp.message "Float.sign_exn of NAN"
                         ["", sexp_of_t t])
 
-module Sign_or_nan = struct type t = Neg | Zero | Pos | Nan end
-
 let sign_or_nan t : Sign_or_nan.t =
   if t > 0.
   then Pos
@@ -1108,3 +1082,19 @@ module Private = struct
   let int63_round_nearest_arch64_noalloc_exn = int63_round_nearest_arch64_noalloc_exn
   let iround_nearest_exn_64 = iround_nearest_exn_64
 end
+
+
+(* Include type-specific [Replace_polymorphic_compare] at the end, after
+   including functor application that could shadow its definitions. This is
+   here so that efficient versions of the comparison functions are exported by
+   this module. *)
+include Float_replace_polymorphic_compare
+
+(* These functions specifically replace defaults in replace_polymorphic_compare *)
+let min (x : t) y =
+  if is_nan x || is_nan y then nan
+  else if x < y then x else y
+
+let max (x : t) y =
+  if is_nan x || is_nan y then nan
+  else if x > y then x else y

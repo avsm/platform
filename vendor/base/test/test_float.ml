@@ -383,6 +383,15 @@ let%test _ =
   | Neg | Zero | Pos -> false
   | exception _ -> true
 
+let%test_unit "sign_or_nan" =
+  List.iter ~f:(fun (input,expect) -> assert (Sign_or_nan.equal (sign_or_nan input) expect))
+    [ (1e-30,        Sign_or_nan.Pos)
+    ; (-0.,          Zero)
+    ; (0.,           Zero)
+    ; (neg_infinity, Neg)
+    ; (nan,          Nan)
+    ]
+
 let%test_module _ =
   (module struct
     let check v expect =
@@ -970,6 +979,14 @@ let%test_module "Hexadecimal syntax" =
   end)
 ;;
 
+let%expect_test "square" =
+  printf "%f\n" (square 1.5);
+  printf "%f\n" (square (-2.5));
+  [%expect {|
+    2.250000
+    6.250000 |}]
+;;
+
 let%expect_test "mathematical constants" =
   (* Compare to the from-string conversion of numbers from Wolfram Alpha *)
   let eq x s = assert (x = of_string s) in
@@ -1014,6 +1031,3 @@ let%test_unit "int to float conversion consistency" =
   done;
   ()
 ;;
-
-
-

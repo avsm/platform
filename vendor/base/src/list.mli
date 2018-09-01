@@ -130,6 +130,12 @@ val partition3_map
     is (trues, falses). *)
 val partition_tf : 'a t -> f:('a -> bool) -> 'a t * 'a t
 
+(** [partition_result l] returns a pair of lists [(l1, l2)], where [l1] is the
+    list of all [Ok] elements in [l] and [l2] is the list of all [Error]
+    elements.
+    The order of elements in the input list is preserved. *)
+val partition_result : ('ok, 'error) Result.t t -> 'ok t * 'error t
+
 (** [split_n \[e1; ...; em\] n] is [(\[e1; ...; en\], \[en+1; ...; em\])].
 
     - If [n > m], [(\[e1; ...; em\], \[\])] is returned.
@@ -147,10 +153,10 @@ val split_n : 'a t -> int -> 'a t * 'a t
 
     Presently, the sort is stable, meaning that two equal elements in the input will be in
     the same order in the output. *)
-val sort : compare:('a -> 'a -> int) -> 'a t -> 'a t
+val sort : 'a t -> compare:('a -> 'a -> int) -> 'a t
 
 (** Like [sort], but guaranteed to be stable. *)
-val stable_sort : compare:('a -> 'a -> int) -> 'a t -> 'a t
+val stable_sort : 'a t -> compare:('a -> 'a -> int) -> 'a t
 
 (** Merges two lists: assuming that [l1] and [l2] are sorted according to the comparison
     function [compare], [merge compare l1 l2] will return a sorted list containing all the
@@ -414,11 +420,11 @@ module Assoc : sig
     val t_of_sexp :
       (Ppx_sexp_conv_lib.Sexp.t -> 'a) ->
       (Ppx_sexp_conv_lib.Sexp.t -> 'b) ->
-      Ppx_sexp_conv_lib.Sexp.t -> ('a,'b) t
+      Ppx_sexp_conv_lib.Sexp.t -> ('a, 'b) t
     val sexp_of_t :
       ('a -> Ppx_sexp_conv_lib.Sexp.t) ->
       ('b -> Ppx_sexp_conv_lib.Sexp.t) ->
-      ('a,'b) t -> Ppx_sexp_conv_lib.Sexp.t
+      ('a, 'b) t -> Ppx_sexp_conv_lib.Sexp.t
   end
   [@@@end]
 
@@ -443,7 +449,7 @@ val sub : 'a t -> pos:int -> len:int -> 'a t
 val take : 'a t -> int -> 'a t
 
 (** [drop l n] returns [l] without the first [n] elements, or the empty list if [n >
-    length l].  [drop l n = snd (split_n l n)]. *)
+    length l].  [drop l n] is equivalent to [snd (split_n l n)]. *)
 val drop : 'a t -> int -> 'a t
 
 (** [take_while l ~f] returns the longest prefix of [l] for which [f] is [true]. *)
@@ -491,7 +497,7 @@ val random_element_exn : ?random_state:Random.State.t -> 'a t -> 'a
 val is_sorted          : 'a t -> compare:('a -> 'a -> int) -> bool
 val is_sorted_strictly : 'a t -> compare:('a -> 'a -> int) -> bool
 
-val equal : 'a t -> 'a t -> equal:('a -> 'a -> bool) -> bool
+val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
 
 module Infix : sig
   val ( @ ) : 'a t -> 'a t -> 'a t

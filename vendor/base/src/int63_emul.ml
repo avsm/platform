@@ -13,10 +13,8 @@ module T0 = struct
     let (hash_fold_t :
            Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
       hash_fold_int64
-
     and (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
-      let func = hash_int64  in fun x  -> func x
-
+      let func = hash_int64 in fun x -> func x
     let t_of_sexp : Ppx_sexp_conv_lib.Sexp.t -> t = int64_of_sexp
     let sexp_of_t : t -> Ppx_sexp_conv_lib.Sexp.t = sexp_of_int64
     [@@@end]
@@ -63,6 +61,12 @@ module W : sig
   val of_int64_trunc : Caml.Int64.t -> t
 
   val compare : t -> t -> int
+
+  val ceil_pow2 : t -> t
+  val floor_pow2 : t -> t
+  val ceil_log2 : t -> int
+  val floor_log2 : t -> int
+  val is_pow2 : t -> bool
 end = struct
   type t = int64
   include (T0 : module type of struct include T0 end with type t := t)
@@ -122,6 +126,11 @@ end = struct
 
   let compare (x : t) y = compare x y
 
+  let is_pow2    x = Int64.is_pow2    (unwrap x)
+  let floor_pow2 x = Int64.floor_pow2 (unwrap x) |> wrap_exn
+  let ceil_pow2  x = Int64.floor_pow2 (unwrap x) |> wrap_exn
+  let floor_log2 x = Int64.floor_log2 (unwrap x)
+  let ceil_log2  x = Int64.ceil_log2  (unwrap x)
 end
 
 open W
@@ -131,10 +140,8 @@ module T = struct
   let (hash_fold_t :
          Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
     W.hash_fold_t
-
   and (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
-    let func = W.hash  in fun x  -> func x
-
+    let func = W.hash in fun x -> func x
   let t_of_sexp : Ppx_sexp_conv_lib.Sexp.t -> t = W.t_of_sexp
   let sexp_of_t : t -> Ppx_sexp_conv_lib.Sexp.t = W.sexp_of_t
   [@@@end]
@@ -142,7 +149,6 @@ module T = struct
   let comparator = W.comparator
 
   let compare = W.compare
-  let equal   = Int64_replace_polymorphic_compare.equal
 
   (* We don't expect [hash] to follow the behavior of int in 64bit architecture *)
   let _ = hash
@@ -208,7 +214,6 @@ module T = struct
         | `Neg -> neg int63
         | `Pos -> int63
     with _ -> invalid_str str
-
 end
 
 include T
@@ -237,7 +242,11 @@ let min_value = min_value
 let minus_one = wrap_exn Caml.Int64.minus_one
 let one = wrap_exn Caml.Int64.one
 let zero = wrap_exn Caml.Int64.zero
-let compare = compare
+let is_pow2 = is_pow2
+let floor_pow2 = floor_pow2
+let ceil_pow2 = ceil_pow2
+let floor_log2 = floor_log2
+let ceil_log2 = ceil_log2
 let to_float x = Caml.Int64.to_float (unwrap x)
 let of_float_unchecked x = wrap_modulo (Caml.Int64.of_float x)
 let of_float t =
@@ -258,8 +267,6 @@ include Comparable.Validate_with_zero (struct
     let zero = zero
   end)
 
-let min x y = if x < y then x else y
-let max x y = if x > y then x else y
 let between t ~low ~high = low <= t && t <= high
 let clamp_unchecked t ~min ~max =
   if t < min then min else if t <= max then t else max
@@ -318,10 +325,8 @@ include Conv.Make_hex(struct
     let (hash_fold_t :
            Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
       T.hash_fold_t
-
     and (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
-      let func = T.hash  in fun x  -> func x
-
+      let func = T.hash in fun x -> func x
     [@@@end]
 
     let zero = zero
@@ -386,3 +391,9 @@ module Repr = struct
 end
 
 let repr = Repr.Int64
+
+(* Include type-specific [Replace_polymorphic_compare] at the end, after
+   including functor application that could shadow its definitions. This is
+   here so that efficient versions of the comparison functions are exported by
+   this module. *)
+include Int64_replace_polymorphic_compare

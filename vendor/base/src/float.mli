@@ -59,9 +59,7 @@ val euler : t     (** Euler-Mascheroni constant (γ). *)
     order of [x], the roundoff error is on the order of [x *. float_epsilon].
 
     See also: {{:http://en.wikipedia.org/wiki/Machine_epsilon} Machine epsilon}.
-
-    (Not to be confused with
-    {{!val:robust_comparison_tolerance}[robust_comparison_tolerance]}.) *)
+*)
 val epsilon_float : t
 
 val max_finite_value : t
@@ -87,6 +85,8 @@ val of_int64_preserve_order : int64 -> t
     [one_ulp `Down neg_infinity] return a nan. *)
 val one_ulp : [`Up | `Down] -> t -> t
 
+(** Note that this doesn't round trip in either direction.  For example, [Float.to_int
+    (Float.of_int max_int) <> max_int]. *)
 val of_int : int -> t
 val to_int : t -> int
 
@@ -399,6 +399,9 @@ val to_padded_compact_string : t -> string
     [**]. *)
 val int_pow : t -> int -> t
 
+(** [square x] returns [x *. x]. *)
+val square : t -> t
+
 (** [ldexp x n] returns [x *. 2 ** n] *)
 val ldexp : t -> int -> t
 
@@ -489,6 +492,18 @@ external exp : t -> t = "caml_exp_float" "exp"
 external log : t -> t = "caml_log_float" "log"
 [@@unboxed] [@@noalloc]
 
+
+(** Excluding nan the floating-point "number line" looks like:
+    {v
+             t                Class.t    example
+           ^ neg_infinity     Infinite   neg_infinity
+           | neg normals      Normal     -3.14
+           | neg subnormals   Subnormal  -.2. ** -1023.
+           | (-/+) zero       Zero       0.
+           | pos subnormals   Subnormal  2. ** -1023.
+           | pos normals      Normal     3.14
+           v infinity         Infinite   infinity
+    v} *)
 module Class : sig
   type t =
     | Infinite
@@ -510,17 +525,6 @@ module Class : sig
   include Stringable.S with type t := t
 end
 
-(** return the Class.t.  Excluding nan the floating-point "number line" looks like:
-    {v
-             t                Class.t    example
-           ^ neg_infinity     Infinite   neg_infinity
-           | neg normals      Normal     -3.14
-           | neg subnormals   Subnormal  -.2. ** -1023.
-           | (-/+) zero       Zero       0.
-           | pos subnormals   Subnormal  2. ** -1023.
-           | pos normals      Normal     3.14
-           v infinity         Infinite   infinity
-    v} *)
 val classify : t -> Class.t
 
 (** [is_finite t] returns [true] iff [classify t] is in [Normal; Subnormal; Zero;]. *)
@@ -535,7 +539,8 @@ val sign : t -> Sign.t
     values map to [Neg] or [Pos]. *)
 val sign_exn : t -> Sign.t
 
-module Sign_or_nan : sig type t = Neg | Zero | Pos | Nan end
+(** The sign of a float, with support for NaN. Both [-0.] and [0.] map to [Zero].  All NaN
+    values map to [Nan]. All other values map to [Neg] or [Pos]. *)
 val sign_or_nan : t -> Sign_or_nan.t
 
 (** These functions construct and destruct 64-bit floating point numbers based on their
@@ -570,6 +575,9 @@ module Terse : sig
 end
 
 (**/**)
+(*_ See the Jane Street Style Guide for an explanation of [Private] submodules:
+
+  https://opensource.janestreet.com/standards/#private-submodules *)
 module Private : sig
   val lower_bound_for_int : int -> t
   val upper_bound_for_int : int -> t
