@@ -100,8 +100,8 @@ let submit ~dry_run opam_pkg_dir local_repo remote_repo pkgs =
         strf "[new release] %a (%s)" (pp_list Fmt.string) names version
       in
       Pkg.publish_msg pkg >>= fun changes ->
-      Pkg.distrib_user_and_repo pkg >>= fun (user, repo) ->
-      let changes = rewrite_github_refs user repo changes in
+      Pkg.distrib_user_and_repo pkg >>= fun (distrib_user, repo) ->
+      let changes = rewrite_github_refs distrib_user repo changes in
       let msg = strf "%s\n\n%s\n" title changes in
       Opam.prepare ~dry_run ~msg ~local_repo ~remote_repo ~version names
       >>= fun branch ->
@@ -123,10 +123,15 @@ let submit ~dry_run opam_pkg_dir local_repo remote_repo pkgs =
           pp_space ()
           changes
       in
-      Github.open_pr ~token ~dry_run ~title ~user ~branch msg >>= function
+      let user =
+        match Github.user_from_remote remote_repo with
+        | Some user -> user
+        | None -> distrib_user
+      in
+      Github.open_pr ~token ~dry_run ~title ~distrib_user ~user ~branch msg >>= function
       | `Already_exists -> Logs.app (fun m ->
           m "\nThe existing pull request for %a has been automatically updated."
-            Fmt.(styled `Bold string) (user ^ ":" ^ branch));
+            Fmt.(styled `Bold string) (distrib_user ^ ":" ^ branch));
           Ok 0
       | `Url url ->
           let auto_open =
@@ -158,7 +163,7 @@ let field pkgs field = match field with
 (* Command *)
 
 let opam () dry_run build_dir local_repo remote_repo user keep_v
-    dist_name dist_version dist_opam dist_uri dist_file
+    name dist_opam dist_uri dist_file
     pkg_opam_dir pkg_names pkg_version pkg_opam pkg_descr
     readme change_log publish_msg action field_name
   =
@@ -177,7 +182,7 @@ let opam () dry_run build_dir local_repo remote_repo user keep_v
   | `Pkg ->
       let dist_p =
         Pkg.v ~dry_run ~drop_v:(not keep_v)
-          ?build_dir ?name:dist_name ?version:dist_version ?opam:dist_opam
+          ?build_dir ?name ?opam:dist_opam
           ?distrib_uri:dist_uri ?distrib_file:dist_file ?readme ?change_log
           ?publish_msg ()
       in
@@ -320,7 +325,7 @@ let cmd =
   let t = Term.(pure opam $ Cli.setup $ Cli.dry_run $ Cli.build_dir $
                 local_repo $ remote_repo $
                 user $ Cli.keep_v $
-                Cli.dist_name $ Cli.dist_version $ Cli.dist_opam $
+                Cli.pkg_name $ Cli.dist_opam $
                 Cli.dist_uri $ Cli.dist_file $
                 pkg_opam_dir $ pkg_names $ pkg_version $ pkg_opam $
                 pkg_descr $ Cli.readme $ Cli.change_log $ Cli.publish_msg $
