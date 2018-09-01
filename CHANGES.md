@@ -1,10 +1,24 @@
-## v0.11.1
+## git version
 
-- Fix 4.07 build (#52, fixes #47)
+- Added `Bool.Non_short_circuiting`.
 
-- Fix backtrace truncation problem (fix #44)
+- Added `Float.square`.
 
-## v0.11.0
+- Remove module `Or_error.Ok`.
+
+- module `Ref` doesn't implement `Container.S1` anymore.
+
+- Rename parameter of `Sequence.merge` from `cmp` to `compare`.
+
+- Added `Info.of_lazy_t`
+
+- Added `List.partition_result` function, to partition a list of `Result.t`
+  values
+
+- Changed the signature of `equal` from `'a t -> 'a t -> equal:('a -> 'a ->
+  bool) -> bool` to `('a -> 'a -> bool) -> 'a t -> 'a t -> bool`.
+
+## v0.11
 
 - Deprecated `Not_found`, people who need it can use `Caml.Not_found`, but its
   use isn't recommended.

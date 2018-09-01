@@ -73,7 +73,7 @@ module Step : sig
     val sexp_of_t :
       ('a -> Ppx_sexp_conv_lib.Sexp.t) ->
       ('s -> Ppx_sexp_conv_lib.Sexp.t) ->
-      ('a,'s) t -> Ppx_sexp_conv_lib.Sexp.t
+      ('a, 's) t -> Ppx_sexp_conv_lib.Sexp.t
   end
   [@@@end]
 end
@@ -117,10 +117,10 @@ val filteri : 'a t -> f: (int -> 'a -> bool) -> 'a t
 
 val filter : 'a t -> f: ('a -> bool) -> 'a t
 
-(** [merge t1 t2 ~cmp] merges two sorted sequences [t1] and [t2], returning a sorted
-    sequence, all according to [cmp].  If two elements are equal, the one from [t1] is
+(** [merge t1 t2 ~compare] merges two sorted sequences [t1] and [t2], returning a sorted
+    sequence, all according to [compare].  If two elements are equal, the one from [t1] is
     preferred.  The behavior is undefined if the inputs aren't sorted. *)
-val merge : 'a t -> 'a t -> cmp:('a -> 'a -> int) -> 'a t
+val merge : 'a t -> 'a t -> compare:('a -> 'a -> int) -> 'a t
 
 module Merge_with_duplicates_element : sig
   type ('a, 'b) t =
@@ -132,31 +132,32 @@ module Merge_with_duplicates_element : sig
   sig
     [@@@ocaml.warning "-32"]
     val compare :
-      ('a -> 'a -> int) -> ('b -> 'b -> int) -> ('a,'b) t -> ('a,'b) t -> int
+      ('a -> 'a -> int) ->
+      ('b -> 'b -> int) -> ('a, 'b) t -> ('a, 'b) t -> int
     val hash_fold_t :
       (Ppx_hash_lib.Std.Hash.state -> 'a -> Ppx_hash_lib.Std.Hash.state) ->
       (Ppx_hash_lib.Std.Hash.state -> 'b -> Ppx_hash_lib.Std.Hash.state) ->
       Ppx_hash_lib.Std.Hash.state ->
-      ('a,'b) t -> Ppx_hash_lib.Std.Hash.state
+      ('a, 'b) t -> Ppx_hash_lib.Std.Hash.state
     val t_of_sexp :
       (Ppx_sexp_conv_lib.Sexp.t -> 'a) ->
       (Ppx_sexp_conv_lib.Sexp.t -> 'b) ->
-      Ppx_sexp_conv_lib.Sexp.t -> ('a,'b) t
+      Ppx_sexp_conv_lib.Sexp.t -> ('a, 'b) t
     val sexp_of_t :
       ('a -> Ppx_sexp_conv_lib.Sexp.t) ->
       ('b -> Ppx_sexp_conv_lib.Sexp.t) ->
-      ('a,'b) t -> Ppx_sexp_conv_lib.Sexp.t
+      ('a, 'b) t -> Ppx_sexp_conv_lib.Sexp.t
   end
   [@@@end]
 end
 
-(** [merge_with_duplicates_element t1 t2 ~cmp] is like [merge], except that for each
+(** [merge_with_duplicates_element t1 t2 ~compare] is like [merge], except that for each
     element it indicates which input(s) the element comes from, using
     [Merge_with_duplicates_element]. *)
 val merge_with_duplicates
   :  'a t
   -> 'b t
-  -> cmp:('a -> 'b -> int)
+  -> compare:('a -> 'b -> int)
   -> ('a, 'b) Merge_with_duplicates_element.t t
 
 val hd     : 'a t -> 'a option

@@ -215,8 +215,14 @@ val of_list_rev : 'a list -> 'a t
 (** [of_list_map l ~f] is the same as [of_list (List.map l ~f)]. *)
 val of_list_map : 'a list -> f:('a -> 'b) -> 'b t
 
-(** [of_list_rev_map l ~f] is the same as [rev_inplace (of_list_map l ~f)]. *)
+(** [of_list_mapi l ~f] is the same as [of_list (List.mapi l ~f)]. *)
+val of_list_mapi : 'a list -> f:(int -> 'a -> 'b) -> 'b t
+
+(** [of_list_rev_map l ~f] is the same as [of_list (List.rev_map l ~f)]. *)
 val of_list_rev_map : 'a list -> f:('a -> 'b) -> 'b t
+
+(** [of_list_rev_mapi l ~f] is the same as [of_list (List.rev_mapi l ~f)]. *)
+val of_list_rev_mapi : 'a list -> f:(int -> 'a -> 'b) -> 'b t
 
 (** [replace t i ~f] = [t.(i) <- f (t.(i))]. *)
 val replace : 'a t -> int -> f:('a -> 'a) -> unit
@@ -290,7 +296,7 @@ val last : 'a t -> 'a
 val empty : unit -> 'a t
 [@@deprecated "[since 2016-04] Use [ [||] ]"]
 
-val equal : 'a t -> 'a t -> equal:('a -> 'a -> bool) -> bool
+val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
 
 (** [unsafe_truncate t ~len] drops [length t - len] elements from the end of [t], changing
     [t] so that [length t = len] afterwards.
@@ -314,6 +320,9 @@ val to_sequence : 'a t -> 'a Sequence.t
 val to_sequence_mutable : 'a t -> 'a Sequence.t
 
 (**/**)
+(*_ See the Jane Street Style Guide for an explanation of [Private] submodules:
+
+  https://opensource.janestreet.com/standards/#private-submodules *)
 module Private : sig
   module Sort : sig
     module type Sort = sig

@@ -7,10 +7,8 @@ module T = struct
   let (hash_fold_t :
          Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
     hash_fold_nativeint
-
   and (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
-    let func = hash_nativeint  in fun x  -> func x
-
+    let func = hash_nativeint in fun x -> func x
   let t_of_sexp : Ppx_sexp_conv_lib.Sexp.t -> t = nativeint_of_sexp
   let sexp_of_t : t -> Ppx_sexp_conv_lib.Sexp.t = sexp_of_nativeint
   [@@@end]
@@ -22,6 +20,44 @@ end
 
 include T
 include Comparator.Make(T)
+include Comparable.Validate_with_zero (struct
+    include T
+    let zero = zero
+  end)
+
+
+module Conv = Int_conversions
+include Conv.Make (T)
+include Conv.Make_hex(struct
+    open Nativeint_replace_polymorphic_compare
+    type t = nativeint [@@deriving_inline compare, hash]
+    let compare : t -> t -> int = compare_nativeint
+    let (hash_fold_t :
+           Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
+      hash_fold_nativeint
+    and (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
+      let func = hash_nativeint in fun x -> func x
+    [@@@end]
+
+    let zero = zero
+    let neg = neg
+    let (<) = (<)
+    let to_string i = Printf.sprintf "%nx" i
+    let of_string s = Caml.Scanf.sscanf s "%nx" Fn.id
+
+    let module_name = "Base.Nativeint.Hex"
+  end)
+
+include Pretty_printer.Register (struct
+    type nonrec t = t
+    let to_string = to_string
+    let module_name = "Base.Nativeint"
+  end)
+
+(* Open replace_polymorphic_compare after including functor instantiations so they do not
+   shadow its definitions. This is here so that efficient versions of the comparison
+   functions are available within this module. *)
+open! Nativeint_replace_polymorphic_compare
 
 let num_bits = Word_size.num_bits Word_size.word_size
 let float_lower_bound = Float0.lower_bound_for_int num_bits
@@ -56,12 +92,75 @@ let of_float f =
       (Float0.box f)
       ()
 
-include Comparable.Validate_with_zero (struct
-    include T
-    let zero = zero
-  end)
+module Pow2 = struct
+  open! Import
+  open Nativeint_replace_polymorphic_compare
 
-include Nativeint_replace_polymorphic_compare
+  module Sys = Sys0
+
+  let raise_s = Error.raise_s
+
+  let non_positive_argument () =
+    Printf.invalid_argf "argument must be strictly positive" ()
+
+  let ( lor ) = Caml.Nativeint.logor;;
+  let ( lsr ) = Caml.Nativeint.shift_right_logical;;
+  let ( land ) = Caml.Nativeint.logand;;
+
+  (** "ceiling power of 2" - Least power of 2 greater than or equal to x. *)
+  let ceil_pow2 (x : nativeint) =
+    if x <= 0n then non_positive_argument ();
+    let x = Caml.Nativeint.pred x in
+    let x = x lor (x lsr 1) in
+    let x = x lor (x lsr 2) in
+    let x = x lor (x lsr 4) in
+    let x = x lor (x lsr 8) in
+    let x = x lor (x lsr 16) in
+    (* The next line is superfluous on 32-bit architectures, but it's faster to do it
+       anyway than to branch *)
+    let x = x lor (x lsr 32) in
+    Caml.Nativeint.succ x
+  ;;
+
+  (** "floor power of 2" - Largest power of 2 less than or equal to x. *)
+  let floor_pow2 x =
+    if x <= 0n then non_positive_argument ();
+    let x = x lor (x lsr 1) in
+    let x = x lor (x lsr 2) in
+    let x = x lor (x lsr 4) in
+    let x = x lor (x lsr 8) in
+    let x = x lor (x lsr 16) in
+    let x = x lor (x lsr 32) in
+    Caml.Nativeint.sub x (x lsr 1)
+  ;;
+
+  let is_pow2 x =
+    if x <= 0n then non_positive_argument ();
+    (x land (Caml.Nativeint.pred x)) = 0n
+  ;;
+
+  (* C stub for nativeint clz to use the CLZ/BSR instruction where possible *)
+  external nativeint_clz : nativeint -> int = "Base_int_math_nativeint_clz" [@@noalloc]
+
+  (** Hacker's Delight Second Edition p106 *)
+  let floor_log2 i =
+    if Pervasives.( <= ) i Caml.Nativeint.zero then
+      raise_s (Sexp.message "[Nativeint.floor_log2] got invalid input"
+                 ["", sexp_of_nativeint i]);
+    Sys.word_size_in_bits - 1 - nativeint_clz i
+  ;;
+
+  (** Hacker's Delight Second Edition p106 *)
+  let ceil_log2 i =
+    if Pervasives.( <= ) i Caml.Nativeint.zero then
+      raise_s (Sexp.message "[Nativeint.ceil_log2] got invalid input"
+                 ["", sexp_of_nativeint i]);
+    if Caml.Nativeint.equal i Caml.Nativeint.one
+    then 0
+    else Sys.word_size_in_bits - nativeint_clz (Caml.Nativeint.pred i)
+  ;;
+end
+include Pow2
 
 let between t ~low ~high = low <= t && t <= high
 let clamp_unchecked t ~min ~max =
@@ -97,7 +196,6 @@ let to_nativeint_exn = to_nativeint
 
 let popcount = Popcount.nativeint_popcount
 
-module Conv = Int_conversions
 let of_int = Conv.int_to_nativeint
 let of_int_exn = of_int
 let to_int = Conv.nativeint_to_int
@@ -115,37 +213,6 @@ let to_int64 = Conv.nativeint_to_int64
 
 let pow b e = of_int_exn (Int_math.int_pow (to_int_exn b) (to_int_exn e))
 let ( ** ) b e = pow b e
-
-include Conv.Make (T)
-
-include Conv.Make_hex(struct
-
-    type t = nativeint [@@deriving_inline compare, hash]
-    let compare : t -> t -> int = compare_nativeint
-    let (hash_fold_t :
-           Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
-      hash_fold_nativeint
-
-    and (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
-      let func = hash_nativeint  in fun x  -> func x
-
-    [@@@end]
-
-    let zero = zero
-    let neg = (~-)
-    let (<) = (<)
-    let to_string i = Printf.sprintf "%nx" i
-    let of_string s = Caml.Scanf.sscanf s "%nx" Fn.id
-
-    let module_name = "Base.Nativeint.Hex"
-
-  end)
-
-include Pretty_printer.Register (struct
-    type nonrec t = t
-    let to_string = to_string
-    let module_name = "Base.Nativeint"
-  end)
 
 module Pre_O = struct
   let ( + ) = ( + )
@@ -183,3 +250,9 @@ module O = struct
 end
 
 include O (* [Nativeint] and [Nativeint.O] agree value-wise *)
+
+(* Include type-specific [Replace_polymorphic_compare] at the end, after
+   including functor application that could shadow its definitions. This is
+   here so that efficient versions of the comparison functions are exported by
+   this module. *)
+include Nativeint_replace_polymorphic_compare

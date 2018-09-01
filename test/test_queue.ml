@@ -3,14 +3,11 @@ open! Core_kernel
 let%test_module _ =
   (module (struct
 
-    module Debug_queue = Queue_debug.Debug (Queue)
-    open Debug_queue
+    open Queue
 
     module type S = S
 
     let does_raise = Exn.does_raise
-
-    let () = show_messages := false
 
     type nonrec 'a t = 'a t [@@deriving bin_io, sexp]
 
@@ -164,7 +161,7 @@ let%test_module _ =
       assert (to_list t' = [])
     ;;
 
-    include Core_kernel.Core_kernel_private.Container_unit_tests.Test_S1 (Debug_queue)
+    include Test_container.Test_S1 (Queue)
 
     let dequeue_exn = dequeue_exn
     let enqueue     = enqueue
@@ -245,7 +242,7 @@ let%test_module _ =
         let test t1 t2 =
           [%test_result: bool]
             (equal Int.equal t1 t2)
-            ~expect:(List.equal ~equal:Int.equal (to_list t1) (to_list t2));
+            ~expect:(List.equal Int.equal  (to_list t1) (to_list t2));
           [%test_result: int]
             (sign (compare Int.compare t1 t2))
             ~expect:(sign (List.compare Int.compare (to_list t1) (to_list t2)))
@@ -374,7 +371,7 @@ let%test_module _ =
         end
 
         module This_queue : Queue_intf = struct
-          include Debug_queue
+          include Queue
           let create () = create ()
           let transfer ~src ~dst = blit_transfer ~src ~dst ()
         end

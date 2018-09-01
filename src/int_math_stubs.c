@@ -5,6 +5,29 @@
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 
+#ifdef _MSC_VER
+
+#include <intrin.h>
+
+#define __builtin_popcountll __popcnt64
+#define __builtin_popcount   __popcnt
+
+static uint32_t __inline __builtin_clz(uint32_t x)
+{
+  int r = 0;
+  _BitScanForward(&r, x);
+  return r;
+}
+
+static uint64_t __inline __builtin_clzll(uint64_t x)
+{
+  int r = 0;
+  _BitScanForward64(&r, x);
+  return r;
+}
+
+#endif
+
 static int64_t int_pow(int64_t base, int64_t exponent) {
   int64_t ret = 1;
   int64_t mul[4];
@@ -43,10 +66,27 @@ CAMLprim value Base_int_math_int_popcount(value v) {
 #endif
 }
 
+/* The specification of all below [clz] functions is undefined for [v = 0]. */
 CAMLprim value Base_int_math_int_clz(value v) {
 #ifdef ARCH_SIXTYFOUR
   return Val_int (__builtin_clzll (Long_val(v)));
 #else
   return Val_int (__builtin_clz   (Int_val (v)));
+#endif
+}
+
+CAMLprim value Base_int_math_int32_clz(value v) {
+  return Val_int (__builtin_clz   (Int32_val(v)));
+}
+
+CAMLprim value Base_int_math_int64_clz(value v) {
+  return Val_int (__builtin_clzll (Int64_val(v)));
+}
+
+CAMLprim value Base_int_math_nativeint_clz(value v) {
+#ifdef ARCH_SIXTYFOUR
+  return Val_int (__builtin_clzll (Nativeint_val(v)));
+#else
+  return Val_int (__builtin_clz   (Nativeint_val(v)));
 #endif
 }

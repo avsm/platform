@@ -2,26 +2,24 @@ open! Import
 
 type 'a t = ('a, Error.t) Result.t [@@deriving_inline compare, hash, sexp]
 let compare : 'a . ('a -> 'a -> int) -> 'a t -> 'a t -> int =
-  fun _cmp__a  ->
-  fun a__001_  ->
-  fun b__002_  -> Result.compare _cmp__a Error.compare a__001_ b__002_
-
+  fun _cmp__a ->
+  fun a__001_ ->
+  fun b__002_ -> Result.compare _cmp__a Error.compare a__001_ b__002_
 let hash_fold_t :
   'a .
   (Ppx_hash_lib.Std.Hash.state -> 'a -> Ppx_hash_lib.Std.Hash.state) ->
   Ppx_hash_lib.Std.Hash.state -> 'a t -> Ppx_hash_lib.Std.Hash.state
   =
-  fun _hash_fold_a  ->
-  fun hsv  ->
-  fun arg  -> Result.hash_fold_t _hash_fold_a Error.hash_fold_t hsv arg
-
+  fun _hash_fold_a ->
+  fun hsv ->
+  fun arg -> Result.hash_fold_t _hash_fold_a Error.hash_fold_t hsv arg
 let t_of_sexp :
   'a . (Ppx_sexp_conv_lib.Sexp.t -> 'a) -> Ppx_sexp_conv_lib.Sexp.t -> 'a t =
-  let _tp_loc = "src/or_error.ml.t"  in
-  fun _of_a  -> fun t  -> Result.t_of_sexp _of_a Error.t_of_sexp t
+  let _tp_loc = "src/or_error.ml.t" in
+  fun _of_a -> fun t -> Result.t_of_sexp _of_a Error.t_of_sexp t
 let sexp_of_t :
   'a . ('a -> Ppx_sexp_conv_lib.Sexp.t) -> 'a t -> Ppx_sexp_conv_lib.Sexp.t =
-  fun _of_a  -> fun v  -> Result.sexp_of_t _of_a Error.sexp_of_t v
+  fun _of_a -> fun v -> Result.sexp_of_t _of_a Error.sexp_of_t v
 [@@@end]
 
 let invariant invariant_a t =
@@ -129,35 +127,3 @@ let find_map_ok l ~f =
 let map        = Result.map
 let iter       = Result.iter
 let iter_error = Result.iter_error
-
-module Ok = struct
-  let fold t ~init ~f =
-    match t with
-    | Ok v    -> f init v
-    | Error _ -> init
-  ;;
-
-  let iter = iter
-
-  module C = Container.Make (struct
-      type nonrec 'a t = 'a t
-      let fold = fold
-      let iter = `Custom iter
-    end)
-
-  let count       = C.count
-  let exists      = C.exists
-  let find        = C.find
-  let find_map    = C.find_map
-  let fold_result = C.fold_result
-  let fold_until  = C.fold_until
-  let for_all     = C.for_all
-  let is_empty    = is_error
-  let length      = C.length
-  let max_elt     = C.max_elt
-  let min_elt     = C.min_elt
-  let mem         = C.mem
-  let sum         = C.sum
-  let to_array    = C.to_array
-  let to_list     = C.to_list
-end
