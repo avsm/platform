@@ -80,7 +80,7 @@ let load () =
       styles.style_foreground <- LTerm_resources.get_color "foreground" res;
       styles.style_background <- LTerm_resources.get_color "background" res;
       styles.style_cursor <- LTerm_resources.get_color "cursor" res;
-      (match String.lowercase (LTerm_resources.get "profile" res) with
+      (match String.lowercase_ascii (LTerm_resources.get "profile" res) with
          | "light" -> UTop.set_profile UTop.Light
          | "dark" -> UTop.set_profile UTop.Dark
          | "" -> ()
@@ -98,21 +98,20 @@ let load () =
         Lwt_log.error_f "cannot load styles from %S: %s: %s" fn func (Unix.error_message error)
     | exn -> Lwt.fail exn)
 
-let rec stylise_filter_layout stylise tokens =
-  match tokens with
-    | [] ->
-        []
-    | (Comment (Comment_reg, _), loc) :: tokens ->
+let stylise_filter_layout stylise tokens =
+  let aux acc = function
+    | (Comment (Comment_reg, _), loc) ->
         stylise loc styles.style_comment;
-        stylise_filter_layout stylise tokens
-    | (Comment (Comment_doc, _), loc) :: tokens ->
+        acc
+    | (Comment (Comment_doc, _), loc) ->
         stylise loc styles.style_doc;
-        stylise_filter_layout stylise tokens
-    | (Blanks, loc) :: tokens ->
+        acc
+    | (Blanks, loc) ->
         stylise loc styles.style_blanks;
-        stylise_filter_layout stylise tokens
-    | x :: tokens ->
-        x :: stylise_filter_layout stylise tokens
+        acc
+    | x -> x :: acc
+  in
+  List.rev (List.fold_left aux [] tokens)
 
 let rec stylise_rec stylise tokens =
   match tokens with
