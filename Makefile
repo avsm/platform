@@ -14,10 +14,10 @@ PREFIX=/usr
 LIBDIR=$(DESTDIR)$(PREFIX)/lib/ocaml/cmdliner
 DOCDIR=$(DESTDIR)$(PREFIX)/share/doc/cmdliner
 NATIVE=$(shell ocamlopt -version > /dev/null 2>&1 && echo true)
+EXT_LIB=.a
 
 INSTALL=install
-OCAMLBUILD=ocamlbuild -use-ocamlfind
-B=_build/src
+B=_build
 BASE=$(B)/cmdliner
 
 ifeq ($(NATIVE),true)
@@ -38,16 +38,16 @@ install-doc:
 	$(INSTALL) CHANGES.md LICENSE.md README.md $(DOCDIR)
 
 clean:
-	$(OCAMLBUILD) -clean
+	ocaml build.ml clean
 
 build-byte:
-	$(OCAMLBUILD) src/cmdliner.cma
+	ocaml build.ml cma
 
 build-native:
-	$(OCAMLBUILD) src/cmdliner.cmxa
+	ocaml build.ml cmxa
 
 build-native-dynlink:
-	$(OCAMLBUILD) src/cmdliner.cmxs
+	ocaml build.ml cmxs
 
 create-libdir:
 	$(INSTALL) -d $(LIBDIR)
@@ -59,7 +59,8 @@ install-byte: create-libdir
 	$(INSTALL) $(BASE).cma $(LIBDIR)
 
 install-native: create-libdir
-	$(INSTALL) $(BASE).cmxa $(BASE).a $(wildcard $(B)/cmdliner*.cmx) $(LIBDIR)
+	$(INSTALL) $(BASE).cmxa $(BASE)$(EXT_LIB) $(wildcard $(B)/cmdliner*.cmx) \
+  $(LIBDIR)
 
 install-native-dynlink: create-libdir
 	$(INSTALL) $(BASE).cmxs $(LIBDIR)
