@@ -9,13 +9,12 @@
     read.ml
     write.ml
     safe.ml
-    type.ml
     pretty.ml
     write2.ml
     common.ml
     util.ml
     type.ml))
-  (action (run cppo -D "VERSION ${version:yojson}" ${<} -o ${@}))))
+  (action (run cppo ${<} -o ${@}))))
 
 (rule
  ((targets (yojson.mli))
@@ -27,7 +26,8 @@
     pretty.mli
     write2.mli
     common.mli
-    util.mli))
+    util.mli
+    type.ml))
   (action (run cppo ${<} -o ${@}))))
 
 (library
