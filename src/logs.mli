@@ -337,7 +337,7 @@ val format_reporter :
     {b Important.} This is a synchronous reporter it considers the log
     operation to be over once the message was formatted and before
     calling the continuation (see the {{!Logs.sync}note on synchronous
-    logging}). In particular if the formatters are baked by channels,
+    logging}). In particular if the formatters are backed by channels,
     it will block until the message has been formatted on the channel
     before proceeding which may not be suitable in a cooperative
     concurrency setting like {!Lwt}. *)
@@ -545,7 +545,7 @@ let reporter ppf =
       | Some tags -> Logs.Tag.find stamp_tag tags
       in
       let dt = match stamp with None -> 0. | Some s -> (Mtime.to_us s) in
-      Format.kfprintf k ppf ("%a[%0+04.0fus] @[" ^^ fmt ^^ "@]@.") dt
+      Format.kfprintf k ppf ("%a[%0+04.0fus] @[" ^^ fmt ^^ "@]@.")
         Logs.pp_header (level, h) dt
     in
     msgf @@ fun ?header ?tags fmt -> with_stamp header tags k ppf fmt
