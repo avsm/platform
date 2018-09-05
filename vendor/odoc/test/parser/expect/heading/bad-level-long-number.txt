@@ -1,5 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 0-3:\
-   \n'22': bad section level (2-4 allowed)"))
- (warnings ()))

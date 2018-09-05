@@ -1,4 +1,0 @@
-(library
- (name tester_lib)
- (wrapped false)
- (libraries camomile blender))

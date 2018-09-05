@@ -1,7 +1,0 @@
-(install
-  (section share_root)
-  (files lambda-term-inputrc lambda-termrc))
-
-(alias
- (name examples)
- (deps (alias examples/all)))

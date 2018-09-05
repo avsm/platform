@@ -1,5 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 0-5:\
-   \n'{v ... v}' (verbatim text) cannot be empty"))
- (warnings ()))

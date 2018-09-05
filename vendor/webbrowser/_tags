@@ -1,8 +1,0 @@
-true : bin_annot, safe_string
-true : package(rresult), package(astring), package(bos)
-
-<src> : include
-<src/webbrowser_cli*> : package(cmdliner)
-
-<test> : include
-<test/browse.*> : package(cmdliner)

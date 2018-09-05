@@ -1,3 +1,0 @@
-(executable
- (name history_stress_test)
- (libraries lambda-term))
