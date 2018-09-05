@@ -1,4 +1,0 @@
-package: bar
-version: 1
-provides: virtual = 2
-installed: true

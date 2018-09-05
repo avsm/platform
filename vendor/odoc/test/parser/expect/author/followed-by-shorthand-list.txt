@@ -1,6 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 2, characters 0-1:\
-   \n'-' (bulleted list item) is not allowed in the tags section\
-   \nSuggestion: move '-' (bulleted list item) before any tags"))
- (warnings ()))

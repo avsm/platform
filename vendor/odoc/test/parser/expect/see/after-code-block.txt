@@ -1,5 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 8-18:\
-   \n'@see' must begin on its own line"))
- (warnings ()))

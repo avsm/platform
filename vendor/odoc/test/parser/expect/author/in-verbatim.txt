@@ -1,2 +1,0 @@
-((output (ok (((f.ml (1 0) (1 17)) (verbatim "@author Foo")))))
- (warnings ()))
