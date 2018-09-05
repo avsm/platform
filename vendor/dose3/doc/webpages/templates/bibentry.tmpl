@@ -1,0 +1,9 @@
+<div class="bibentry">
+  <h1><TMPL_VAR NAME="TITLE"></h1>
+  <p class="authors"><TMPL_VAR NAME="AUTHORS"></p>
+  <p class="misc"><TMPL_VAR NAME="MISC"></p>
+  <TMPL_IF NAME="NOTE"><p class="note"><TMPL_VAR NAME="NOTE"></p></TMPL_IF>
+<TMPL_IF NAME="ABSTRACT"><h2>Abstract</h2><p class="abstract"><TMPL_VAR NAME="ABSTRACT"></p></TMPL_IF>
+  <h2>Bibtex reference</h2>
+  <code><TMPL_VAR NAME="BIBTEX"></code>
+</div>

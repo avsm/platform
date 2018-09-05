@@ -1,0 +1,23 @@
+! -*- conf-xdefaults -*-
+
+! Copy this file to ~/.utoprc
+
+! Common resources
+
+profile:                  light
+identifier.foreground:    none
+module.foreground:        x-forestgreen
+comment.foreground:       x-firebrick
+doc.foreground:           x-violetred4
+constant.foreground:      x-darkcyan
+keyword.foreground:       x-purple
+symbol.foreground:        x-purple
+string.foreground:        x-violetred4
+char.foreground:          x-violetred4
+quotation.foreground:     x-purple
+error.foreground:         red
+directive.foreground:     x-mediumorchid4
+parenthesis.background:   light-blue
+
+! uncomment the next line to disable autoload files
+! autoload: false
