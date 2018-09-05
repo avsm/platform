@@ -1,4 +1,0 @@
-((output
-  (error  "File \"f.ml\", line 3, characters 2-6:\
-         \nunknown tag '@foo'"))
- (warnings ()))

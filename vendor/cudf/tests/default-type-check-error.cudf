@@ -1,8 +1,0 @@
-preamble: 
-property: replaces: vpkglist = [ true! ]
-
-package: foo
-version: 1
-
-request: foo
-install: foo
