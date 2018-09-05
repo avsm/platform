@@ -1,0 +1,73 @@
+
+Apt-Mancoosi is a bash script that implements the mancoosi modular solver
+infrastructure (see the "mancoosi cycle" [1]) . This bundle contains :
+
+# inesc-udl : a SAT-based solver developed by INESC-ID using the  p2cudf parser
+  (from Eclipse) and the MaxSAT solver MSUnCore
+
+# p2cudf : a family of solvers on top of the Eclipse Provisioning Platform p2,
+  based on the SAT4J library; it is available online with full source code.
+  A more recent version of p2cudf supporting user objectives is shipped in this
+  bundle as p2param.
+
+# aspcud - a CUDF-Solver using Answer Set Programming
+
+Apt-Mancoosi takes as input a dudf file or an apt-get command line. In the
+second instance, we assume that the host machine is running debian or one of
+its derivatives and apt-get is installed on the system. Dudf files representing
+real upgrade problems can be downloaded from the debian dudf website [2].
+
+usage: ./apt-mancoosi options
+
+Run a MISC solver and returns an apt-get command line
+
+OPTIONS:
+   -h      Show this message
+
+   -s      Solvers :
+               aspcud-paranoid-1.0
+               aspcud-trendy-1.2
+               inescp-1.0 (paranoid)
+               inesct-1.0 (trendy)
+               p2cudf-paranoid-1.6 (default)
+               p2cudf-trendy-1.6
+               p2param
+
+   -o      User defined objective function:
+           the solver will look for a solution optimizing
+           a sequence of criteria, in the order given (lexicographically)
+
+             + or - indicate maximize or minimize criterion
+
+           know criteria are 
+
+             new : number of new packages in the solution
+             changed : number of changed packages
+             notuptodate : number of packages not at the last version
+             recommended : number of packages with satisfied recommends
+             removed : number of packages removed
+
+           For example, paranoid can be expressed as
+
+            -removed,-changed,-new
+
+           which gives a pretty different result from
+
+            -changed,-removed,-new
+
+   -f      Dudf file (format xml not compressed)
+
+   -d      Debug
+
+   -a      Architecture (set the default architecture, e.g. i386, amd64, ...)
+
+   -v      Verbose
+
+
+[1] http://www.dicosmo.org/space/PlaquetteMancoosi-rotated.pdf
+[2] http://mancoosi.debian.net/dudf/list
+
+The Mancoosi team
+
+Wed Aug 18 2010 Pietro Abate <pietro.abate@pps.jussieu.fr>
+

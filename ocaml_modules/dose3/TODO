@@ -1,0 +1,80 @@
+
+- add test cases for format822 (fielnames in particular)
+
+- add --deb-output822 to DistcheckOptions to output 822 package list
+  for distcheck, buildcheck etc of installable packages
+
+- make apt-cudf output explanations when a request is not satisfiable,
+  in the same style as what dose-distcheck does, if possible (beware
+  of apt string mangling)
+
+- fix common/EdosSolver documentation. For some reason only part of it is
+  actually generated
+  Thu Jun 17 2010 Pietro Abate <pietro.abate@pps.jussieu.fr>
+
+- add minisat backend to the depsolver
+** minisat ocaml bindings are now avalaible
+  Thu Jun 17 2010 Pietro Abate <pietro.abate@pps.jussieu.fr>
+
+- add picosat backend to the depsolver
+** picosat ocaml bindings are now avalaible
+  Thu Jun 17 2010 Pietro Abate <pietro.abate@pps.jussieu.fr>
+
+-------------------
+
+- add unit tests for opam and pef module
+DONE
+
+- Remove all references to Format in diagnostic.ml and all applications.
+  Format is too slow !
+NOT DONE : the new formar module is now as fast as Printf
+
+- use ocaml-magic to identify compressed file types
+DONE! not using ocaml magic, but reading directly the file header.
+thanks josh !
+
+- remove all references to Str and move to Pcre
+DONE ! removed Pcre in favour of libre
+
+- make all error codes gt 63 reserved for distcheck
+** DONE !
+
+- add --coinst to debcheck
+** DONE !
+
+- modify all test cases to check if the test file exists. If this is 
+  the case, run the test, if not ignore the test. (this is to prepare
+  a small release tarball with a restricted number of unit tests) 
+  Wed Jun 30 2010 Pietro Abate <pietro.abate@pps.jussieu.fr>
+** Won't Fix : this is not importan anymore now that all test data 
+   is in a separate repository
+
+- make reason in depsolver lazy. This way we can save a bit of time 
+  when building the sat problem
+
+- find a way to add a proper (debian/rpm/real) version to missing 
+  dependencies. atm this information is lost when traslating the 
+  problem to cudf
+** DONE !
+
+- fix the broken dependencies explanation list. The reason list
+  sometimes does not include broken packages at the end of a reason
+  list. The solver does not provide this information. Actually this is 
+  a problem with distcheck.
+** DONE !
+
+- when init the depsolver, create a new data structure where all dependencies
+  and conflicts are explicit. Then use this data structure when iterate
+  over packages. This way we can perform all lookups once and forall.
+** DONE
+
+- implement a debdistcheck that builds the sat problem directly from 
+  debian Packages without passing through cudf and friends
+** WONTFIX
+
+- fix ocamlbuild to imply -DHASRPM only when using c_use_rpm in _tags
+  and remove -I rpm when building debian binaries / -I deb when building
+  rpm binaries
+  Thu Jun 17 2010 Pietro Abate <pietro.abate@pps.jussieu.fr>
+*** DONE !
+
