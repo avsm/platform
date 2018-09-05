@@ -1,7 +1,7 @@
 ((roots
-  (((name bun)) ((name dune-release)) ((name merlin)) ((name ocamlfind))
-   ((name ocamlformat)) ((name ocp-indent)) ((name odoc)) ((name opam-devel))
-   ((name utop))))
+  (((name bun)) ((name craml)) ((name dune-release)) ((name merlin))
+   ((name ocamlfind)) ((name ocamlformat)) ((name ocp-indent)) ((name odoc))
+   ((name opam-devel)) ((name utop))))
  (excludes ())
  (pins
   (((pin ocp-indent)) ((pin odoc)) ((pin tyxml)) ((pin ocamlformat))
@@ -113,6 +113,8 @@
     (dev_repo (Duniverse_fork opam)) (tag (2.0.0-rc4)))
    ((package ((name bun) (version (0.3.2))))
     (dev_repo (Github (yomimono ocaml-bun))) (tag (v0.3.2)))
+   ((package ((name craml) (version (1.0.0))))
+    (dev_repo (Github (realworldocaml craml))) (tag (1.0.0)))
    ((package ((name opam-devel) (version (2.0.0))))
     (dev_repo (Duniverse_fork opam)) (tag (2.0.0-rc4)))
    ((package ((name dune-release) (version (0.3.0))))
