@@ -35,4 +35,4 @@ v-pull:
 
 v-merge:
 	$(DUNIVERSE) vendor-merge -v
-	sed -i 's/-default-configuration true/-use-libev false/g' vendor/lwt/src/unix/dune && git commit -m 'patch lwt libev' vendor/lwt/src/unix/dune
+	sed -i -e 's/-default-configuration true/-use-libev false/g' vendor/lwt/src/unix/dune && git commit -m 'patch lwt libev' vendor/lwt/src/unix/dune
