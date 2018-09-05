@@ -33,7 +33,7 @@
 (rule
  (targets lwt_config)
  (deps (:exe config/configure.exe))
- (action (run %{exe} -use-libev false)))
+ (action (run %{exe} -default-configuration true)))
 
 ;; note; the call to (and dependency on) ocamlfind is avoided by adding:
 ;; -ocamlc %{ocamlc}
