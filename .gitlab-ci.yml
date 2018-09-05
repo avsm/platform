@@ -1,6 +1,8 @@
 debian-9-arm64:
   image: ocaml/opam2:debian-9-opam
   stage: build
+  only:
+    - /^master$/
   script:
   - make
   - mkdir -p ocaml-platform/4.07.0-1/debian-9/arm64 && cp _build/default/output/* ocaml-platform/4.07.0-1/debian-9/arm64
@@ -13,6 +15,8 @@ debian-9-arm64:
 debian-9-ppc64le:
   image: ocaml/opam2:debian-9-opam
   stage: build
+  only:
+    - /^master$/
   script:
   - make
   - mkdir -p ocaml-platform/4.07.0-1/debian-9/ppc64le && cp _build/default/output/* ocaml-platform/4.07.0-1/debian-9/ppc64le
@@ -25,6 +29,8 @@ debian-9-ppc64le:
 debian-9-amd64:
   image: ocaml/opam2:debian-9-opam
   stage: build
+  only:
+    - /^master$/
   script:
   - make
   - mkdir -p ocaml-platform/4.07.0-1/debian-9/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/debian-9/amd64
@@ -37,6 +43,8 @@ debian-9-amd64:
 ubuntu-1804-amd64:
   image: ocaml/opam2:ubuntu-18.04-opam
   stage: build
+  only:
+    - /^master$/
   script:
   - make
   - mkdir -p ocaml-platform/4.07.0-1/ubuntu-18.04/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/ubuntu-18.04/amd64
@@ -49,6 +57,8 @@ ubuntu-1804-amd64:
 alpine-3.7-amd64:
   image: ocaml/opam2:alpine-3.7-opam
   stage: build
+  only:
+    - /^master$/
   script:
   - make
   - mkdir -p ocaml-platform/4.07.0-1/alpine-3.7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/alpine-3.7/amd64
@@ -61,6 +71,8 @@ alpine-3.7-amd64:
 centos-7-amd64:
   image: ocaml/opam2:centos-7-opam
   stage: build
+  only:
+    - /^master$/
   script:
   - make
   - mkdir -p ocaml-platform/4.07.0-1/centos-7/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/centos-7/amd64
@@ -73,8 +85,9 @@ centos-7-amd64:
 fedora-28-amd64:
   image: ocaml/opam2:fedora-28-opam
   stage: build
+  only:
+    - /^master$/
   script:
-  - make
   - make
   - mkdir -p ocaml-platform/4.07.0-1/fedora-28/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/fedora-28/amd64
   artifacts:
@@ -86,8 +99,9 @@ fedora-28-amd64:
 opensuse-42.3-amd64:
   image: ocaml/opam2:opensuse-42.3-opam
   stage: build
+  only:
+    - /^master$/
   script:
-  - make
   - make
   - mkdir -p ocaml-platform/4.07.0-1/opensuse-42.3/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/opensuse-42.3/amd64
   artifacts:
@@ -98,6 +112,8 @@ opensuse-42.3-amd64:
     - amd64
 ubuntu-16.04-arm32v7:
   stage: build
+  only:
+    - /^master$/
   script:
   - make
   - mkdir -p ocaml-platform/4.07.0-1/ubuntu-16.04/arm32v7 && cp _build/default/output/* ocaml-platform/4.07.0-1/ubuntu-16.04/arm32v7
@@ -108,6 +124,8 @@ ubuntu-16.04-arm32v7:
     - arm32v7
 macos-amd64:
   stage: build
+  only:
+    - /^master$/
   script:
   - make
   - mkdir -p ocaml-platform/4.07.0-1/macos/amd64 && cp _build/default/output/* ocaml-platform/4.07.0-1/macos/amd64
@@ -118,6 +136,8 @@ macos-amd64:
     - macos
 freebsd-11-amd64:
   stage: build
+  only:
+    - /^master$/
   script:
   - env ASSUME_ALWAYS_YES=true pkg install gmake
   - gmake
@@ -129,6 +149,8 @@ freebsd-11-amd64:
     - freebsd
 openbsd-6.3-amd64:
   stage: build
+  only:
+    - /^master$/
   script:
   - pkg_add gmake
   - gmake
@@ -142,6 +164,8 @@ openbsd-6.3-amd64:
 .bytecode-only:
   image: ocaml/opam2:alpine-3.7-opam
   stage: build
+  only:
+    - /^master$/
   script:
   - make bytecode-only
   tags:
@@ -150,6 +174,8 @@ openbsd-6.3-amd64:
 flambda-amd64:
   image: ocaml/opam2:debian-9-opam
   stage: build
+  only:
+    - /^master$/
   script:
   - make flambda
   tags:
@@ -158,6 +184,8 @@ flambda-amd64:
 flambda-ppc64le:
   image: ocaml/opam2:debian-9-opam
   stage: build
+  only:
+    - /^master$/
   script:
   - make flambda
   tags:
