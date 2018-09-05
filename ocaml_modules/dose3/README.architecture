@@ -1,0 +1,31 @@
+
+the library builds a pipeline as follows :
+
+        inputs      libcudf                outputs
+
+deb  | 
+rpm  |                                       |
+     | --------------> (algo) ----------->   |
+db   |                                       |
+     |
+cudf |
+
+this pipeline is build around the folowing components :
+
+common contains input routines to read deb, cudf, db, etc
+
+libcduf is the central - in memory - data structure
+
+db contains the databases modules all sharing a single interface Sql
+
+deb contains all the routines to parse debian related files.
+
+algo contains a collection of algorithm to manipulated dependencies 
+
+A non exaustive list includes:
+- Depsolver : edos routines
+- Defaultgraph : graph manipulation utilities
+- Strondeps : strong dependencies algorithm
+- Statistic : small world graph statisitics
+
+applications contains a collection of applications build upon the library.

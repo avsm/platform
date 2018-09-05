@@ -1,0 +1,2 @@
+  $ false
+--> exit 2

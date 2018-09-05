@@ -1,0 +1,22 @@
+OCAMLBUILD=ocamlbuild
+#ocamlbest
+ifeq ("opt","opt")
+  OCAMLBEST=native
+  OCAMLLIBBEST=cmxa
+else
+  OCAMLBEST=byte
+  OCAMLLIBBEST=cma
+endif
+
+FILTERDOUT = myocamlbuild.ml synthesis-test.ml cudf-diff.ml outdated-ralf.ml partition.ml strongpred.ml
+APPLICATIONS = $(filter-out $(FILTERDOUT),$(wildcard *.ml))
+
+all: $(APPLICATIONS)
+	$(OCAMLBUILD) $(OBFLAGS) $(APPLICATIONS:.ml=.$(OCAMLBEST))
+
+%: %.ml
+	$(OCAMLBUILD) $(OBFLAGS) $(<:.ml=.native)
+	@touch _build/$@
+
+clean:
+	$(OCAMLBUILD) -clean

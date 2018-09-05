@@ -1,0 +1,14 @@
+META
+Makefile.config
+_build/
+_tags
+aclocal.m4
+autom4te.cache/
+common/versionInfo.ml
+config.status
+config.log
+db/db.mlpack
+doc/manpages/*.1
+*.native
+*.byte
+*/*\.swp
