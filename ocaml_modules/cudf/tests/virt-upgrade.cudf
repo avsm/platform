@@ -1,0 +1,17 @@
+package: foo
+version: 1
+provides: virtual = 1
+installed: true
+
+package: bar
+version: 1
+provides: virtual = 2
+
+package: baz
+version: 1
+provides: virtual
+
+
+request: source test 12545215421521452145
+upgrade: virtual >= 2
+
