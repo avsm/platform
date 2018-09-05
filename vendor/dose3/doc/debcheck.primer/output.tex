@@ -1,0 +1,465 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  Copyright (C) 2010-2012  Pietro Abate <pietro.abate@pps.jussieu.fr>   %
+%                           Ralf Treinen <ralf.treinen@pps.jussieu.fr>   %
+%                           Unversité Paris-Diderot                      %
+%                                                                        %
+%  This documentation is free software: you can redistribute it and/or   %
+%  modify it under the terms of the GNU General Public License as        %
+%  published by the Free Software Foundation, either version 3 of the    %
+%  License, or (at your option) any later version.                       %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Output}
+\label{sec:output}
+The output of \debcheck{} is in the YAML format, see
+Section~\ref{sec:tricks-python} for how to parse the output.
+
+Without any particular options, \debcheck{} just reports some
+statistics:
+\begin{example}
+\begin{verbatim}
+% dose-debcheck rep1
+background-packages: 0
+foreground-packages: 4
+total-packages: 4
+broken-packages: 1
+\end{verbatim}
+\end{example}
+
+With the options \texttt{--failures} and \texttt{--successes}, \debcheck{}
+reports findings of the requested kind for all packages in the foreground.
+These options may be used alone or in combination. In any case, the status
+field tells whether the package is found to be installable (value \texttt{ok})
+or non-installable (value \texttt{broken}).
+
+\begin{example}
+\begin{verbatim}
+% dose-debcheck --failures --successes rep1
+report:
+ -
+  package: a
+  version: 1
+  architecture: amd64
+  source: a (= 1)
+  status: broken
+  
+ -
+  package: a
+  version: 2
+  architecture: amd64
+  source: a (= 2)
+  status: ok
+  
+ -
+  package: b
+  version: 1
+  architecture: amd64
+  source: b (= 1)
+  status: ok
+  
+ -
+  package: c
+  version: 3
+  architecture: amd64
+  source: c (= 3)
+  status: ok
+  
+ 
+background-packages: 0
+foreground-packages: 4
+total-packages: 4
+broken-packages: 1
+\end{verbatim}
+\end{example}
+
+With an additional \texttt{--explain} option, an explanation is given
+with each finding. 
+
+\subsection{Understanding Explanations of Installability}
+
+An explanation of installability simply consists of an
+installation set in the sense of Section~\ref{sec:installability}
+containing the package in question.
+
+\begin{example}
+\begin{verbatim}
+% dose-debcheck --explain --successes rep1
+report:
+ -
+  package: a
+  version: 2
+  architecture: amd64
+  source: a (= 2)
+  status: ok
+  installationset:
+   -
+    package: c
+    version: 3
+    architecture: amd64
+   -
+    package: a
+    version: 2
+    architecture: amd64
+ -
+  package: b
+  version: 1
+  architecture: amd64
+  source: b (= 1)
+  status: ok
+  installationset:
+   -
+    package: b
+    version: 1
+    architecture: amd64
+\end{verbatim}
+\end{example}
+
+An installation set contains all essential packages (see
+Section~\ref{sec:installability}), which may blow up the output of
+installability. Giving the option \texttt{--deb-ignore-essential} will
+avoid this, but will also alter the notion of installability in some
+corner cases (for instance, when a package needs a version of an
+essential package that is not available in the repository).
+
+\subsection{Understanding Explanations of Non-installability}
+
+Installability of a package is much easier to explain than
+non-installability. The reason for this is that in the former case we
+just have to give one installation that our tool has found, while in
+the latter case we have to explain why \emph{all} possible attempts to
+install the package must fail. The first consequence of this
+observation is that the explanation in case of non-installability may
+consist of several components.
+
+\begin{example}
+  Consider the following repository consisting of only two packages:
+\begin{verbatim}
+Package: a
+Version: 1
+Depends: b | c
+
+Package: c
+Version: 3
+Conflicts: a
+\end{verbatim}
+To explain why package (\texttt{a},1) is not installable we have to
+say why all possible alternative ways to satisfy its dependency must
+fail:
+\begin{itemize}
+\item there is no package \texttt{b} in the repository
+\item the only version of package \texttt{c} in the repository is in
+  conflict with package (\texttt{a},1)
+\end{itemize}
+\end{example}
+
+There may be several ways to satisfy dependencies due to alternatives
+in the dependencies in packages. Alternatives may occur in dependencies
+in different forms:
+\begin{itemize}
+\item explicitly, like in \texttt{Depends: b|c},
+\item through dependency on a package that exists in several versions,
+\item through dependency on a virtual package which is provided by several
+  (possibly versions of) real packages.
+\end{itemize}
+There is one component in the explanation for every possible way to
+choose among these alternatives in the dependencies.
+
+There are only two possible reasons why an attempt to satisfy dependencies
+may fail:
+\begin{enumerate}
+\item dependency on a package that is missing from the repository,
+\item dependency on a package that is in conflict with some other package
+  we depend on (possibly through a chain of dependencies).
+\end{enumerate}
+Each component of the explanation is either a missing package, or a conflict. 
+
+\subsubsection{Explanation in Case of a Missing Package}
+A component of the explanation that corresponds to the case of a
+missing package consist of two stanzas:
+\begin{itemize}
+\item a \texttt{pkg} stanza that states the package that cannot satisfy
+  one of its direct dependencies
+\item a \texttt{depchains} stanza containing the dependency chain that
+  leads from the package we have found non-installable to the one that
+  cannot satisfy its direct dependency.
+\end{itemize}
+\begin{example}
+An explanation might look like this:
+\begin{verbatim}
+package: libgnuradio-dev
+version: 3.2.2.dfsg-1
+architecture: all
+source: gnuradio (= 3.2.2.dfsg-1)
+status: broken
+reasons:
+   -
+    missing:
+     pkg:
+      package: libgruel0
+      version: 3.2.2.dfsg-1+b1
+      architecture: amd64
+      unsat-dependency: libboost-thread1.40.0 (>= 1.40.0-1)
+     depchains:
+      -
+       depchain:
+        -
+         package: libgnuradio-dev
+         version: 3.2.2.dfsg-1
+         Architecture: all
+         Depends: libgnuradio (= 3.2.2.dfsg-1)
+        -
+         package: libgnuradio
+         ersion: 3.2.2.dfsg-1
+         architecture: all
+         depends: libgnuradio-core0
+        -
+         package: libgnuradio-core0
+         version: 3.2.2.dfsg-1+b1
+         architecture: amd64
+         depends: libgruel0 (= 3.2.2.dfsg-1+b1)
+\end{verbatim}
+This tells us that \texttt{libgnuradio-dev} in version $3.2.2.dfsg-1$
+is not installable, due to the fact that package \texttt{libgruel0}
+in version $3.2.2.dfsg-1+b1$ has a dependency
+\texttt{libboost-thread1.40.0 (>= 1.40.0-1)} that is not matched by
+any package in the repository. The dependency chain tells why package
+\texttt{libgnuradio-dev} in the given version might want to install
+\texttt{libgruel0}.
+\end{example}
+
+The depchains component gives all possible dependency chains (\textit{depchains}, for short) from the root package
+(\texttt{libgnuradio-dev} in the above example) to the one where a
+direct dependency is not matched by any package (\texttt{libgruel0} in
+the example). We do not include the last node in the dependency chain
+to avoid a useless repetition.
+
+In general there may be more then one path to reach a certain package
+from a given root package, in that case \debcheck{} will unroll all of
+them.
+\begin{example}
+In the following repository, package \texttt{a} is not installable since 
+the dependency of package \texttt{d} cannot be satisfied:
+\begin{verbatim}
+Package: a
+Architecture: amd64
+Version: 1
+Depends: b|c
+
+Package: b
+Architecture: amd64
+Version: 1
+Depends: d
+
+Package: c
+Architecture: amd64
+Version: 3
+Depends: d
+
+Package: d
+Architecture: amd64
+Version: 42
+Depends: x
+\end{verbatim}
+There are two different ways how \texttt{a} arrives at a dependency on
+\texttt{d}. \debcheck{} reports the problem once, but lists the two paths 
+from \texttt{a} to \texttt{d}:
+\begin{verbatim}
+% dose-debcheck -e -f --checkonly a rep1
+report:
+ -
+  package: a
+  version: 1
+  architecture: amd64
+  source: a (= 1)
+  status: broken
+  reasons:
+   -
+    missing:
+     pkg:
+      package: d
+      version: 42
+      architecture: amd64
+      unsat-dependency: x
+     depchains:
+      -
+       depchain:
+        -
+         package: a
+         version: 1
+         architecture: amd64
+         depends: b | c
+        -
+         package: b
+         version: 1
+         architecture: amd64
+         depends: d
+      -
+       depchain:
+        -
+         package: a
+         version: 1
+         architecture: amd64
+         depends: b | c
+        -
+         package: c
+         version: 3
+         architecture: amd64
+         depends: d
+\end{verbatim}
+\end{example}
+
+
+\subsubsection{Explanation in Case of a Conflict}
+The other possible cause of a problem is a conflict. In that case, the
+explanation consists of a \texttt{conflict} stanza giving the two
+packages that are in direct conflict with each other. Next, we have
+two \texttt{depchain} stanzas that lead to the first, resp. the second
+of these directly conflicting packages.
+\begin{example}
+\begin{verbatim}
+package: a
+  version: 1
+  status: broken
+  reasons:
+   -
+    conflict:
+     pkg1:
+      package: e
+      version: 1
+     pkg2:
+      package: f
+      version: 1
+     depchain1:
+      -
+       depchain:
+        -
+         package: a
+         version: 1
+         depends: b
+        -
+         package: b
+         version: 1
+         depends: e
+     depchain2:
+      -
+       depchain:
+        -
+         package: a
+         version: 1
+         depends: d
+        -
+         package: d
+         version: 1
+         depends: f
+\end{verbatim}
+The first part of the \debcheck{} report is as before with details
+about the broken package. Since this is a conflict, and all conflicts
+are binary, we give the two packages involved in the conflict
+first. Packages \texttt{f} and \texttt{e} are in conflict, but they
+are not direct dependencies of package \texttt{a} . For this reason,
+we output the two paths that from a lead to \texttt{f} or
+\texttt{e}. All dependency chains for each conflict are
+together. Again, since there might be more than one way from a to
+reach the conflicting packages, we can have more then one depchain.
+\end{example}
+If a conflict occurs between two packages that are both reached
+through non-trivial dependency chains then we sometimes speak of a
+\emph{deep conflict}.
+
+\subsection{The output in case of co-installability queries}
+In case of a co-installability query (with the option
+\texttt{--coinst}), the distinction between background and foreground
+does no longer make sense since the checks now apply to tuples of packages,
+and not to individual packages. As a consequence, the summary looks a bit
+different in this case:
+
+\begin{example}
+  In the following example, there are 3 different versions of package
+  \texttt{aa}, two different versions of package \texttt{bb} and two
+  packages with other names, giving rise to 6 pairs of packages to
+  check for co-installability. Two pairs out of these 6 are found
+  not co-installable:
+\begin{verbatim}
+% ./debcheck --coinst "aa,bb" coinst.packages 
+total-packages: 7
+total-tuples: 6
+broken-tuples: 2
+\end{verbatim}
+\end{example}
+
+Listings of co-installable, or non co-installable packages when
+requested with the options \texttt{-s}/\texttt{--successes},
+resp.\ \texttt{-f}/\texttt{--failures}, are similar as before but now
+start on the word \texttt{coinst} instead of \texttt{package}. Explanations
+are as before:
+
+\begin{example}
+\begin{verbatim}
+% ./debcheck --coinst "aa,bb" -s -f -e coinst.simple
+report:
+ -
+  coinst: aa (= 2) , bb (= 11)
+  status: ok
+  installationset:
+   -
+    package: aa
+    version: 2
+    architecture: all
+   -
+    package: bb
+    version: 11
+    architecture: all
+   -
+    package: cc
+    version: 31
+    architecture: all
+ -
+  coinst: aa (= 1) , bb (= 11)
+  status: broken
+  
+ reasons:
+  -
+   conflict:
+    pkg1:
+     package: aa
+     version: 1
+     architecture: all
+     source: aa (= 1)
+     unsat-conflict: cc
+    pkg2:
+     package: cc
+     version: 31
+     architecture: all
+     source: cc (= 31)
+    depchain2:
+     
+  -
+   conflict:
+    pkg1:
+     package: aa
+     version: 1
+     architecture: all
+     source: aa (= 1)
+     unsat-conflict: cc
+    pkg2:
+     package: cc
+     version: 31
+     architecture: all
+     source: cc (= 31)
+    depchain1:
+     
+    depchain2:
+     -
+      depchain:
+       -
+        package: bb
+        version: 11
+        architecture: all
+        depends: cc
+  
+ 
+total-packages: 5
+total-tuples: 2
+broken-tuples: 1
+\end{verbatim}
+\end{example}

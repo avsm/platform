@@ -1,0 +1,100 @@
+type: map
+mapping:
+  "total-packages": { type: int, required: true }
+  "broken-packages": { type: int, required: true }
+  "distribution": { type: text }
+  "release": { type: text }
+  "architecture": { type: text }
+  "report":
+    type: seq
+    sequence:
+      - type: map
+        mapping:
+          "package": { type: str, required: true }
+          "version": { type: text, required: true }
+          "architecture": { type: text, required: false }
+          "source": { type: text, required: false }
+          "status":  { type: str, enum: [ broken, ok ], required: true }
+          "installationset":
+             type: seq
+             sequence:
+               - type: map
+                 mapping:
+                   "package": { type: str, required: true }
+                   "version": { type: text, required: true }
+                   "architecture": { type: text, required: false }
+          "reasons":
+             type: seq
+             sequence:
+               - type: map
+                 mapping:
+                   "conflict":
+                      type: map
+                      mapping:
+                        "pkg1": 
+                          type: map
+                          required: true
+                          mapping:
+                            "package": { type: str, required: true }
+                            "version": { type: text, required: true }
+                            "architecture": { type: text, required: false }
+                        "pkg2": 
+                          type: map
+                          required: true
+                          mapping:
+                            "package": { type: str, required: true }
+                            "version": { type: text, required: true }
+                            "architecture": { type: text, required: false }
+                        "depchain1":
+                          type: seq
+                          sequence:
+                            - type: map
+                              mapping:
+                                "depchain":
+                                  type: seq
+                                  sequence:
+                                    - type: map
+                                      mapping:
+                                        "package": { type: str, required: true }
+                                        "version": { type: text, required: true }
+                                        "architecture": { type: text, required: false }
+                                        "depends": { type: str, required: false}
+                        "depchain2":
+                          type: seq
+                          sequence:
+                            - type: map
+                              mapping:
+                                "depchain":
+                                  type: seq
+                                  sequence:
+                                    - type: map
+                                      mapping:
+                                        "package": { type: str, required: true }
+                                        "version": { type: text, required: true }
+                                        "architecture": { type: text, required: false }
+                                        "depends": { type: str, required: false}
+                   "missing":
+                      type: map
+                      mapping:
+                        "pkg": 
+                          type: map
+                          required: true
+                          mapping:
+                            "package": { type: str, required: true }
+                            "version": { type: text, required: true }
+                            "architecture": { type: text, required: false }
+                            "missingdep": { type: str, required: false}
+                        "depchains":
+                          type: seq
+                          sequence:
+                            - type: map
+                              mapping:
+                                "depchain":
+                                  type: seq
+                                  sequence:
+                                    - type: map
+                                      mapping:
+                                        "package": { type: str, required: true }
+                                        "version": { type: text, required: true }
+                                        "architecture": { type: text, required: false }
+                                        "depends": { type: str, required: false}

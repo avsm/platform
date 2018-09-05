@@ -1,0 +1,66 @@
+CUDF solver specification
+=========================
+
+Several CUDF solvers may be installed at teh same time on any given
+system.
+
+Each solver must come together a "CUDF solver specification" file. The
+CUDF solver specification files must be installed under
+`/usr/share/cudf/solvers/`, one file per solver.
+
+The name of a CUDF solver specification file must be formed using only
+alphanumeric ASCII characters, dashes, and underscores, and must start
+with a lowercase ASCII letter. The special name `internal` is reserved
+(for the APT internal solver) and shall not be used. The name of this
+file may hence be used as a unique identifier of the solver it
+describes.
+
+A list of installed CUDF solvers can therefore be obtained by looking at the
+content of `usr/share/cudf/solvers`. E.g.:
+
+        $ ls /usr/share/cudf/solvers/
+        aspcud
+        mccs-cbc
+        mccs-lpsolve
+        packup
+        $
+
+Each CUDF solver specification file is an RFC-822 like file, consisting of a
+single stanza/paragraph. All allowed properties are single line; line
+continuations are not permitted.
+
+Allowed properties are:
+
+- **description:** (optional) short, human readable, description of the
+  corresponding CUDF solver
+
+- **exec:** (mandatory) command line that should be used to invoke the CUDF
+  solver meant to be interpreted, after interpolation, by `/bin/sh` (warning:
+  that also means that no special treatment of shell meta characters is done,
+  you've been warned). The command line must contain 3 wildcards, each one
+  occurring only once: "$in", "$out", "$pref". All wildcards will be replaced
+  before invoking the CUDF solver as follows:
+
+  - **$in:** file name of the input CUDF document for the solver. The file must
+    be read sequentially by the solver only once and cannot be lseek()-ed;
+    usually this file name will point to a named pipe.
+
+  - **$out:** file name of the output CUDF universe that the solver must
+    produce. The file must be written sequentially by the solver only once and
+    cannot be lseek()-ed; usually this file name will point to a named pipe.
+
+  - **$pref:** user preference string, conforming to the optimization language
+    supported by the CUDF solver
+
+- **cudf-version:** (mandatory) version of the CUDF standard supported by the
+  CUDF solver
+
+A sample CUDF solver specification, describing the solver 'ssolve',
+is given below:
+
+        $ cat /usr/share/cudf/solvers/ssolve
+        description: super solver that will blow your mind
+        exec: /usr/lib/supersolver/ssolve $in $out $pref
+        cudf-version: 2.0
+        $
+
