@@ -27,11 +27,14 @@ DUNIVERSE?=duniverse
 d-opam:
 	$(DUNIVERSE) opam $(PINS:%=--pin %) $(PACKAGES) -v
 
-v-lock:
-	$(DUNIVERSE) vendor-lock $(PINS:%=--pin %) $(PACKAGES) -vv
+d-dune:
+	$(DUNIVERSE) lock $(DEBUG)
 
-v-pull:
-	$(DUNIVERSE) vendor-pull -vv
+git-lock:
+	$(DUNIVERSE) git-lock $(PINS:%=--pin %) $(PACKAGES) $(DEBUG)
 
-v-merge:
-	$(DUNIVERSE) vendor-merge -v
+git-pull:
+	$(DUNIVERSE) git-pull -v $(DEBUG)
+
+git-merge:
+	$(DUNIVERSE) git-merge -v $(DEBUG)
