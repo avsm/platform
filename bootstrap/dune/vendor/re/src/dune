@@ -1,4 +1,0 @@
-(library
- (name     re)
- (flags    (:standard -w -50))
- (synopsis "Internal Dune library, do not use!"))
