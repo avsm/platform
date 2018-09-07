@@ -29,6 +29,9 @@ fi
 
 if [ $WITH_OCAML -eq 1 ]; then
   PREFIX="`pwd`/_obj"
+  if [ ! -e bootstrap/ocaml/Makefile -a -d .git ] ; then
+    git submodule update --init bootstrap/ocaml
+  fi
   cd bootstrap/ocaml
   case MODE in
   bytecode-only)
@@ -49,6 +52,9 @@ if [ $WITH_OCAML -eq 1 ]; then
   cd ../..
 fi
 
+if [ ! -e bootstrap/dune/Makefile -a -d .git ] ; then
+  git submodule update --init bootstrap/dune
+fi
 cd bootstrap/dune
 $MAKE
 cd ../..

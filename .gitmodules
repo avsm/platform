@@ -1,0 +1,6 @@
+[submodule "bootstrap/ocaml"]
+	path = bootstrap/ocaml
+	url = https://github.com/ocaml/ocaml.git
+[submodule "bootstrap/dune"]
+	path = bootstrap/dune
+	url = https://github.com/ocaml/dune.git
