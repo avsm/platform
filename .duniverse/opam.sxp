@@ -6,7 +6,8 @@
  (pins
   (((pin ocp-indent)) ((pin odoc)) ((pin tyxml)) ((pin ocamlformat))
    ((pin merlin)) ((pin lwt)) ((pin ocamlfind)) ((pin markup))
-   ((pin mccs) (url (https://github.com/AltGr/ocaml-mccs.git)))))
+   ((pin mccs) (url (https://github.com/AltGr/ocaml-mccs.git)))
+   ((pin dune-release))))
  (pkgs
   (((package ((name ocamlfind) (version (dev))))
     (dev_repo (Duniverse_fork lib-findlib)))
@@ -117,8 +118,8 @@
     (dev_repo (Github (realworldocaml craml))) (tag (1.0.0)))
    ((package ((name opam-devel) (version (2.0.0))))
     (dev_repo (Duniverse_fork opam)) (tag (2.0.0-rc4)))
-   ((package ((name dune-release) (version (0.3.0))))
-    (dev_repo (Github (samoht dune-release))) (tag (0.3.0)))
+   ((package ((name dune-release) (version (dev))))
+    (dev_repo (Github (samoht dune-release))))
    ((package ((name ocamlformat) (version (dev))))
     (dev_repo (Github (ocaml-ppx ocamlformat))))))
  (remotes ()) (branch master) (opam_switch ocaml-system))
