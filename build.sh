@@ -52,6 +52,6 @@ fi
 cd bootstrap/dune
 $MAKE
 cd ../..
-./bootstrap/dune/_build/install/default/bin/dune build --profile=release @cli
+./bootstrap/dune/_build/install/default/bin/dune build --profile=release --debug-dependency-path @cli
 cp bootstrap/dune/_build/install/default/bin/dune _build/default/output/
 cp bootstrap/dune/_build/install/default/bin/jbuilder _build/default/output/
