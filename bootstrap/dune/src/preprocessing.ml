@@ -49,8 +49,10 @@ module Driver = struct
           (let%map loc = loc
            and flags = Ordered_set_lang.Unexpanded.field "flags"
            and as_ppx_flags =
-             Ordered_set_lang.Unexpanded.field "flags"
-               ~check:(Syntax.since syntax (1, 1))
+             Ordered_set_lang.Unexpanded.field "as_ppx_flags"
+               ~check:(Syntax.since syntax (1, 2))
+               ~default:(Ordered_set_lang.Unexpanded.of_strings ["--as-ppx"]
+                           ~pos:__POS__)
            and lint_flags = Ordered_set_lang.Unexpanded.field "lint_flags"
            and main = field "main" string
            and replaces =
@@ -87,16 +89,14 @@ module Driver = struct
       ; lib = lazy lib
       ; replaces =
           let open Result.O in
-          Result.List.all
-            (List.map info.replaces
-               ~f:(fun ((loc, name) as x) ->
-                 resolve x >>= fun lib ->
-                 match get ~loc lib with
-                 | None ->
-                   Error (Errors.exnf loc "%a is not a %s"
-                            Lib_name.pp_quoted name
-                            (desc ~plural:false))
-                 | Some t -> Ok t))
+          Result.List.map info.replaces ~f:(fun ((loc, name) as x) ->
+            resolve x >>= fun lib ->
+            match get ~loc lib with
+            | None ->
+              Error (Errors.exnf loc "%a is not a %s"
+                       Lib_name.pp_quoted name
+                       (desc ~plural:false))
+            | Some t -> Ok t)
       }
 
     let dgen t =
@@ -195,7 +195,8 @@ module Jbuild_driver = struct
       let parsing_context =
         Univ_map.singleton (Syntax.key Stanza.syntax) (0, 0)
       in
-      Dsexp.parse_string ~mode:Single ~fname:"<internal>" info
+      let fname = Printf.sprintf "<internal-%s>" name in
+      Dsexp.parse_string ~mode:Single ~fname info
         ~lexer:Dsexp.Lexer.jbuild_token
       |> Dsexp.Of_sexp.parse Driver.Info.parse parsing_context
     in
@@ -417,7 +418,7 @@ let cookie_library_name lib_name =
 let setup_reason_rules sctx (m : Module.t) =
   let ctx = SC.context sctx in
   let refmt =
-    SC.resolve_program sctx ~loc:None "refmt" ~hint:"opam install reason" in
+    SC.resolve_program sctx ~loc:None "refmt" ~hint:"try: opam install reason" in
   let rule src target =
     Build.run ~context:ctx refmt
       [ A "--print"
@@ -474,7 +475,7 @@ let lint_module sctx ~dir ~dep_kind ~lint ~lib_name ~scope ~dir_kind =
              let action = Action.Unexpanded.Chdir (workspace_root_var, action) in
              Module.iter source ~f:(fun _ (src : Module.File.t) ->
                let bindings = Pform.Map.input_file src.path in
-               add_alias src.path ~loc:None
+               add_alias src.path ~loc:(Some loc)
                  (Build.path src.path
                   >>^ (fun _ -> Dune_file.Bindings.empty)
                   >>> SC.Action.run sctx
@@ -555,7 +556,7 @@ let make sctx ~dir ~dep_kind ~lint ~preprocess
          let ast =
            pped_module m ~f:(fun _kind src dst ->
              let bindings = Pform.Map.input_file src in
-             SC.add_rule sctx
+             SC.add_rule sctx ~loc
                (preprocessor_deps
                 >>>
                 Build.path src
@@ -604,7 +605,7 @@ let make sctx ~dir ~dep_kind ~lint ~preprocess
            let ast = setup_reason_rules sctx m in
            if lint then lint_module ~ast ~source:m;
            pped_module ast ~f:(fun kind src dst ->
-             SC.add_rule sctx
+             SC.add_rule sctx ~loc
                (promote_correction ~suffix:corrected_suffix
                   (Option.value_exn (Module.file m kind))
                   (preprocessor_deps >>^ ignore

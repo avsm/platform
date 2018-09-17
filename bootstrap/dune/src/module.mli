@@ -24,6 +24,8 @@ module Name : sig
   module Top_closure : Top_closure.S with type key := t
 
   module Infix : Comparable.OPS with type t = t
+
+  val of_local_lib_name : Lib_name.Local.t -> t
 end
 
 module Syntax : sig
@@ -39,23 +41,29 @@ module File : sig
   val make : Syntax.t -> Path.t -> t
 end
 
+module Visibility : sig
+  type t = Public | Private
+end
+
 (** Representation of a module. It is guaranteed that at least one of
    [impl] or [intf] is set. *)
 type t = private
-  { name      : Name.t (** Name of the module. This is always the
-                           basename of the filename without the
-                           extension. *)
-  ; impl      : File.t option
-  ; intf      : File.t option
-  ; obj_name  : string (** Object name. It is different from [name]
-                           for wrapped modules. *)
-  ; pp        : (unit, string list) Build.t option (** Preprocessing flags *)
+  { name       : Name.t (** Name of the module. This is always the
+                            basename of the filename without the
+                            extension. *)
+  ; impl       : File.t option
+  ; intf       : File.t option
+  ; obj_name   : string (** Object name. It is different from [name]
+                            for wrapped modules. *)
+  ; pp         : (unit, string list) Build.t option (** Preprocessing flags *)
+  ; visibility : Visibility.t
   }
 
 val make
   :  ?impl:File.t
   -> ?intf:File.t
   -> ?obj_name:string
+  -> visibility:Visibility.t
   -> Name.t
   -> t
 
@@ -85,10 +93,24 @@ val cmti_file : t -> obj_dir:Path.t -> Path.t
 val iter : t -> f:(Ml_kind.t -> File.t -> unit) -> unit
 
 val has_impl : t -> bool
+val has_intf : t -> bool
 
 (** Prefix the object name with the library name. *)
-val with_wrapper : t -> libname:Lib_name.Local.t -> t
+val with_wrapper : t -> main_module_name:Name.t -> t
 
 val map_files : t -> f:(Ml_kind.t -> File.t -> File.t) -> t
 
 val set_pp : t -> (unit, string list) Build.t option -> t
+
+val to_sexp : t Sexp.To_sexp.t
+
+val wrapped_compat : t -> t
+
+module Name_map : sig
+  type module_
+  type t = module_ Name.Map.t
+end with type module_ := t
+
+val is_public : t -> bool
+
+val set_private : t -> t

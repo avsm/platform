@@ -85,7 +85,7 @@ module Gen (S : sig val sctx : SC.t end) = struct
     let setup_deps m files = SC.add_alias_deps sctx (alias m) files
   end
 
-  let odoc = SC.resolve_program sctx "odoc" ~hint:"opam install odoc" ~loc:None
+  let odoc = SC.resolve_program sctx "odoc" ~hint:"try: opam install odoc" ~loc:None
   let odoc_ext = ".odoc"
 
   module Mld : sig
@@ -393,13 +393,9 @@ module Gen (S : sig val sctx : SC.t end) = struct
     )
 
   let entry_modules_by_lib lib =
-    let dc = Dir_contents.get sctx ~dir:(Lib.src_dir lib) in
-    let m = Dir_contents.modules_of_library dc ~name:(Lib.name lib) in
-    match m.alias_module with
-    | Some alias_mod ->
-      [Option.value ~default:alias_mod
-         (Module.Name.Map.find m.modules m.main_module_name)]
-    | None -> Module.Name.Map.values m.modules
+    Dir_contents.get sctx ~dir:(Lib.src_dir lib)
+    |> Dir_contents.modules_of_library ~name:(Lib.name lib)
+    |> Lib_modules.entry_modules
 
   let entry_modules ~(pkg : Package.t) =
     libs_of_pkg ~pkg:pkg.name

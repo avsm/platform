@@ -23,7 +23,7 @@ let libraries_link ~name ~mode cctx libs =
        after findlib.dynload a module containing the info *)
     let libs =
       List.filter
-        ~f:(fun lib -> match Lib.status lib with | Lib.Status.Private _ -> false | _ -> true)
+        ~f:(fun lib -> not (Lib_info.Status.is_private (Lib.status lib)))
         libs
     in
     let preds = Variant.Set.add Findlib.Package.preds (Mode.variant mode) in
@@ -40,7 +40,7 @@ let libraries_link ~name ~mode cctx libs =
     SC.add_rule sctx (Build.write_file ml s);
     let impl = Module.File.make OCaml ml in
     let name = Module.Name.of_string basename in
-    let module_ = Module.make ~impl name in
+    let module_ = Module.make ~impl name ~visibility:Public in
     let cctx = Compilation_context.(
       create
         ~super_context:sctx

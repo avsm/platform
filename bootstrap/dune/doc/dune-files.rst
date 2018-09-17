@@ -96,6 +96,13 @@ to use the :ref:`include_subdirs` stanza.
   only intended for libraries that manually prefix all their modules by the
   library name and to ease porting of existing projects to dune
 
+- ``(wrapped (transition <message>))`` Is the same as ``(wrapped true)`` except
+  that it will also generate unwrapped (not prefixed by the library name)
+  modules to preserve compatibility. This is useful for libraries that would
+  like to transition from ``(wrapped false)`` to ``(wrapped true)`` without
+  breaking compatibility for users. The ``<message>`` will be included in the
+  deprecation notice for the unwrapped modules.
+
 - ``(preprocess <preprocess-spec>)`` specifies how to preprocess files if
   needed. The default is ``no_processing``. Other options are described in the
   `Preprocessing specification`_ section
@@ -182,6 +189,10 @@ to use the :ref:`include_subdirs` stanza.
   that this is the case, dune requires the user to explicitly list
   such modules to avoid surprises. ``<modules>`` must be a subset of
   the modules listed in the ``(modules ...)`` field.
+
+- ``(private_modules <modules>)`` species a list of modules that will be marked
+  as private. Private modules are inaccessible from outside the libraries they
+  are defined in.
 
 - ``(allow_overlapping_dependencies)`` allows external dependencies to
   overlap with libraries that are present in the workspace
@@ -301,6 +312,7 @@ compilation is not available.
 
 ``<binary-kind>`` is one of:
 
+= ``c`` for producing OCaml bytecode embedded in a C file
 - ``exe`` for normal executables
 - ``object`` for producing static object files that can be manually
   linked into C applications
@@ -319,6 +331,7 @@ code executables and native shared objects:
 
 Additionally, you can use the following short-hands:
 
+- ``c`` for ``(byte c)``
 - ``exe`` for ``(best exe)``
 - ``object`` for ``(best object)``
 - ``shared_object`` for ``(best shared_object)``
@@ -345,6 +358,7 @@ byte             object        .bc%{ext_obj}
 native/best      object        .exe%{ext_obj}
 byte             shared_object .bc%{ext_dll}
 native/best      shared_object %{ext_dll}
+byte             c             .bc.c
 ================ ============= =================
 
 Where ``%{ext_obj}`` and ``%{ext_dll}`` are the extensions for object
@@ -736,7 +750,7 @@ to ``expect_test.expected``.
 The optional fields that are supported are a subset of the alias and executables
 fields. In particular, all fields except for ``public_names`` are supported from
 the `executables stanza <shared-exe-fields>`_. Alias fields apart from ``name``
-and ``action`` are allowed.
+are allowed.
 
 test
 ----
@@ -1243,6 +1257,9 @@ syntax:
 - ``(package <pkg>)`` depend on all files installed by ``<package>``, as well
   as on the transitive package dependencies of ``<package>``. This can be used
   to test a command against the files that will be installed
+- ``(env <var>)``: depend on the value of the environment variable ``<var>``.
+  If this variable becomes set, becomes unset, or changes value, the target
+  will be rebuilt.
 
 In all these cases, the argument supports `Variables expansion`_.
 

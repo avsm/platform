@@ -160,6 +160,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name env-tracking)
+ (deps (package dune) (source_tree test-cases/env-tracking))
+ (action
+  (chdir
+   test-cases/env-tracking
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name envs-and-contexts)
  (deps (package dune) (source_tree test-cases/envs-and-contexts))
  (action
@@ -261,6 +269,14 @@
  (action
   (chdir
    test-cases/github1099
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github1231)
+ (deps (package dune) (source_tree test-cases/github1231))
+ (action
+  (chdir
+   test-cases/github1231
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -454,6 +470,14 @@
  (action
   (chdir
    test-cases/link-deps
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name lint)
+ (deps (package dune) (source_tree test-cases/lint))
+ (action
+  (chdir
+   test-cases/lint
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -661,6 +685,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name private-modules)
+ (deps (package dune) (source_tree test-cases/private-modules))
+ (action
+  (chdir
+   test-cases/private-modules
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name private-public-overlap)
  (deps (package dune) (source_tree test-cases/private-public-overlap))
  (action
@@ -773,11 +805,27 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name target-dir-alias)
+ (deps (package dune) (source_tree test-cases/target-dir-alias))
+ (action
+  (chdir
+   test-cases/target-dir-alias
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name tests-stanza)
  (deps (package dune) (source_tree test-cases/tests-stanza))
  (action
   (chdir
    test-cases/tests-stanza
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name tests-stanza-action)
+ (deps (package dune) (source_tree test-cases/tests-stanza-action))
+ (action
+  (chdir
+   test-cases/tests-stanza-action
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -837,6 +885,22 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name wrapped-false-main-module-name)
+ (deps (package dune) (source_tree test-cases/wrapped-false-main-module-name))
+ (action
+  (chdir
+   test-cases/wrapped-false-main-module-name
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name wrapped-transition)
+ (deps (package dune) (source_tree test-cases/wrapped-transition))
+ (action
+  (chdir
+   test-cases/wrapped-transition
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name runtest)
  (deps
   (alias action-modifying-a-dependency)
@@ -859,6 +923,7 @@
   (alias dune-project-edition)
   (alias dup-fields)
   (alias env)
+  (alias env-tracking)
   (alias exclude-missing-module)
   (alias exec-cmd)
   (alias exec-missing)
@@ -871,6 +936,7 @@
   (alias gen-opam-install-file)
   (alias github1019)
   (alias github1099)
+  (alias github1231)
   (alias github20)
   (alias github24)
   (alias github25)
@@ -893,6 +959,7 @@
   (alias intf-only)
   (alias lib-available)
   (alias link-deps)
+  (alias lint)
   (alias loop)
   (alias macro-expand-error)
   (alias menhir)
@@ -917,6 +984,7 @@
   (alias path-variables)
   (alias ppx-rewriter)
   (alias preprocess-with-action)
+  (alias private-modules)
   (alias private-public-overlap)
   (alias project-root)
   (alias promote)
@@ -931,14 +999,18 @@
   (alias shadow-bindings)
   (alias subst)
   (alias syntax-versioning)
+  (alias target-dir-alias)
   (alias tests-stanza)
+  (alias tests-stanza-action)
   (alias too-many-parens)
   (alias use-meta)
   (alias utop)
   (alias utop-default)
   (alias variants)
   (alias windows-diff)
-  (alias workspaces)))
+  (alias workspaces)
+  (alias wrapped-false-main-module-name)
+  (alias wrapped-transition)))
 
 (alias
  (name runtest-no-deps)
@@ -963,6 +1035,7 @@
   (alias dune-project-edition)
   (alias dup-fields)
   (alias env)
+  (alias env-tracking)
   (alias exclude-missing-module)
   (alias exec-cmd)
   (alias exec-missing)
@@ -973,6 +1046,7 @@
   (alias force-test)
   (alias github1019)
   (alias github1099)
+  (alias github1231)
   (alias github20)
   (alias github24)
   (alias github25)
@@ -993,6 +1067,7 @@
   (alias intf-only)
   (alias lib-available)
   (alias link-deps)
+  (alias lint)
   (alias loop)
   (alias macro-expand-error)
   (alias merlin-tests)
@@ -1012,6 +1087,7 @@
   (alias package-dep)
   (alias path-variables)
   (alias preprocess-with-action)
+  (alias private-modules)
   (alias project-root)
   (alias promote)
   (alias quoting)
@@ -1023,13 +1099,17 @@
   (alias shadow-bindings)
   (alias subst)
   (alias syntax-versioning)
+  (alias target-dir-alias)
   (alias tests-stanza)
+  (alias tests-stanza-action)
   (alias too-many-parens)
   (alias use-meta)
   (alias utop-default)
   (alias variants)
   (alias windows-diff)
-  (alias workspaces)))
+  (alias workspaces)
+  (alias wrapped-false-main-module-name)
+  (alias wrapped-transition)))
 
 (alias (name runtest-disabled) (deps (alias envs-and-contexts)))
 

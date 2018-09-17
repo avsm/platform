@@ -149,12 +149,11 @@ module Gen(P : Install_rules.Params) = struct
      | Tests                                                           |
      +-----------------------------------------------------------------+ *)
 
-  let tests_rules (t : Tests.t) ~dir ~scope ~dir_contents
-        ~dir_kind ~src_dir =
+  let tests_rules (t : Tests.t) ~dir ~scope ~dir_contents ~dir_kind =
     let test_kind (loc, name) =
-      let sources = SC.source_files sctx ~src_path:src_dir in
+      let files = Dir_contents.text_files dir_contents in
       let expected_basename = name ^ ".expected" in
-      if String.Set.mem sources expected_basename then
+      if String.Set.mem files expected_basename then
         `Expect
           { Action.Unexpanded.Diff.
             file1 = String_with_vars.make_text loc expected_basename
@@ -165,51 +164,46 @@ module Gen(P : Install_rules.Params) = struct
       else
         `Regular
     in
-    let regular_rule run_action alias loc =
-      { alias with Alias_conf.action = Some (loc, run_action) }
-    in
-    let expect_rule run_action (diff : Action.Unexpanded.Diff.t) alias loc =
-      let rule =
-        { Rule.
-          targets = Infer
-        ; deps = Bindings.empty
-        ; action =
-            (loc, Action.Unexpanded.Redirect (Stdout, diff.file2, run_action))
-        ; mode = Standard
-        ; locks = t.locks
-        ; loc
-        } in
-      let alias =
-        { alias with
-          Alias_conf.
-          action = Some (loc, Diff diff)
-        ; locks = t.locks
-        } in
-      (alias, rule)
-    in
     List.iter t.exes.names ~f:(fun (loc, s) ->
+      let test_var_name = "test" in
       let run_action =
-        Action.Unexpanded.Run
-          (String_with_vars.make_text loc ("./" ^ s ^ ".exe"), []) in
-      let base_alias =
-        { Alias_conf.
-          name = "runtest"
-        ; locks = []
-        ; package = t.package
-        ; deps = t.deps
-        ; action = None
-        ; enabled_if = t.enabled_if
-        ; loc
-        } in
+        match t.action with
+        | Some a -> a
+        | None -> Action.Unexpanded.Run (String_with_vars.make_var loc test_var_name, [])
+      in
+      let test_exe = s ^ ".exe" in
+      let test_exe_path = Super_context.Action.map_exe sctx (Path.relative dir test_exe) in
+      let extra_bindings = Pform.Map.singleton test_var_name (Values [Path test_exe_path]) in
+      let add_alias ~loc ~action ~locks =
+        let alias =
+          { Alias_conf.
+            name = "runtest"
+          ; locks
+          ; package = t.package
+          ; deps = t.deps
+          ; action = Some (loc, action)
+          ; enabled_if = t.enabled_if
+          ; loc
+          }
+        in
+        Simple_rules.alias sctx ~extra_bindings ~dir ~scope alias
+      in
       match test_kind (loc, s) with
       | `Regular ->
-        Simple_rules.alias sctx ~dir ~scope
-          (regular_rule run_action base_alias loc)
+          add_alias ~loc ~action:run_action ~locks:[]
       | `Expect diff ->
-        let (alias, rule) =
-          expect_rule run_action diff base_alias loc in
-        Simple_rules.alias sctx alias ~dir ~scope;
-        ignore (Simple_rules.user_rule sctx rule ~dir ~scope : Path.t list));
+        let rule =
+          { Rule.
+            targets = Infer
+          ; deps = Bindings.empty
+          ; action =
+              (loc, Action.Unexpanded.Redirect (Stdout, diff.file2, run_action))
+          ; mode = Standard
+          ; locks = t.locks
+          ; loc
+          } in
+        add_alias ~loc ~action:(Diff diff) ~locks:t.locks;
+        ignore (Simple_rules.user_rule sctx rule ~extra_bindings ~dir ~scope : Path.t list));
     executables_rules t.exes ~dir ~scope ~dir_kind
       ~dir_contents
 
@@ -244,8 +238,7 @@ module Gen(P : Install_rules.Params) = struct
             loop stanzas merlins cctxs
           | Tests tests ->
             let cctx, merlin =
-              tests_rules tests ~dir ~scope ~src_dir
-                ~dir_contents ~dir_kind:kind
+              tests_rules tests ~dir ~scope ~dir_contents ~dir_kind:kind
             in
             loop stanzas (merlin :: merlins)
               ((tests.exes.buildable.loc, cctx) :: cctxs)
@@ -359,6 +352,21 @@ module type Gen = sig
   val sctx : Super_context.t
 end
 
+let stanza_package = function
+  | Library { public = Some { package; _ }; _ }
+  | Alias { package = Some package ;  _ }
+  | Install { package; _ }
+  | Documentation { package; _ }
+  | Tests { package = Some package; _} ->
+      Some package
+  | _ -> None
+
+let relevant_stanzas pkgs stanzas =
+  List.filter stanzas ~f:(fun stanza ->
+    match stanza_package stanza with
+    | Some package -> Package.Name.Set.mem pkgs package.name
+    | None -> true)
+
 let gen ~contexts ~build_system
       ?(external_lib_deps_mode=false)
       ?only_packages conf =
@@ -388,17 +396,9 @@ let gen ~contexts ~build_system
       | None -> stanzas
       | Some pkgs ->
         List.map stanzas ~f:(fun (dir_conf : Jbuild_load.Jbuild.t) ->
-          let stanzas =
-            List.filter dir_conf.stanzas ~f:(fun stanza ->
-              match (stanza : Stanza.t) with
-              | Library { public = Some { package; _ }; _ }
-              | Alias { package = Some package ;  _ }
-              | Install { package; _ }
-              | Documentation { package; _ } ->
-                Package.Name.Set.mem pkgs package.name
-              | _ -> true)
-          in
-          { dir_conf with stanzas })
+          { dir_conf with
+            stanzas = relevant_stanzas pkgs dir_conf.stanzas
+          })
     in
     Fiber.fork_and_join host stanzas >>= fun (host, stanzas) ->
     let sctx =

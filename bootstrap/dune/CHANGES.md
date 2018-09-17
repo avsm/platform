@@ -1,5 +1,5 @@
-next
-----
+1.2.0 (14/09/2018)
+------------------
 
 - Ignore stderr output when trying to find out the number of jobs
   available (#1118, fix #1116, @diml)
@@ -35,6 +35,43 @@ next
 
 - Add an emacs mode providing helpers to promote correction files
   (#1192, @diml)
+
+- Improve message suggesting to remove parentheses (#1196, fix #1173, @emillon)
+
+- Add `(wrapped (transition "..message.."))` as an option that will generate
+  wrapped modules but keep unwrapped modules with a deprecation message to
+  preserve compatibility. (#1188, fix #985, @rgrinberg)
+
+- Fix the flags passed to the ppx rewriter when using `staged_pps` (#1218, @diml)
+
+- Add `(env var)` to add a dependency to an environment variable.
+  (#1186, @emillon)
+
+- Add a simple version of a polling mode: `dune build -w` keeps
+  running and restarts the build when something change on the
+  filesystem (#1140, @kodek16)
+
+- Cleanup the way we detect the library search path. We no longer call
+  `opam config var lib` in the default build context (#1226, @diml)
+
+- Make test stanzas honor the -p flag. (#1236, fix #1231, @emillon)
+
+- Test stanzas take an optional (action) field to customize how they run (#1248,
+  #1195, @emillon)
+
+- Add support for private modules via the `private_modules` field (#1241, fix
+  #427, @rgrinberg)
+
+- Add support for passing arguments to the OCaml compiler via a
+  response file when the list of arguments is too long (#1256, @diml)
+
+- Do not print diffs by default when running inside dune (#1260, @diml)
+
+- Interpret `$ dune build dir` as building the default alias in `dir`. (#1259,
+  @rgrinberg)
+
+- Make the `dynlink` library available without findlib installed (#1270, fix
+  #1264, @rgrinberg)
 
 1.1.1 (08/08/2018)
 ------------------

@@ -308,6 +308,7 @@ module Dep_conf = struct
     | Source_tree of String_with_vars.t
     | Package of String_with_vars.t
     | Universe
+    | Env_var of String_with_vars.t
 
   let remove_locs = function
     | File sw -> File (String_with_vars.remove_locs sw)
@@ -317,6 +318,7 @@ module Dep_conf = struct
     | Source_tree sw -> Source_tree (String_with_vars.remove_locs sw)
     | Package sw -> Package (String_with_vars.remove_locs sw)
     | Universe -> Universe
+    | Env_var sw -> Env_var sw
 
   let dparse =
     let dparse =
@@ -337,6 +339,7 @@ module Dep_conf = struct
           (let%map () = Syntax.since Stanza.syntax (1, 0)
            and x = sw in
            Source_tree x)
+        ; "env_var", (sw >>| fun x -> Env_var x)
         ]
     in
     if_list
@@ -365,6 +368,9 @@ module Dep_conf = struct
            ; String_with_vars.dgen t]
     | Universe ->
       Dsexp.unsafe_atom_of_string "universe"
+    | Env_var t ->
+      List [ Dsexp.unsafe_atom_of_string "env_var"
+           ; String_with_vars.dgen t]
 
   let to_sexp t = Dsexp.to_sexp (dgen t)
 end
@@ -658,6 +664,8 @@ module Lib_deps = struct
      |> Lib_name.Map.of_list_reduce ~f:Lib_deps_info.Kind.merge
 end
 
+let modules_field name = Ordered_set_lang.field name
+
 module Buildable = struct
   type t =
     { loc                      : Loc.t
@@ -673,8 +681,6 @@ module Buildable = struct
     ; js_of_ocaml              : Js_of_ocaml.t
     ; allow_overlapping_dependencies : bool
     }
-
-  let modules_field name = Ordered_set_lang.field name
 
   let dparse =
     let%map loc = loc
@@ -853,14 +859,40 @@ module Library = struct
       let syntax =
         Syntax.create ~name:"in_development_do_not_use_variants"
           ~desc:"the experimental variants feature"
-          [ (0, 0) ]
+          [ (0, 1) ]
       in
-      Dune_project.Extension.register syntax (Dsexp.Of_sexp.return []);
+      Dune_project.Extension.register ~experimental:true
+        syntax (Dsexp.Of_sexp.return []);
       syntax
   end
 
+  module Wrapped = struct
+    type t =
+      | Simple of bool
+      | Yes_with_transition of string
+
+    let dparse =
+      sum
+        [ "true", return (Simple true)
+        ; "false", return (Simple false)
+        ; "transition",
+          Syntax.since Stanza.syntax (1, 2) >>= fun () ->
+          string >>| fun x -> Yes_with_transition x
+        ]
+
+    let field = field_o "wrapped" (located dparse)
+
+    let to_bool = function
+      | Simple b -> b
+      | Yes_with_transition _ -> true
+
+    let value = function
+      | None -> Simple true
+      | Some (_loc, w) -> w
+  end
+
   type t =
-    { name                     : Lib_name.Local.t
+    { name                     : (Loc.t * Lib_name.Local.t)
     ; public                   : Public_lib.t option
     ; synopsis                 : string option
     ; install_c_headers        : string list
@@ -875,7 +907,7 @@ module Library = struct
     ; c_library_flags          : Ordered_set_lang.Unexpanded.t
     ; self_build_stubs_archive : string option
     ; virtual_deps             : (Loc.t * Lib_name.t) list
-    ; wrapped                  : bool
+    ; wrapped                  : Wrapped.t
     ; optional                 : bool
     ; buildable                : Buildable.t
     ; dynlink                  : Dynlink_supported.t
@@ -884,7 +916,8 @@ module Library = struct
     ; no_keep_locs             : bool
     ; dune_version             : Syntax.Version.t
     ; virtual_modules          : Ordered_set_lang.t option
-    ; implements               : (Loc.t * string) option
+    ; implements               : (Loc.t * Lib_name.t) option
+    ; private_modules          : Ordered_set_lang.t
     }
 
   let dparse =
@@ -908,7 +941,7 @@ module Library = struct
          field "virtual_deps" (list (located Lib_name.dparse)) ~default:[]
        and modes = field "modes" Mode_conf.Set.dparse ~default:Mode_conf.Set.default
        and kind = field "kind" Kind.dparse ~default:Kind.Normal
-       and wrapped = field "wrapped" bool ~default:true
+       and wrapped = Wrapped.field
        and optional = field_b "optional"
        and self_build_stubs_archive =
          field "self_build_stubs_archive" (option string) ~default:None
@@ -926,17 +959,22 @@ module Library = struct
        and implements =
          field_o "implements" (
            Syntax.since Variants.syntax (0, 1)
-           >>= fun () -> (located string))
+           >>= fun () -> located Lib_name.dparse)
+       and private_modules =
+         field "private_modules" ~default:Ordered_set_lang.standard (
+           Syntax.since Stanza.syntax (1, 2)
+           >>= fun () -> Ordered_set_lang.dparse)
        in
        let name =
          let open Syntax.Version.Infix in
          match name, public with
-         | Some n, _ ->
-           Lib_name.Local.validate n ~wrapped
+         | Some (loc, res), _ ->
+           let wrapped = Wrapped.to_bool (Wrapped.value wrapped) in
+           (loc, Lib_name.Local.validate (loc, res) ~wrapped)
          | None, Some { name = (loc, name) ; _ }  ->
            if dune_version >= (1, 1) then
              match Lib_name.to_local name with
-             | Ok m -> m
+             | Ok m -> (loc, m)
              | Warn _ | Invalid ->
                of_sexp_errorf loc
                  "%s.\n\
@@ -960,7 +998,17 @@ module Library = struct
          of_sexp_errorf
            (Ordered_set_lang.loc virtual_modules
            |> Option.value_exn)
-           "A library cannot be both virtual and implement %s" impl);
+           "A library cannot be both virtual and implement %s"
+           (Lib_name.to_string impl));
+       begin match virtual_modules, wrapped, implements with
+       | Some _, Some (loc, Wrapped.Simple false), _ ->
+         of_sexp_error loc "A virtual library must be wrapped"
+       | _, Some (loc, _), Some _ ->
+         of_sexp_error loc
+           "Wrapped cannot be set for implementations. \
+            It is inherited from the virtual library."
+       | _, _, _ -> ()
+       end;
        { name
        ; public
        ; synopsis
@@ -976,7 +1024,7 @@ module Library = struct
        ; c_library_flags
        ; self_build_stubs_archive
        ; virtual_deps
-       ; wrapped
+       ; wrapped = Wrapped.value wrapped
        ; optional
        ; buildable
        ; dynlink = Dynlink_supported.of_bool (not no_dynlink)
@@ -986,6 +1034,7 @@ module Library = struct
        ; dune_version
        ; virtual_modules
        ; implements
+       ; private_modules
        })
 
   let has_stubs t =
@@ -993,16 +1042,21 @@ module Library = struct
     | [], [], None -> false
     | _            -> true
 
+  let stubs_name t =
+    Lib_name.Local.to_string (snd t.name) ^ "_stubs"
+
+  let stubs t ~dir = Path.relative dir (stubs_name t)
+
   let stubs_archive t ~dir ~ext_lib =
     Path.relative dir (sprintf "lib%s_stubs%s"
-                         (Lib_name.Local.to_string t.name) ext_lib)
+                         (Lib_name.Local.to_string (snd t.name)) ext_lib)
 
   let dll t ~dir ~ext_dll =
     Path.relative dir (sprintf "dll%s_stubs%s"
-                         (Lib_name.Local.to_string t.name) ext_dll)
+                         (Lib_name.Local.to_string (snd t.name)) ext_dll)
 
   let archive t ~dir ~ext =
-    Path.relative dir (Lib_name.Local.to_string t.name ^ ext)
+    Path.relative dir (Lib_name.Local.to_string (snd t.name) ^ ext)
 
   let best_name t =
     match t.public with
@@ -1010,6 +1064,13 @@ module Library = struct
     | Some p -> snd p.name
 
   let is_virtual t = Option.is_some t.virtual_modules
+
+  let main_module_name t =
+    match t.implements, Wrapped.to_bool t.wrapped with
+    | Some _, true -> None
+    | Some _, false -> assert false
+    | None, false -> None
+    | None, true -> Some (Module.Name.of_local_lib_name (snd t.name))
 end
 
 module Install_conf = struct
@@ -1052,6 +1113,7 @@ module Executables = struct
       type t =
         { mode : Mode_conf.t
         ; kind : Binary_kind.t
+        ; loc : Loc.t
         }
 
       let compare a b =
@@ -1064,6 +1126,7 @@ module Executables = struct
     let make mode kind =
       { mode
       ; kind
+      ; loc = Loc.none
       }
 
     let exe           = make Best Exe
@@ -1098,8 +1161,9 @@ module Executables = struct
         ~then_:
           (enter
              (let%map mode = Mode_conf.dparse
-              and kind = Binary_kind.dparse in
-              { mode; kind }))
+              and kind = Binary_kind.dparse
+              and loc = loc in
+              { mode; kind; loc}))
         ~else_:simple
 
     let simple_dgen link_mode =
@@ -1113,7 +1177,7 @@ module Executables = struct
       match simple_dgen link_mode with
       | Some s -> s
       | None ->
-        let { mode; kind } = link_mode in
+        let { mode; kind; loc = _ } = link_mode in
         Dsexp.To_sexp.pair Mode_conf.dgen Binary_kind.dgen (mode, kind)
 
     module Set = struct
@@ -1646,6 +1710,7 @@ module Tests = struct
     ; package    : Package.t option
     ; deps       : Dep_conf.t Bindings.t
     ; enabled_if : String_with_vars.t Blang.t option
+    ; action     : Action.Unexpanded.t option
     }
 
   let gen_parse names =
@@ -1660,6 +1725,7 @@ module Tests = struct
        and deps =
          field "deps" (Bindings.dparse Dep_conf.dparse) ~default:Bindings.empty
        and enabled_if = field_o "enabled_if" Blang.dparse
+       and action = field_o "action" Action.Unexpanded.dparse
        in
        { exes =
            { Executables.
@@ -1673,6 +1739,7 @@ module Tests = struct
        ; package
        ; deps
        ; enabled_if
+       ; action
        })
 
   let multi = gen_parse (field "names" (list (located string)))

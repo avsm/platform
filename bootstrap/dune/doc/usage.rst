@@ -154,6 +154,19 @@ definition is assumed:
 Which means that by default ``dune build`` will build everything that
 is installable.
 
+When using a directory as a target, it will be interpreted as building the
+default target in the directory. The directory must exist in the source tree.
+
+.. code::
+
+   dune build dir
+
+Is equivalent to:
+
+.. code::
+
+   dune build @@dir/default
+
 Finding external libraries
 ==========================
 
@@ -188,6 +201,14 @@ specific sub-directory and its children by using:
 
 -  ``dune build @foo/bar/runtest``
 -  ``dune runtest foo/bar``
+
+Watch mode
+==========
+
+The ``dune build`` and ``dune runtest`` commands support a ``-w`` (or
+``--watch``) flag. When it is passed, dune will perform the action as usual, and
+then wait for file changes and rebuild (or rerun the tests). This feature
+requires ``inotifywait`` or ``fswatch`` to be installed.
 
 Launching the Toplevel (REPL)
 =============================
@@ -290,10 +311,6 @@ without an argument, it will install all the packages available in the
 workspace. With a specific list of packages, it will only install these
 packages. If several build contexts are configured, the installation will be
 performed for all of them.
-
-Note that ``dune install`` is a thin wrapper around the ``opam-installer`` tool,
-so you will need to install this tool in order to be able to use ``dune
-install``.
 
 Destination
 -----------

@@ -16,7 +16,7 @@ module Includes = struct
       let cmi_includes =
         Arg_spec.S [ iflags
                    ; Hidden_deps
-                       (SC.Libs.file_deps sctx libs ~ext:".cmi")
+                       (Lib_file_deps.L.file_deps sctx libs ~exts:[".cmi"])
                    ]
       in
       let cmx_includes =
@@ -26,12 +26,12 @@ module Includes = struct
               ( if opaque then
                   List.map libs ~f:(fun lib ->
                     (lib, if Lib.is_local lib then
-                       ".cmi"
+                       [".cmi"]
                      else
-                       ".cmi-and-.cmx"))
-                  |> SC.Libs.file_deps_with_exts sctx
+                       [".cmi"; ".cmx"]))
+                  |> Lib_file_deps.L.file_deps_with_exts sctx
                 else
-                  SC.Libs.file_deps sctx libs ~ext:".cmi-and-.cmx"
+                  Lib_file_deps.L.file_deps sctx libs ~exts:[".cmi"; ".cmx"]
               )
           ]
       in
@@ -50,6 +50,7 @@ type t =
   ; dir                  : Path.t
   ; dir_kind             : File_tree.Dune_file.Kind.t
   ; obj_dir              : Path.t
+  ; private_obj_dir      : Path.t option
   ; modules              : Module.t Module.Name.Map.t
   ; alias_module         : Module.t option
   ; lib_interface_module : Module.t option
@@ -66,6 +67,7 @@ let scope                t = t.scope
 let dir                  t = t.dir
 let dir_kind             t = t.dir_kind
 let obj_dir              t = t.obj_dir
+let private_obj_dir      t = t.private_obj_dir
 let modules              t = t.modules
 let alias_module         t = t.alias_module
 let lib_interface_module t = t.lib_interface_module
@@ -79,14 +81,16 @@ let opaque               t = t.opaque
 let context              t = Super_context.context t.super_context
 
 let create ~super_context ~scope ~dir ?(dir_kind=File_tree.Dune_file.Kind.Dune)
-      ?(obj_dir=dir) ~modules ?alias_module ?lib_interface_module ~flags
-      ~requires ?(preprocessing=Preprocessing.dummy) ?(no_keep_locs=false)
+      ?(obj_dir=dir) ?private_obj_dir ~modules ?alias_module
+      ?lib_interface_module ~flags ~requires ?(preprocessing=Preprocessing.dummy)
+      ?(no_keep_locs=false)
       ~opaque () =
   { super_context
   ; scope
   ; dir
   ; dir_kind
   ; obj_dir
+  ; private_obj_dir
   ; modules
   ; alias_module
   ; lib_interface_module
@@ -104,4 +108,12 @@ let for_alias_module t =
     flags        = Ocaml_flags.append_common flags ["-w"; "-49"]
   ; includes     = Includes.empty
   ; alias_module = None
+  }
+
+let for_wrapped_compat t modules =
+  { t with
+    flags = Ocaml_flags.default ~profile:(SC.profile t.super_context)
+  ; includes = Includes.empty
+  ; alias_module = None
+  ; modules
   }

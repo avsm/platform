@@ -53,6 +53,7 @@ module Local = struct
   let to_sexp = Sexp.To_sexp.string
 
   let pp_quoted fmt t = Format.fprintf fmt "%S" t
+  let pp fmt t = Format.fprintf fmt "%s" t
 
   let invalid_message =
     "invalid library name.\n\
@@ -96,7 +97,7 @@ let to_string t = t
 
 let of_string_exn ~loc:_ s = s
 
-let of_local t = t
+let of_local (_loc, t) = t
 
 type t = string
 

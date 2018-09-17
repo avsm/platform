@@ -119,6 +119,7 @@ module Dep_conf : sig
     | Source_tree of String_with_vars.t
     | Package of String_with_vars.t
     | Universe
+    | Env_var of String_with_vars.t
 
   val remove_locs : t -> t
 
@@ -216,8 +217,16 @@ module Library : sig
       | Ppx_rewriter
   end
 
+  module Wrapped : sig
+    type t =
+      | Simple of bool
+      | Yes_with_transition of string
+
+    val to_bool : t -> bool
+  end
+
   type t =
-    { name                     : Lib_name.Local.t
+    { name                     : (Loc.t * Lib_name.Local.t)
     ; public                   : Public_lib.t option
     ; synopsis                 : string option
     ; install_c_headers        : string list
@@ -232,7 +241,7 @@ module Library : sig
     ; c_library_flags          : Ordered_set_lang.Unexpanded.t
     ; self_build_stubs_archive : string option
     ; virtual_deps             : (Loc.t * Lib_name.t) list
-    ; wrapped                  : bool
+    ; wrapped                  : Wrapped.t
     ; optional                 : bool
     ; buildable                : Buildable.t
     ; dynlink                  : Dynlink_supported.t
@@ -241,15 +250,19 @@ module Library : sig
     ; no_keep_locs             : bool
     ; dune_version             : Syntax.Version.t
     ; virtual_modules          : Ordered_set_lang.t option
-    ; implements               : (Loc.t * string) option
+    ; implements               : (Loc.t * Lib_name.t) option
+    ; private_modules          : Ordered_set_lang.t
     }
 
   val has_stubs : t -> bool
+  val stubs_name : t -> string
+  val stubs : t -> dir:Path.t -> Path.t
   val stubs_archive : t -> dir:Path.t -> ext_lib:string -> Path.t
   val dll : t -> dir:Path.t -> ext_dll:string -> Path.t
   val archive : t -> dir:Path.t -> ext:string -> Path.t
   val best_name : t -> Lib_name.t
   val is_virtual : t -> bool
+  val main_module_name : t -> Module.Name.t option
 end
 
 module Install_conf : sig
@@ -270,6 +283,7 @@ module Executables : sig
     type t =
       { mode : Mode_conf.t
       ; kind : Binary_kind.t
+      ; loc : Loc.t
       }
 
     include Dsexp.Sexpable with type t := t
@@ -375,6 +389,7 @@ module Tests : sig
     ; package    : Package.t option
     ; deps       : Dep_conf.t Bindings.t
     ; enabled_if : String_with_vars.t Blang.t option
+    ; action     : Action.Unexpanded.t option
     }
 end
 

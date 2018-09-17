@@ -66,19 +66,17 @@ module Backend = struct
       { info
       ; lib
       ; runner_libraries =
-          Result.List.all (List.map info.runner_libraries ~f:resolve)
+          Result.List.map info.runner_libraries ~f:resolve
       ; extends =
           let open Result.O in
-          Result.List.all
-            (List.map info.extends
-               ~f:(fun ((loc, name) as x) ->
-                 resolve x >>= fun lib ->
-                 match get ~loc lib with
-                 | None ->
-                   Error (Errors.exnf loc "%S is not an %s"
-                            (Lib_name.to_string name)
-                            (desc ~plural:false))
-                 | Some t -> Ok t))
+          Result.List.map info.extends ~f:(fun ((loc, name) as x) ->
+            resolve x >>= fun lib ->
+            match get ~loc lib with
+            | None ->
+              Error (Errors.exnf loc "%S is not an %s"
+                       (Lib_name.to_string name)
+                       (desc ~plural:false))
+            | Some t -> Ok t)
       }
 
     let dgen t =
@@ -163,7 +161,7 @@ include Sub_system.Register_end_point(
 
       let inline_test_dir =
         Path.relative dir (sprintf ".%s.inline-tests"
-                             (Lib_name.Local.to_string lib.name))
+                             (Lib_name.Local.to_string (snd lib.name)))
       in
 
       let name = "run" in
@@ -175,12 +173,13 @@ include Sub_system.Register_end_point(
              ~impl:{ path   = Path.relative inline_test_dir main_module_filename
                    ; syntax = OCaml
                    }
+             ~visibility:Public
              ~obj_name:name)
       in
 
       let bindings =
         Pform.Map.singleton "library-name"
-          (Values [String (Lib_name.Local.to_string lib.name)])
+          (Values [String (Lib_name.Local.to_string (snd lib.name))])
       in
 
       let runner_libs =
@@ -190,9 +189,7 @@ include Sub_system.Register_end_point(
         >>= fun libs ->
         Lib.DB.find_many (Scope.libs scope) [Dune_file.Library.best_name lib]
         >>= fun lib ->
-        Result.List.all
-          (List.map info.libraries
-             ~f:(Lib.DB.resolve (Scope.libs scope)))
+        Result.List.map info.libraries ~f:(Lib.DB.resolve (Scope.libs scope))
         >>= fun more_libs ->
         Lib.closure (lib @ libs @ more_libs)
       in
