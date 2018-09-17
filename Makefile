@@ -24,10 +24,16 @@ clean:
 
 DUNIVERSE?=duniverse
 
-d-opam:
+vendor-dune:
+	rm -rf bootstrap/dune
+	opam source dune --dir=bootstrap/dune
+	git add bootstrap/dune
+	git commit -m 'update dune vendor' bootstrap/dune
+
+debug-opam:
 	$(DUNIVERSE) opam $(PINS:%=--pin %) $(PACKAGES) -v
 
-d-dune:
+debug-dune:
 	$(DUNIVERSE) lock $(DEBUG)
 
 git-lock:
