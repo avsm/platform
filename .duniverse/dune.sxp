@@ -63,7 +63,7 @@
     (ref 0.3.0))
    ((dir result) (upstream https://github.com/janestreet/result.git)
     (ref 1.3))
-   ((dir cppo) (upstream https://github.com/mjambon/cppo.git) (ref v1.6.4))
+   ((dir cppo) (upstream https://github.com/mjambon/cppo.git) (ref v1.6.5))
    ((dir cmdliner) (upstream git://github.com/dune-universe/cmdliner.git)
     (ref duniverse-v1.0.2))
    ((dir parsexp) (upstream https://github.com/janestreet/parsexp.git)
