@@ -2,8 +2,7 @@ sudo: required
 services:
   - docker
 language: c
-script:
-  - docker run -e DISTRO=${DISTRO} -v `pwd`:/home/opam/src ocaml/opam2:${DISTRO}-ocaml-${OCAML_VERSION} /home/opam/src/.docker.sh
+script: make
 env:
   matrix:
   - DISTRO="debian-9" OCAML_VERSION="4.07"
