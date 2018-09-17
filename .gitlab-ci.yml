@@ -161,7 +161,7 @@ openbsd-6.3-amd64:
   tags:
     - openbsd
     - amd64
-.bytecode-only:
+bytecode-only:
   image: ocaml/opam2:alpine-3.7-opam
   stage: build
   only:
