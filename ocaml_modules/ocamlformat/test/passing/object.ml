@@ -47,9 +47,8 @@ let _ =
     method x : (a, b) t -> c =
       let f =
         {< a
-        ;  b = something very
-                 loooooooooooooooooooooooooooooooooooooooooooooooong
-        >}
+         ; b = something very
+                 loooooooooooooooooooooooooooooooooooooooooooooooong >}
       in
       x <-
         something very
@@ -176,8 +175,8 @@ class a = object end
 
 (** floatting *)
 
+(** about b *)
 and b = object end
- (** about b *)
 
 class type x =
   object
@@ -241,3 +240,25 @@ class type ['a] tsv =
   object
     inherit [ < sep: [`tab] ; comment: [`sharp] ; .. > as 'a] tabular
   end
+
+;;
+{< (* Debug.print ("free var: "^string_of_int x); *)
+   free_vars = IntSet.add x free_vars >}
+
+;;
+{<(* Debug.print ("free var: "^string_of_int x); *) free_vars>}
+
+;;
+{< (* Debug.print ("free var: "^string_of_int x); *)
+   very_loooooooooooong_identifier >}
+
+;;
+{< (* Debug.print ("free var: "^string_of_int x); *)
+   x = (Some k : t)
+ ; (* Debug.print ("free var: "^string_of_int x); *)
+   y = yet another value >}
+
+;;
+{< (* check: e is effectively the index associated with e, and check that
+      already in *)
+   x = y >}

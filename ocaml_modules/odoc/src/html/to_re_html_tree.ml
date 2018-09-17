@@ -153,10 +153,7 @@ struct
         list_concat_map lst ~sep:(Markup.keyword ", ")
           ~f:(type_expr ~needs_parentheses:true)
       in
-      if not needs_parentheses then
-        res
-      else
-        Html.pcdata "(" :: res @ [Html.pcdata ")"]
+      Html.pcdata "(" :: res @ [Html.pcdata ")"]
     | Constr (path, args) ->
       let link = Html_tree.Relative_link.of_path ~stop_before:false path in
       format_type_path ~delim:(`parens) args link
@@ -511,7 +508,7 @@ struct
         manifest, false
       | _ ->
         let manifest, need_private = format_manifest t.equation in
-        [Html.code manifest], need_private
+        Utils.optional_code manifest, need_private
     in
     let representation =
       match t.representation with
@@ -534,9 +531,7 @@ struct
       ] ::
       manifest @
       representation @
-      (match constraints with
-       | [] -> []
-       | c -> [Html.code c]) @
+      Utils.optional_code constraints @
       [Markup.keyword ";"]
     in
     tdecl_def, t.doc

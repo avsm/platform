@@ -39,7 +39,10 @@ exception Warning50 of (Location.t * Warnings.t) list
 
 exception
   Internal_error of
-    [`Ast | `Doc_comment | `Comment | `Comment_dropped]
+    [ `Ast
+    | `Doc_comment
+    | `Comment
+    | `Comment_dropped of (Location.t * string) list ]
     * (string * Sexp.t) list
 
 let internal_error msg kvs = raise (Internal_error (msg, kvs))
@@ -175,7 +178,9 @@ let parse_print (XUnit xunit) (conf : Conf.t) ~input_name ~input_file ic
           if conf.comment_check then (
             ( match Cmts.remaining_comments cmts_t with
             | [] -> ()
-            | l -> internal_error `Comment_dropped l ) ;
+            | l ->
+                let l = List.map l ~f:(fun (l, n, _t, _s) -> (l, n)) in
+                internal_error (`Comment_dropped l) [] ) ;
             let diff_cmts = Cmts.diff comments new_.comments in
             if not (Sequence.is_empty diff_cmts) then (
               dump xunit dir base ".old" ".ast" old.ast ;
@@ -229,7 +234,7 @@ let parse_print (XUnit xunit) (conf : Conf.t) ~input_name ~input_file ic
   let quiet_doc_comments = false in
   let quiet_exn exn =
     match[@ocaml.warning "-28"] exn with
-    | Internal_error ((`Comment | `Comment_dropped), _) -> quiet_comments
+    | Internal_error ((`Comment | `Comment_dropped _), _) -> quiet_comments
     | Warning50 _ -> quiet_doc_comments
     | Internal_error (`Doc_comment, _) -> quiet_doc_comments
     | Internal_error (`Ast, _) -> false
@@ -251,7 +256,7 @@ let parse_print (XUnit xunit) (conf : Conf.t) ~input_name ~input_file ic
         | Warning50 _ -> " (misplaced documentation comments - warning 50)"
         | _ -> ""
       in
-      Format.eprintf "%s: ignoring %S%s\n%!" exe input_file reason ;
+      Format.eprintf "%s: ignoring %S%s\n%!" exe input_name reason ;
       match[@ocaml.warning "-28"] exn with
       | Syntaxerr.Error _ | Lexer.Error _ ->
           Location.report_exception fmt exn
@@ -262,14 +267,14 @@ let parse_print (XUnit xunit) (conf : Conf.t) ~input_name ~input_file ic
   | Unstable i when i <= 1 ->
       Format.eprintf
         "%s: %S was not already formatted. ([max-iters = 1])\n%!" exe
-        input_file
+        input_name
   | Unstable i ->
       Format.eprintf
         "%s: Cannot process %S.\n\
         \  Please report this bug at \
          https://github.com/ocaml-ppx/ocamlformat/issues.\n\
          %!"
-        exe input_file ;
+        exe input_name ;
       Format.eprintf
         "  BUG: formatting did not stabilize after %i iterations.\n%!" i
   | Ocamlformat_bug exn when quiet_exn exn -> ()
@@ -279,7 +284,7 @@ let parse_print (XUnit xunit) (conf : Conf.t) ~input_name ~input_file ic
         \  Please report this bug at \
          https://github.com/ocaml-ppx/ocamlformat/issues.\n\
          %!"
-        exe input_file ;
+        exe input_name ;
       match[@ocaml.warning "-28"] exn with
       | Syntaxerr.Error _ | Lexer.Error _ ->
           Format.eprintf "  BUG: generating invalid ocaml syntax.\n%!" ;
@@ -294,14 +299,24 @@ let parse_print (XUnit xunit) (conf : Conf.t) ~input_name ~input_file ic
             | `Ast -> "ast changed"
             | `Doc_comment -> "doc comments changed"
             | `Comment -> "comments changed"
-            | `Comment_dropped -> "comments dropped"
+            | `Comment_dropped _ -> "comments dropped"
           in
           Format.eprintf "  BUG: %s.\n%!" s ;
+          ( match m with
+          | `Comment_dropped l when not conf.Conf.quiet ->
+              List.iter l ~f:(fun (loc, msg) ->
+                  Caml.Format.eprintf
+                    "%!@{<loc>%a@}:@,@{<error>Error@}: Comment (* %s *) \
+                     dropped.\n\
+                     %!"
+                    Location.print_loc loc (String.strip msg) )
+          | _ -> () ) ;
           if Conf.debug then
             List.iter l ~f:(fun (msg, sexp) ->
                 Format.eprintf "  %s: %s\n%!" msg (Sexp.to_string sexp) )
       | exn ->
-          Format.eprintf "  BUG: unhandled exception.\n%!" ;
+          Format.eprintf
+            "  BUG: unhandled exception. Use [--debug] for details.\n%!" ;
           if Conf.debug then Format.eprintf "%s\n%!" (Exn.to_string exn) )
   ) ;
   result

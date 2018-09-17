@@ -117,7 +117,7 @@ let () =
     ( for x = () to () do
         ()
       done ) [@foo]] ;
-  [%foo (assert true) [@foo]] ;
+  [%foo (assert true [@foo])] ;
   [%foo (lazy x) [@foo]] ;
   [%foo (object end) [@foo]] ;
   [%foo (3 [@foo])] ;
@@ -4928,7 +4928,6 @@ end
 
 module type BAR = sig
   (* Works: module rec A : (sig include FOO with type t = < b:B.t > end) *)
-
   module rec A : (FOO with type t = < b: B.t >)
   and B : FOO
 end
@@ -5986,11 +5985,12 @@ class c (v : int) =
   object
     method v0 = v
 
-    inherit (fun v ->
-              object
-                method v : string = v
-              end )
-              "42"
+    inherit
+      (fun v ->
+        object
+          method v : string = v
+        end )
+        "42"
   end
 
 ;;
@@ -8084,11 +8084,9 @@ module type VALUE = sig
   type value
 
   (* a Lua value *)
-
   type state
 
   (* the state of a Lua interpreter *)
-
   type usert
   (* a user-defined value *)
 end
@@ -9149,7 +9147,7 @@ let _ = function
   | a, s, ba1, ba2, ba3, bg ->
       ignore (x.(1) + [||].(0) + [|1|].(1) + [|1; 2|].(2)) ;
       ignore [s.[1]; "".[2]; "123".[3]] ;
-      ignore (ba1.{0} + ba2.{1, 2} + ba3.{3, 4, 5}) ignore (bg.{1, 2, 3, 4})
+      ignore (ba1.{0} + ba2.{1, 2} + ba3.{3, 4, 5}) ignore bg.{1, 2, 3, 4}
   | b, s, ba1, ba2, ba3, bg ->
       y.(0) <- 1 ;
       s.[1] <- 'c' ;

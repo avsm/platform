@@ -423,6 +423,8 @@ let relocate t ~src ~before ~after =
     update_multi t.cmts_before src before ~f:(fun src_cmts dst_cmts ->
         List.append src_cmts dst_cmts ) ;
     update_multi t.cmts_after src after ~f:(fun src_cmts dst_cmts ->
+        List.append dst_cmts src_cmts ) ;
+    update_multi t.cmts_within src after ~f:(fun src_cmts dst_cmts ->
         List.append dst_cmts src_cmts ) )
 
 let split_asterisk_prefixed (txt, {Location.loc_start}) =
@@ -563,7 +565,9 @@ let remaining_comments t =
     Hashtbl.to_alist t
     |> List.concat_map ~f:(fun (ast_loc, cmts) ->
            List.map cmts ~f:(fun (cmt_txt, cmt_loc) ->
-               ( before_after
+               ( cmt_loc
+               , cmt_txt
+               , before_after
                , let open Sexp in
                  List
                    [ List [Atom "ast_loc"; Location.sexp_of_t ast_loc]
