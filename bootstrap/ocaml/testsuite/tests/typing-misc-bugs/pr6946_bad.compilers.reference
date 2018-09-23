@@ -1,3 +1,0 @@
-File "pr6946_bad.ml", line 10, characters 8-11:
-Error: This expression has type int
-       This is not a function; it cannot be applied.

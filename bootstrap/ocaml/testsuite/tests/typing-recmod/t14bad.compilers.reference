@@ -1,3 +1,0 @@
-File "t14bad.ml", line 23, characters 17-37:
-Error: The definition of U.D.t contains a cycle:
-       U'.t
