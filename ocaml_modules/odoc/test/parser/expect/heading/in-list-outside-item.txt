@@ -1,6 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 4-6:\
-   \n'{2 ...}' (section heading) is not allowed in '{ul ...}' (bulleted list)\
-   \nSuggestion: move '{2 ...}' (section heading) outside the list"))
- (warnings ()))
