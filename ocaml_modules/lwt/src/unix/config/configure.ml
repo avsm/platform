@@ -38,14 +38,14 @@ let main () =
   | Some true -> begin
     (* Check if we have the opam command and conf-libev is installed. If so,
        behave as if -use-libev true was passed.
-       opam 2.0.0 returns exit code 0 even if the package is not available,
+       opam 2.0.0 returns exit code 0 for `opam list` even if the package is not available,
        so we instead use opam config vars to detect the presence of conf-libev *)
     try
-      let ch = Unix.open_process_in "opam config var conf-libev:installed" in
+      let ch = Unix.open_process_in "opam config var conf-libev:installed 2>/dev/null" in
       match input_line ch with
       |"true" -> use_libev := Some true
       |_ -> use_libev := Some false
-    with _ -> ()
+    with _ -> use_libev := Some false
   end
   | _ ->
     ()
