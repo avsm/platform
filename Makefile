@@ -1,5 +1,5 @@
 PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat ocamlfind craml
-PINS=ocp-indent odoc tyxml ocamlformat merlin lwt ocamlfind markup mccs,https://github.com/AltGr/ocaml-mccs.git dune-release
+PINS=ocp-indent odoc tyxml ocamlformat merlin lwt ocamlfind mccs,https://github.com/AltGr/ocaml-mccs.git
 
 build:
 	./build.sh native
