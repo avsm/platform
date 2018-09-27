@@ -100,6 +100,7 @@ fedora-28-amd64-rpm:
   image: ocaml/opam2:fedora-28-opam
   stage: build
   script:
+  - sudo yum install -y rpm-build
   - mkdir -p ocaml-platform/4.07.0-1/fedora-28/amd64 && cd packaging/rpm && ./build-rpm.sh && cp *.rpm ../../ocaml-platform/4.07.0-1/fedora-28/amd64
   artifacts:
     paths:
