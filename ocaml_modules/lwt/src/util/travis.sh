@@ -136,7 +136,7 @@ else
     LIBEV_FLAG=false
 fi
 
-ocaml src/unix/config/configure.ml -use-libev $LIBEV_FLAG
+dune exec src/unix/config/configure.exe -- -use-libev $LIBEV_FLAG
 make build
 make test
 make coverage
@@ -147,14 +147,3 @@ make coverage
 make clean
 make install-for-packaging-test
 make packaging-test
-
-
-
-# Some sanity checks.
-if [ "$LIBEV" == no ]
-then
-    ! opam list -i conf-libev
-fi
-
-opam list -i ppx_tools_versioned
-! opam list -i batteries

@@ -45,10 +45,6 @@ let cmd = Cmd.of_list @@ Cmd.to_list @@ tool "opam" `Host_os
 let shortest x =
   List.hd (List.sort (fun x y -> compare (String.length x) (String.length y)) x)
 
-let drop_initial_v version = match String.head version with
-| Some ('v' | 'V') -> String.with_index_range ~first:1 version
-| None | Some _ -> version
-
 let prepare ~dry_run ?msg ~local_repo ~remote_repo ~version names =
   let msg = match msg with
   | None -> Ok (Cmd.empty)
@@ -94,7 +90,7 @@ let prepare ~dry_run ?msg ~local_repo ~remote_repo ~version names =
   OS.Dir.current () >>= fun cwd ->
   let prepare_package name =
     (* copy opam, descr and url files *)
-    let dir = name ^ "." ^ drop_initial_v version in
+    let dir = name ^ "." ^ version in
     let src = Fpath.(cwd / "_build" / dir) in
     let dst = Fpath.(v "packages" / name / dir) in
     let cp f =
@@ -106,7 +102,7 @@ let prepare ~dry_run ?msg ~local_repo ~remote_repo ~version names =
     (if exists then Ok ()
      else
      R.error_msgf
-       "%a does not exist, did you run:\n  dune-release opam pkg -n %s\n"
+       "%a does not exist, did you run:\n  dune-release opam pkg -p %s\n"
        Fpath.pp src name
     ) >>= fun () ->
     OS.Dir.create ~path:true dst >>= fun _ ->
@@ -121,7 +117,7 @@ let prepare ~dry_run ?msg ~local_repo ~remote_repo ~version names =
   | h::t -> prepare_package h >>= fun () -> prepare_packages t
   in
   let commit_and_push () =
-    run Cmd.(git % "commit" %% msg) >>= fun () ->
+    Sos.run ~dry_run ~sandbox:false Cmd.(git % "commit" %% msg) >>= fun () ->
     Sos.run ~dry_run ~sandbox:false
       Cmd.(git % "push" % "--force" % remote_repo % branch)
   in
@@ -181,6 +177,7 @@ module File = struct
     List.fold_left add String.Set.empty fields
 
   let fields ~dry_run file =
+    if not (Sys.file_exists (Fpath.to_string file)) then assert false;
     let parse file  =
       let file = OpamFilename.of_string (Fpath.to_string file) in
       let opam = OpamFile.OPAM.read (OpamFile.make file) in

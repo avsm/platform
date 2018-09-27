@@ -8,7 +8,7 @@ open Bos_setup
 open Dune_release
 
 let gen_doc ~dry_run ~force dir pkg_name =
-  let build_doc = Cmd.(v "jbuilder" % "build" % "-p" % pkg_name % "@doc") in
+  let build_doc = Cmd.(v "dune" % "build" % "-p" % pkg_name % "@doc") in
   let doc_dir = Fpath.(v "_build" / "default" / "_doc") in
   let html_dir = Fpath.(doc_dir / "_html") in
   let do_doc () =
@@ -39,16 +39,17 @@ let publish_alt ~dry_run pkg kind =
   >>= fun msg     -> Delegate.publish_alt ~dry_run pkg ~kind ~msg ~archive
 
 let publish ()
-    build_dir keep_v name version opam delegate change_log distrib_uri
-    distrib_file publish_msg dry_run publish_artefacts
+    build_dir name _pkg_names version tag keep_v opam delegate change_log
+    distrib_uri distrib_file publish_msg dry_run publish_artefacts
   =
   begin
     let publish_artefacts = match publish_artefacts with
     | [] -> None
-    | v -> Some v
+    | v  -> Some v
     in
+    Config.keep_v keep_v >>= fun keep_v ->
     let pkg =
-      Pkg.v ~dry_run ?name ?version ?build_dir ?opam ~drop_v:(not keep_v)
+      Pkg.v ~dry_run ?name ?version ?tag ~keep_v ?build_dir ?opam
         ?change_log ?distrib_uri ?distrib_file ?publish_msg
         ?publish_artefacts ?delegate ()
     in
@@ -134,9 +135,10 @@ let man =
   ]
 
 let cmd =
-  Term.(pure publish $ Cli.setup $ Cli.build_dir $ Cli.keep_v $
-        Cli.dist_name $ Cli.dist_version $ Cli.dist_opam $
-        delegate $ Cli.change_log $ Cli.dist_uri $ Cli.dist_file $
+  Term.(pure publish $ Cli.setup $ Cli.build_dir $
+        Cli.dist_name $ Cli.pkg_names
+        $ Cli.pkg_version $ Cli.dist_tag $ Cli.keep_v
+        $ Cli.dist_opam $ delegate $ Cli.change_log $ Cli.dist_uri $ Cli.dist_file $
         Cli.publish_msg $ Cli.dry_run $ artefacts),
   Term.info "publish" ~doc ~sdocs ~exits ~envs ~man ~man_xrefs
 

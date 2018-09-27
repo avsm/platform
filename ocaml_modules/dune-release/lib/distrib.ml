@@ -51,12 +51,12 @@ let drop_initial_v version = match String.head version with
 | Some ('v' | 'V') -> String.with_index_range ~first:1 version
 | None | Some _ -> version
 
-let define_watermarks ~dry_run ~name ~version ~opam watermarks =
+let define_watermarks ~dry_run ~name ~tag ~opam watermarks =
   let define (id, v) =
     let (id, v as def) = match v with
     | `String s -> (id, s)
-    | `Version -> (id, version)
-    | `Version_num -> (id, drop_initial_v version)
+    | `Version -> (id, tag)
+    | `Version_num -> (id, drop_initial_v tag)
     | `Name -> (id, name)
     | `Vcs `Commit_id -> (id, vcs_commit_id ())
     | `Opam (file, field, sep) ->
@@ -180,7 +180,7 @@ let default_exclude_paths () =
   let l =
     List.map Fpath.v [
       ".git"; ".gitignore"; ".gitattributes"; ".hg"; ".hgignore"; "build";
-      "Makefile"; "_build"
+      "_build"
     ] in
   Ok l
 

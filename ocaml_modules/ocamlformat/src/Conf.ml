@@ -17,6 +17,7 @@ type t =
   ; break_infix: [`Wrap | `Fit_or_vertical]
   ; break_string_literals: [`Newlines | `Never | `Wrap]
   ; break_struct: bool
+  ; cases_exp_indent: int
   ; comment_check: bool
   ; disable: bool
   ; doc_comments: [`Before | `After]
@@ -431,6 +432,16 @@ module Formatting = struct
     in
     C.choice ~names ~all ~doc ~section (fun conf x ->
         {conf with break_string_literals= x} )
+
+  let cases_exp_indent =
+    let docv = "COLS" in
+    let doc =
+      "Indentation of cases expressions ($(docv) columns), except for \
+       nested `match` or `try` expressions."
+    in
+    let names = ["cases-exp-indent"] in
+    C.int ~names ~default:4 ~doc ~docv ~section ~allow_inline:false
+      (fun conf x -> {conf with cases_exp_indent= x} )
 
   let break_struct =
     let doc = "Break struct-end module items." in
@@ -864,6 +875,7 @@ let default_profile =
   ; break_infix= C.default Formatting.break_infix
   ; break_string_literals= C.default Formatting.break_string_literals
   ; break_struct= Poly.(C.default Formatting.break_struct = `Force)
+  ; cases_exp_indent= C.default Formatting.cases_exp_indent
   ; comment_check= C.default comment_check
   ; disable= C.default Formatting.disable
   ; doc_comments= C.default Formatting.doc_comments
@@ -891,6 +903,38 @@ let default_profile =
   ; wrap_comments= C.default Formatting.wrap_comments
   ; wrap_fun_args= C.default Formatting.wrap_fun_args }
 
+let compact_profile =
+  { default_profile with
+    break_cases= `Fit
+  ; break_collection_expressions= `Wrap
+  ; break_infix= `Wrap
+  ; break_struct= false
+  ; field_space= `Tight
+  ; if_then_else= `Compact
+  ; indicate_nested_or_patterns= true
+  ; leading_nested_match_parens= false
+  ; let_and= `Compact
+  ; let_binding_spacing= `Compact
+  ; module_item_spacing= `Compact
+  ; type_decl= `Compact
+  ; wrap_fun_args= true }
+
+let sparse_profile =
+  { default_profile with
+    break_cases= `Nested
+  ; break_collection_expressions= `Fit_or_vertical
+  ; break_infix= `Fit_or_vertical
+  ; break_struct= true
+  ; field_space= `Loose
+  ; if_then_else= `Keyword_first
+  ; indicate_nested_or_patterns= true
+  ; leading_nested_match_parens= true
+  ; let_and= `Sparse
+  ; let_binding_spacing= `Sparse
+  ; module_item_spacing= `Sparse
+  ; type_decl= `Sparse
+  ; wrap_fun_args= false }
+
 let janestreet_profile =
   { break_cases= `Fit
   ; break_collection_expressions=
@@ -898,6 +942,7 @@ let janestreet_profile =
   ; break_infix= `Fit_or_vertical
   ; break_string_literals= `Wrap
   ; break_struct= default_profile.break_struct
+  ; cases_exp_indent= 2
   ; comment_check= true
   ; disable= false
   ; doc_comments= `Before
@@ -933,6 +978,12 @@ let (_profile : t option C.t) =
     [ ( "default"
       , Some default_profile
       , "$(b,default) sets each option to its default value." )
+    ; ( "compact"
+      , Some compact_profile
+      , "$(b,compact) sets options for a generally compact code style." )
+    ; ( "sparse"
+      , Some sparse_profile
+      , "$(b,sparse) sets options for a generally sparse code style." )
     ; ( "janestreet"
       , Some janestreet_profile
       , "$(b,janestreet) is the profile used at JaneStreet." ) ]

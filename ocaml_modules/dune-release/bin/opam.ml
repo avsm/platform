@@ -7,13 +7,10 @@
 open Bos_setup
 open Dune_release
 
-let get_pkg_dir pkgs opam_pkg_dir = match pkgs, opam_pkg_dir with
-| _   , Some d -> Ok d
-| []  , _      -> assert false
-| p::_, None   ->
-    Pkg.build_dir p
-    >>= fun bdir -> Pkg.distrib_filename ~opam:true p
-    >>= fun fname -> Ok Fpath.(bdir // fname)
+let get_pkg_dir pkg =
+  Pkg.build_dir pkg
+  >>= fun bdir -> Pkg.distrib_filename ~opam:true pkg
+  >>= fun fname -> Ok Fpath.(bdir // fname)
 
 let rec descr = function
 | []   -> Ok 0
@@ -27,7 +24,35 @@ module D = struct
   let distrib_uri = "${distrib_uri}"
 end
 
-let pkg ~dry_run pkgs dist_pkg opam_pkg_dir =
+let format_upgrade ~dry_run ~url ~opam_f pkg opam dir =
+  let opam_t = OpamFile.OPAM.read_from_string opam in
+  let url = OpamFile.URL.read_from_string url in
+  match OpamVersion.to_string (OpamFile.OPAM.opam_version opam_t) with
+  | "2.0" ->
+      let file x = OpamFile.make (OpamFilename.of_string (Fpath.to_string x)) in
+      let opam_t = OpamFile.OPAM.with_url url opam_t in
+      if not dry_run then
+        OpamFile.OPAM.write_with_preserved_format
+          ~format_from:(file opam_f)
+          (file Fpath.(dir / "opam"))
+          opam_t;
+      Ok ()
+  | "1.0"|"1.1"|"1.2" ->
+      Pkg.opam_descr pkg >>= fun descr ->
+      let descr =
+        OpamFile.Descr.read_from_string (Opam.Descr.to_string descr)
+      in
+      let opam =
+        opam_t
+        |> OpamFormatUpgrade.opam_file_from_1_2_to_2_0
+        |> OpamFile.OPAM.with_url url
+        |> OpamFile.OPAM.with_descr descr
+        |> OpamFile.OPAM.write_to_string
+      in
+      Sos.write_file ~dry_run Fpath.(dir / "opam") opam
+  | s -> Fmt.kstrf (fun x -> Error (`Msg x)) "invalid opam version: %s" s
+
+let pkg ~dry_run pkg =
   let log_pkg dir =
     Logs.app (fun m -> m "Wrote opam package %a" Text.Pp.path dir)
   in
@@ -35,30 +60,19 @@ let pkg ~dry_run pkgs dist_pkg opam_pkg_dir =
     Cli.warn_if_vcs_dirty "The opam package may be inconsistent with the \
                            distribution."
   in
-  get_pkg_dir pkgs opam_pkg_dir >>= fun dir ->
-  let one pkg =
-    Pkg.opam pkg
-    >>= fun opam_f -> OS.File.read opam_f
-    >>= fun opam -> Pkg.opam_descr pkg
-    >>= fun descr -> Ok (Opam.Descr.to_string descr)
-    >>= fun descr -> OS.Path.exists opam_f
-    >>= fun exists -> Pkg.distrib_file ~dry_run dist_pkg
-    >>= fun distrib_file ->
-    (if dry_run && not exists then Ok D.distrib_uri else Pkg.distrib_uri dist_pkg)
-    >>= fun uri -> Opam.Url.with_distrib_file ~dry_run ~uri distrib_file
-    >>= fun url -> OS.Dir.exists dir
-    >>= fun exists -> (if exists then Sos.delete_dir ~dry_run dir else Ok ())
-    >>= fun () -> OS.Dir.create dir
-    >>= fun _ -> Sos.write_file ~dry_run Fpath.(dir / "descr") descr
-    >>= fun () -> Sos.write_file ~dry_run Fpath.(dir / "opam") opam
-    >>= fun () -> Sos.write_file ~dry_run Fpath.(dir / "url") url
-    >>= fun () -> log_pkg dir; (if not dry_run then warn_if_vcs_dirty () else Ok ())
-  in
-  let rec loop = function
-  | []   -> Ok 0
-  | h::t -> one h >>= fun () -> loop t
-  in
-  loop pkgs
+  get_pkg_dir pkg >>= fun dir ->
+  Pkg.opam pkg >>= fun opam_f ->
+  OS.File.read opam_f >>= fun opam ->
+  OS.Path.exists opam_f >>= fun exists ->
+  Pkg.distrib_file ~dry_run pkg >>= fun distrib_file ->
+  (if dry_run && not exists then Ok D.distrib_uri else Pkg.distrib_uri pkg)
+  >>= fun uri ->
+  Opam.Url.with_distrib_file ~dry_run ~uri distrib_file >>= fun url ->
+  OS.Dir.exists dir >>= fun exists ->
+  (if exists then Sos.delete_dir ~dry_run dir else Ok ()) >>= fun () ->
+  OS.Dir.create dir >>= fun _ ->
+  format_upgrade ~dry_run ~url ~opam_f pkg opam dir >>= fun () ->
+  log_pkg dir; (if not dry_run then warn_if_vcs_dirty () else Ok ())
 
 let github_issue = Re.(compile @@ seq [
     group (compl [alpha]);
@@ -82,63 +96,73 @@ let rec list_map f = function
 | []   -> Ok []
 | h::t -> f h >>= fun h -> list_map f t >>= fun t -> Ok (h :: t)
 
-let submit ~dry_run opam_pkg_dir local_repo remote_repo pkgs =
+let submit ~dry_run local_repo remote_repo pkgs auto_open =
   Config.token ~dry_run () >>= fun token ->
-  get_pkg_dir pkgs opam_pkg_dir
-  >>= fun pkg_dir -> Sos.dir_exists ~dry_run pkg_dir
-  >>= function
-  | false ->
-      Logs.err (fun m -> m "Package@ %a@ does@ not@ exist. Did@ you@ forget@ \
-                            to@ invoke 'dune-release opam pkg' ?" Fpath.pp pkg_dir);
-      Ok 1
-  | true ->
-      Logs.app (fun m -> m "Submitting %a" Text.Pp.path pkg_dir);
-      let pkg = List.hd pkgs in
-      Pkg.version pkg >>= fun version ->
-      list_map Pkg.name pkgs >>= fun names ->
-      let title =
-        strf "[new release] %a (%s)" (pp_list Fmt.string) names version
+  List.fold_left (fun acc pkg ->
+      get_pkg_dir pkg
+      >>= fun pkg_dir -> Sos.dir_exists ~dry_run pkg_dir
+      >>= function
+      | true  ->
+          Logs.app (fun m -> m "Submitting %a" Text.Pp.path pkg_dir);
+          acc
+      | false ->
+          Logs.err (fun m ->
+              m "Package@ %a@ does@ not@ exist. Did@ you@ forget@ \
+                 to@ invoke 'dune-release opam pkg' ?" Fpath.pp pkg_dir);
+          Ok 1
+    ) (Ok 0) pkgs
+  >>= fun _ ->
+  let pkg = List.hd pkgs in
+  Pkg.version pkg >>= fun version ->
+  list_map Pkg.name pkgs >>= fun names ->
+  let title = strf "[new release] %a (%s)" (pp_list Fmt.string) names version in
+  Pkg.publish_msg pkg >>= fun changes ->
+  Pkg.distrib_user_and_repo pkg >>= fun (distrib_user, repo) ->
+  let changes = rewrite_github_refs distrib_user repo changes in
+  let msg = strf "%s\n\n%s\n" title changes in
+  Opam.prepare ~dry_run ~msg ~local_repo ~remote_repo ~version names
+  >>= fun branch ->
+  (* open a new PR *)
+  Pkg.opam_descr pkg >>= fun (syn, _) ->
+  Pkg.opam_homepage pkg >>= fun homepage ->
+  Pkg.opam_doc pkg >>= fun doc ->
+  let pp_link name ppf = function
+  | None -> () | Some h -> Fmt.pf ppf "- %s: <a href=%S>%s</a>\n" name h h
+  in
+  let pp_space ppf () =
+    if homepage <> None || doc <> None then Fmt.string ppf "\n"
+  in
+  let msg =
+    strf "%s\n\n%a%a%a##### %s"
+      syn
+      (pp_link "Project page") homepage
+      (pp_link "Documentation") doc
+      pp_space ()
+      changes
+  in
+  let user =
+    match Github.user_from_remote remote_repo with
+    | Some user -> user
+    | None -> distrib_user
+  in
+  Github.open_pr ~token ~dry_run ~title ~distrib_user ~user ~branch msg >>= function
+  | `Already_exists -> Logs.app (fun m ->
+      m "\nThe existing pull request for %a has been automatically updated."
+        Fmt.(styled `Bold string) (distrib_user ^ ":" ^ branch));
+      Ok 0
+  | `Url url ->
+      let msg () =
+        Logs.app (fun m -> m "A new pull-request has been created at %s\n" url);
+        Ok 0
       in
-      Pkg.publish_msg pkg >>= fun changes ->
-      Pkg.distrib_user_and_repo pkg >>= fun (user, repo) ->
-      let changes = rewrite_github_refs user repo changes in
-      let msg = strf "%s\n\n%s\n" title changes in
-      Opam.prepare ~dry_run ~msg ~local_repo ~remote_repo ~version names
-      >>= fun branch ->
-      (* open a new PR *)
-      Pkg.opam_descr pkg >>= fun (syn, _) ->
-      Pkg.opam_homepage pkg >>= fun homepage ->
-      Pkg.opam_doc pkg >>= fun doc ->
-      let pp_link name ppf = function
-      | None -> () | Some h -> Fmt.pf ppf "- %s: <a href=%S>%s</a>\n" name h h
+      if not auto_open then msg ()
+      else
+      let auto_open =
+        if OpamStd.Sys.(os () = Darwin) then "open" else "xdg-open"
       in
-      let pp_space ppf () =
-        if homepage <> None || doc <> None then Fmt.string ppf "\n"
-      in
-      let msg =
-        strf "%s\n\n%a%a%a##### %s"
-          syn
-          (pp_link "Project page") homepage
-          (pp_link "Documentation") doc
-          pp_space ()
-          changes
-      in
-      Github.open_pr ~token ~dry_run ~title ~user ~branch msg >>= function
-      | `Already_exists -> Logs.app (fun m ->
-          m "\nThe existing pull request for %a has been automatically updated."
-            Fmt.(styled `Bold string) (user ^ ":" ^ branch));
-          Ok 0
-      | `Url url ->
-          let auto_open =
-            if OpamStd.Sys.(os () = Darwin) then "open" else "xdg-open"
-          in
-          match Sos.run ~dry_run Cmd.(v auto_open % url) with
-          | Ok ()   -> Ok 0
-          | Error _ ->
-              Logs.app (fun m ->
-                  m "A new pull-request has been created at %s\n" url
-                );
-              Ok 0
+      match Sos.run ~dry_run Cmd.(v auto_open % url) with
+      | Ok ()   -> Ok 0
+      | Error _ -> msg ()
 
 let field pkgs field = match field with
 | None -> Logs.err (fun m -> m "Missing FIELD positional argument"); Ok 1
@@ -158,48 +182,60 @@ let field pkgs field = match field with
 (* Command *)
 
 let opam () dry_run build_dir local_repo remote_repo user keep_v
-    dist_name dist_version dist_opam dist_uri dist_file
-    pkg_opam_dir pkg_names pkg_version pkg_opam pkg_descr
-    readme change_log publish_msg action field_name
+    opam distrib_uri distrib_file tag
+    name pkg_names version pkg_descr
+    readme change_log publish_msg action field_name no_auto_open
   =
-  let pkg_names = match pkg_names with
-  | [] -> [None]
-  | l  -> List.map (fun n -> Some n) l
-  in
-  let pkgs = List.map (fun name ->
-      Pkg.v ~dry_run ~drop_v:(not keep_v)
-        ?build_dir ?name ?version:pkg_version ?opam:pkg_opam
-        ?opam_descr:pkg_descr ?readme ?change_log ?publish_msg ()
-    ) pkg_names
-  in
-  begin match action with
-  | `Descr -> descr pkgs
-  | `Pkg ->
-      let dist_p =
-        Pkg.v ~dry_run ~drop_v:(not keep_v)
-          ?build_dir ?name:dist_name ?version:dist_version ?opam:dist_opam
-          ?distrib_uri:dist_uri ?distrib_file:dist_file ?readme ?change_log
-          ?publish_msg ()
+  begin
+    Config.keep_v keep_v >>= fun keep_v ->
+    Config.auto_open (not no_auto_open) >>= fun auto_open ->
+    let distrib_file =
+      let pkg =
+        Pkg.v ?name ?opam ?tag ?version ?distrib_file
+          ?distrib_uri ~dry_run:false ~keep_v ()
       in
-      pkg ~dry_run pkgs dist_p pkg_opam_dir
-  | `Submit ->
-      Config.v ~user ~local_repo ~remote_repo pkgs >>= fun config ->
-      (match local_repo with
-      | Some r -> Ok Fpath.(v r)
-      | None   ->
-          match config.local with
-          | Some r -> Ok r
-          | None   -> R.error_msg "Unknown local repository.")
-      >>= fun local_repo ->
-      (match remote_repo with
-      | Some r -> Ok r
-      | None ->
-          match config.remote with
-          | Some r -> Ok r
-          | None   -> R.error_msg "Unknown remote repository.")
-      >>= fun remote_repo ->
-      submit ~dry_run pkg_opam_dir local_repo remote_repo pkgs
-  | `Field -> field pkgs field_name
+      Pkg.distrib_archive_path pkg
+    in
+    let pkgs =
+      Pkg.infer_pkg_names pkg_names >>= fun pkg_names ->
+      let pkg_names = List.map (fun n -> Some n) pkg_names in
+      distrib_file >>| fun distrib_file ->
+      List.map (fun name ->
+          Pkg.v ~dry_run
+            ?build_dir ?name ?version ?opam ?tag
+            ?opam_descr:pkg_descr ~keep_v
+            ?distrib_uri ~distrib_file
+            ?readme ?change_log ?publish_msg ()
+        ) pkg_names
+    in
+    pkgs >>= fun pkgs ->
+    match action with
+    | `Descr -> descr pkgs
+    | `Pkg ->
+        List.fold_left (fun acc p ->
+            match acc, pkg ~dry_run p with
+            | Ok i, Ok () -> Ok i
+            | (Error _ as e), _ | _, (Error _ as e) -> e
+
+          ) (Ok 0) pkgs
+    | `Submit ->
+        Config.v ~user ~local_repo ~remote_repo pkgs >>= fun config ->
+        (match local_repo with
+        | Some r -> Ok Fpath.(v r)
+        | None   ->
+            match config.local with
+            | Some r -> Ok r
+            | None   -> R.error_msg "Unknown local repository.")
+        >>= fun local_repo ->
+        (match remote_repo with
+        | Some r -> Ok r
+        | None ->
+            match config.remote with
+            | Some r -> Ok r
+            | None   -> R.error_msg "Unknown remote repository.")
+        >>= fun remote_repo ->
+        submit ~dry_run local_repo remote_repo pkgs auto_open
+    | `Field -> field pkgs field_name
   end
   |> Cli.handle_error
 
@@ -221,6 +257,10 @@ let field =
   let doc = "the field to output ($(b,field) action)" in
   Arg.(value & pos 1 (some string) None & info [] ~doc ~docv:"FIELD")
 
+let no_auto_open =
+  let doc = "Do not open a browser to view the new pull-request." in
+  Arg.(value & flag & info ["no-auto-open"] ~doc)
+
 let user =
   let doc =
     "the name of the GitHub account where to push new opam-repository branches."
@@ -238,31 +278,6 @@ let remote_repo =
   let env = Arg.env_var "DUNE_RELEASE_REMOTE_REPO" in
   Arg.(value & opt (some string) None
        & info ~env ["r"; "--remote-repo"] ~doc ~docv:"URI")
-
-let pkg_opam_dir =
-  let doc = "Directory to use to write the opam package. If absent the
-             directory $(i,BUILD_DIR)/$(i,PKG_NAME).$(i,PKG_VERSION) of the
-             build directory is used (see options $(b,--build-dir),
-             $(b,--pkg-name) and $(b,--pkg-version))"
-  in
-  let docv = "DIR" in
-  Arg.(value & opt (some Cli.path_arg) None & info ["pkg-opam-dir"] ~doc ~docv)
-
-let pkg_version =
-  let doc = "The version string $(docv) of the opam package. If absent provided
-             provided by the VCS tag description of the HEAD commit."
-  in
-  let docv = "PKG_NAME" in
-  Arg.(value & opt (some string) None & info ["pkg-version"] ~doc ~docv)
-
-let pkg_opam =
-  let doc = "The opam file to use for the opam package. If absent uses the
-             opam file mentioned in the package description that corresponds
-             to the opam package name $(i,PKG_NAME) (see option
-             $(b,--pkg-name))"
-  in
-  let docv = "FILE" in
-  Arg.(value & opt (some Cli.path_arg) None & info ["pkg-opam"] ~doc ~docv)
 
 let pkg_descr =
   let doc = "The opam descr file to use for the opam package. If absent and
@@ -284,13 +299,6 @@ let pkg_descr =
 let doc = "Interaction with opam and the OCaml opam repository"
 let sdocs = Manpage.s_common_options
 let envs = [  ]
-
-let pkg_names =
-  let doc = "The names $(docv) of the opam package to release. If absent provided
-             by the package description."
-  in
-  let docv = "PKG_NAME" in
-  Arg.(value & opt (list string) [] & info ["p"; "pkg-names"] ~doc ~docv)
 
 let man_xrefs = [`Main; `Cmd "distrib" ]
 let man =
@@ -320,11 +328,10 @@ let cmd =
   let t = Term.(pure opam $ Cli.setup $ Cli.dry_run $ Cli.build_dir $
                 local_repo $ remote_repo $
                 user $ Cli.keep_v $
-                Cli.dist_name $ Cli.dist_version $ Cli.dist_opam $
-                Cli.dist_uri $ Cli.dist_file $
-                pkg_opam_dir $ pkg_names $ pkg_version $ pkg_opam $
+                Cli.dist_opam $ Cli.dist_uri $ Cli.dist_file $ Cli.dist_tag $
+                Cli.dist_name $ Cli.pkg_names $ Cli.pkg_version $
                 pkg_descr $ Cli.readme $ Cli.change_log $ Cli.publish_msg $
-                action $ field)
+                action $ field $ no_auto_open)
   in
   (t, info)
 

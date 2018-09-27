@@ -21,7 +21,7 @@ let tag () dry_run name change_log tag commit_ish force sign delete msg =
     let pkg = Pkg.v ~dry_run ?change_log ?name () in
     let tag = match tag with
     | Some t -> Ok t
-    | None   -> Pkg.tag pkg
+    | None   -> Pkg.extract_tag pkg
     in
     tag
     >>= fun tag -> vcs_tag tag ~dry_run ~commit_ish ~force ~sign ~delete ~msg
@@ -73,7 +73,8 @@ let man =
         $(b,dune-release log -t) to check the extracted value." ]
 
 let cmd =
-  Term.(pure tag $ Cli.setup $ Cli.dry_run $ Cli.pkg_name $ Cli.change_log $
+  Term.(pure tag $ Cli.setup $ Cli.dry_run
+        $ Cli.dist_name $ Cli.change_log $
         version $ commit $ force $ sign $ delete $ msg),
   Term.info "tag" ~doc ~sdocs ~exits ~man ~man_xrefs
 
