@@ -122,7 +122,9 @@ fi
 cd bootstrap/dune
 if [ ! -x _build/install/default/bin/dune ] ; then
   if [ ! -e Makefile -a -d ../../.git ] ; then
-    git submodule update --init .
+    cd ../..
+    git submodule update --init bootstrap/dune
+    cd bootstrap/dune
   fi
 #  git remote add dra27 https://github.com/dra27/dune.git -f
 #  git checkout dra27/let-syntax-crlf
