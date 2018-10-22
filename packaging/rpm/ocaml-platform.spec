@@ -39,13 +39,12 @@ mkdir -p $RPM_BUILD_ROOT/usr/bin
 cp _build/default/output/* $RPM_BUILD_ROOT/%{_bindir}
 
 %files
-%{_bindir}/bun
 %{_bindir}/dune
 %{_bindir}/jbuilder
 %{_bindir}/ocamlmerlin
 %{_bindir}/odoc
 %{_bindir}/opam-installer
-%{_bindir}/craml
+%{_bindir}/mdx
 %{_bindir}/dune-release
 %{_bindir}/ocamlformat
 %{_bindir}/ocamlmerlin-server
