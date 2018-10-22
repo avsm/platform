@@ -1,6 +1,9 @@
-# odoc
+# odoc &nbsp; [![Build Status][travis-img]][travis]
 
-**odoc** is a documentation generator for OCaml. It reads *doc comments*,
+[travis]: https://travis-ci.org/ocaml/odoc/branches
+[travis-img]: https://api.travis-ci.org/ocaml/odoc.svg?branch=master
+
+**odoc** is a documentation generator for OCaml. It reads *doc comments* ,
 delimited with `(** ... *)`, and outputs HTML. See example output at
 [docs.mirage.io][mirage-docs].
 
@@ -51,6 +54,8 @@ The generated docs can then be found locally at
 
 ## Using `odoc` with BuckleScript/Reason
 
+> BuckleScript support currently requires the latest development version of odoc.
+
 While the BuckleScript/Reason toolchain relies on `npm`, `odoc` at the moment
 needs to be used from a working OCaml toolchain.
 
@@ -60,9 +65,8 @@ This means we follow the same installation than above, but using the
 ```sh
 λ opam switch 4.02.3+buckle-master
 λ eval `opam config env`
-λ opam install odoc
-λ odoc --version
-1.2.0
+λ opam pin add odoc.dev git+https://github.com/ocaml/odoc
+
 ```
 
 Now with that working, we can point `odoc` to the path where BuckleScript saves
@@ -133,9 +137,11 @@ Please also don't hesitate to [open an issue][issues].
 Any [question asked](#contact), [issue opened][issues], feedback offered, is a
 contribution to odoc, and the project and all its users are thankful :) If
 you'd like to contribute code specifically, you may find the guide in
-[`CONTRIBUTING.md`][contributing.md] helpful. If anything is missing from it,
-please don't hesitate to [reach out](#contact) for help.
+[`CONTRIBUTING.md`][contributing.md] helpful. Also see the [roadmap][roadmap]
+there. If anything is missing from it, please don't hesitate to
+[reach out](#contact).
 
 [discourse]: https://discuss.ocaml.org/c/eco
 [issues]: https://github.com/ocaml/odoc/issues/new
-[contributing.md]: https://github.com/ocaml/odoc/blob/master/CONTRIBUTING.md
+[contributing.md]: https://github.com/ocaml/odoc/blob/master/CONTRIBUTING.md#readme
+[roadmap]: https://github.com/ocaml/odoc/blob/master/CONTRIBUTING.md#Roadmap

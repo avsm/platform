@@ -8,12 +8,13 @@ open Bos_setup
 
 (* Misc *)
 
-let uri_sld uri = match Text.split_uri uri with
-| None -> None
-| Some (_, host, _) ->
-    match List.rev (String.cuts ~sep:"." host) with
-    | _ :: snd :: _ -> Some snd
-    | _ -> None
+let uri_domain uri = match Text.split_uri uri with
+| None -> []
+| Some (_, host, _) -> List.rev (String.cuts ~sep:"." host)
+
+let uri_sld uri = match uri_domain uri with
+| _ :: sld :: _ -> Some sld
+| _ -> None
 
 let uri_append u s = match String.head ~rev:true u with
 | None -> s
@@ -126,9 +127,16 @@ let build_dir p = match p.build_dir with
 | Some b -> Ok b
 | None   -> Ok (Fpath.v "_build")
 
+let find_file path name =
+  let open Fpath in
+  OS.Dir.contents path >>| fun files ->
+    List.filter (fun file ->
+      let name_no_ext = to_string (normalize (rem_ext file)) in
+        String.equal name (String.Ascii.lowercase name_no_ext)) files
+
 let readmes p = match p.readmes with
 | Some f -> Ok f
-| None  ->  Ok [Fpath.v "README.md"]
+| None  -> find_file (Fpath.v ".") "readme"
 
 let readme p = readmes p >>= function
   | [] -> R.error_msgf "No readme file specified in the package description"
@@ -147,23 +155,34 @@ let opam_descr p =
   match p.opam_descr with
   | Some f -> read f
   | None ->
-      opam p
-      >>= fun opam -> Ok (descr_file_for_opam opam)
-      >>= fun descr_file -> OS.File.exists descr_file
-      >>= function
-      | true ->
-          Logs.info (fun m -> m "Found opam descr file %a" Fpath.pp descr_file);
-          read descr_file
-      | false ->
-          readme p
-          >>= fun readme ->
-          Logs.info
-            (fun m -> m "Extracting opam descr from %a" Fpath.pp readme);
-          Opam.Descr.of_readme_file readme
+      opam p  >>= fun opam ->
+      opam_field_hd p "opam-version" >>= function
+      | Some "2.0" -> (
+          opam_field_hd p "synopsis" >>= fun s ->
+          opam_field_hd p "description" >>= fun d ->
+          match s, d with
+          | Some s, Some d -> Ok (s, d)
+          | None  , _ -> R.error_msgf "missing synopsis"
+          | _, None   -> R.error_msgf "missing description"
+        )
+      | Some ("1.2" | "1.0") -> (
+          let descr_file = descr_file_for_opam opam in
+          OS.File.exists descr_file >>= function
+          | true ->
+              Logs.info (fun m -> m "Found opam descr file %a" Fpath.pp descr_file);
+              read descr_file
+          | false ->
+              readme p >>= fun readme ->
+              Logs.info
+                (fun m -> m "Extracting opam descr from %a" Fpath.pp readme);
+              Opam.Descr.of_readme_file readme
+        )
+      | Some v -> R.error_msgf "unsupported opam version: %s" v
+      | None   -> R.error_msgf "missing opam-version field"
 
 let change_logs p = match p.change_logs with
 | Some f -> Ok f
-| None   -> Ok [Fpath.v "CHANGES.md"]
+| None   -> find_file (Fpath.v ".") "changes"
 
 let change_log p = change_logs p >>= function
   | [] -> R.error_msgf "No change log specified in the package description."
@@ -171,7 +190,7 @@ let change_log p = change_logs p >>= function
 
 let licenses p = match p.licenses with
 | Some f -> Ok f
-| None   -> Ok [Fpath.v "LICENSE.md"]
+| None   -> find_file (Fpath.v ".") "license"
 
 let dev_repo p =
   opam_field_hd p "dev-repo" >>= function
@@ -232,8 +251,7 @@ let distrib_uri_of_homepage p =
 
 let distrib_uri ?(raw = false) p =
   let subst_uri p uri =
-    uri
-    >>= fun uri -> name p
+    name p
     >>= fun name -> tag p
     >>= fun tag ->
     let defs = String.Map.(empty |> add "NAME" name |> add "TAG" tag) in
@@ -247,7 +265,15 @@ let distrib_uri ?(raw = false) p =
       | Some u -> Ok u
       | None   -> err_not_found ()
   in
-  if raw then uri else subst_uri p uri
+  uri >>= fun uri ->
+  (match uri_domain uri with
+  | ["io"; "github"; user] ->
+      (match Text.split_uri ~rel:true uri with
+      | None -> R.error_msgf "invalid uri: %s" uri
+      | Some (_, _, path) -> Ok ("https://github.com/" ^ user ^ "/" ^ path))
+  | _ -> Ok uri)
+  >>= fun uri ->
+  if raw then Ok uri else subst_uri p uri
 
 let distrib_filename ?(opam = false) p =
   let sep = if opam then '.' else '-' in
@@ -330,22 +356,23 @@ let publish_artefacts p = match p.publish_artefacts with
 | Some arts -> Ok arts
 | None -> Ok [`Doc; `Distrib]
 
-let infer_from_dune_project () =
-  if Sys.file_exists "dune-project" then
-    Bos.OS.File.read_lines (Fpath.v "dune-project") >>| fun lines ->
-    List.fold_left (fun acc line ->
-        (* sorry *)
-        match String.cut ~sep:"(name " (String.trim line) with
-        | Some (_, s) ->
-            Some (String.trim ~drop:(function ')' | ' ' -> true | _ -> false) s)
-        | _ -> acc
-      ) None lines
-  else
-  Ok None
+let infer_from_dune_project dir =
+  let file = Fpath.(dir / "dune-project") in
+  Bos.OS.File.exists file >>= function
+  | false -> Ok None
+  | true  ->
+      Bos.OS.File.read_lines file >>| fun lines ->
+      List.fold_left (fun acc line ->
+          (* sorry *)
+          match String.cut ~sep:"(name " (String.trim line) with
+          | Some (_, s) ->
+              Some (String.trim ~drop:(function ')' | ' ' -> true | _ -> false) s)
+          | _ -> acc
+        ) None lines
 
-let infer_pkg_names = function
+let infer_pkg_names dir = function
 | [] ->
-    Bos.OS.Dir.contents ~dotfiles:false ~rel:false Fpath.(v ".") >>= fun files ->
+    Bos.OS.Dir.contents ~dotfiles:false ~rel:false dir >>= fun files ->
     let opam_files = List.filter (fun p ->
         String.is_suffix ~affix:".opam" Fpath.(to_string p)
       ) files in
@@ -353,8 +380,8 @@ let infer_pkg_names = function
     else Ok (List.map (fun p -> Fpath.(basename @@ rem_ext p)) opam_files)
 | x -> Ok x
 
-let infer_from_opam_files () =
-  infer_pkg_names [] >>= fun package_names ->
+let infer_from_opam_files dir =
+  infer_pkg_names dir [] >>= fun package_names ->
   let shortest =
     match package_names with
     | [] -> assert false
@@ -369,8 +396,8 @@ let infer_from_opam_files () =
   then Ok (Some shortest)
   else Ok None
 
-let infer_from_readme () =
-  let file = Fpath.v "README.md" in
+let infer_from_readme dir =
+  let file = Fpath.(dir / "README.md") in
   Bos.OS.File.exists file >>= function
   | false -> Ok None
   | true  ->
@@ -384,12 +411,12 @@ let infer_from_readme () =
           | false -> None
           | true  -> Some name
 
-let infer_name () =
-  infer_from_dune_project () >>= function
+let infer_name dir =
+  infer_from_dune_project dir >>= function
   | Some n -> Ok n
-  | None   -> infer_from_opam_files () >>= function
+  | None   -> infer_from_opam_files dir >>= function
       | Some n -> Ok n
-      | None   -> infer_from_readme () >>= function
+      | None   -> infer_from_readme dir >>= function
         | Some n -> Ok n
         | None   ->
             Logs.err (fun m ->
@@ -402,7 +429,7 @@ let v ~dry_run
     ?readme ?change_log ?license ?distrib_uri ?distrib_file ?publish_msg
     ?publish_artefacts ?(distrib=Distrib.v ()) ?(lint_files = Some []) ()
   =
-  let name = match name with None -> infer_name () | Some v -> Ok v in
+  let name = match name with None -> infer_name Fpath.(v ".") | Some v -> Ok v in
   let readmes = match readme with Some r -> Some [r] | None -> None in
   let change_logs = match change_log with Some c -> Some [c] | None -> None in
   let licenses = match license with Some l -> Some [l] | None -> None in
@@ -602,6 +629,17 @@ let lint_opams ~dry_run p =
             m "Skipping opam lint as `opam-version` field is \"2.0\" \
                while `opam --version` is 1.2.2");
         Ok 0
+    | Some ["2.0"], _ ->
+        (* check that the descr and synopsis fields are not empty *)
+        opam_field p "description" >>= fun descr ->
+        opam_field p "synopsis" >>= fun synopsis ->
+        opam p >>= fun opam ->
+        if descr = None then
+          R.error_msgf "%a does not have a 'description' field." Fpath.pp opam
+        else if synopsis = None || synopsis = Some [""] then
+          R.error_msgf "%a does not have a 'synopsis' field" Fpath.pp opam
+        else
+        lint opam_version
     | _ -> lint opam_version)
 
 type lint = [ `Std_files | `Opam ]

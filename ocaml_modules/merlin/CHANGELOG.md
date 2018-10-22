@@ -1,7 +1,23 @@
-git version
-===========
+merlin 3.2.2
+============
+Tue Oct  9 11:25:12 BST 2018
 
-Switched to dune (thanks to @nojb).
+Update cmt magic number for 4.07.1
+
+merlin 3.2.1
+============
+Mon Oct  8 11:44:16 BST 2018
+
+Fix build on OCaml 4.02 to 4.04
+
+merlin 3.2.0
+============
+Mon Oct  8 10:41:24 BST 2018
+
+Switched build to dune (thanks to @nojb).
+Added support for 4.07.1
+Various bugfixes in the backend and in the editor modes.
+
 
 merlin 3.1.0
 ============

@@ -14,11 +14,17 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Astring
 open Mdx
 
 let src = Logs.Src.create "cram.test"
 module Log = (val Logs.src_log src : Logs.LOG)
+
+let read_file file =
+  let ic = open_in_bin file in
+  let len = in_channel_length ic in
+  let file_contents = really_input_string ic len in
+  close_in ic;
+  file_contents
 
 let read_lines file =
   let ic = open_in file in
@@ -100,6 +106,56 @@ let run_cram_tests ?root ppf temp_file pad tests t =
     ) tests;
   Block.pp_footer ppf ()
 
+let envs = Hashtbl.create 8
+
+let rec save_summary acc s =
+  let open Env in
+  match s with
+  | Env_value (summary, id, _) ->
+     save_summary (Ident.name id :: acc) summary
+  | Env_module (summary, id, _)
+    | Env_class (summary, id, _)
+    | Env_modtype (summary, id, _)
+    | Env_cltype (summary, id, _)
+    | Env_type (summary, id, _)
+    | Env_functor_arg (summary, id)
+    | Env_open (summary,
+                #if OCAML_MAJOR >= 4 && OCAML_MINOR >= 7
+                _,
+                #endif
+                Pident id)
+    | Env_extension (summary, id, _) ->
+      let acc =
+        if Ident.binding_time id >= 1000
+        then Ident.unique_toplevel_name id :: acc
+        else acc
+      in
+      save_summary acc summary
+  | Env_empty -> acc
+  | Env_constraints (summary, _)
+    | Env_open (summary,
+                #if OCAML_MAJOR >= 4 && OCAML_MINOR >= 7
+                _,
+                #endif
+                _)
+    | Env_copy_types (summary, _) -> save_summary acc summary
+
+let in_env env_name f =
+  let env, names, objs =
+    try Hashtbl.find envs env_name
+    with Not_found ->
+      let env = Compmisc.initial_env () in
+      env, [], []
+  in
+  Toploop.toplevel_env := env;
+  List.iter2 Toploop.setvalue names objs;
+  let res = f () in
+  let env = !Toploop.toplevel_env in
+  let names = save_summary [] (Env.summary env) in
+  let objs = List.map Toploop.getvalue names in
+  Hashtbl.replace envs env_name (env, names, objs);
+  res
+
 let eval_test c test =
   Log.debug (fun l ->
       l "eval_test %a" Fmt.(Dump.list string) (Toplevel.command test));
@@ -130,9 +186,63 @@ let run_toplevel_tests c ppf tests t =
     ) tests;
   Block.pp_footer ppf ()
 
+let update_block_with_file ppf t file part =
+  Block.pp_header ppf t;
+  let lines = Mdx_top.Part.find ~file ~part in
+  let contents = String.concat "\n" lines in
+  Output.pp ppf (`Output contents);
+  Block.pp_footer ppf ()
+
+let update_file_with_block ppf t file part =
+  let output_file = file ^ ".corrected" in
+  let input_file =
+    if Sys.file_exists output_file then output_file
+    else file
+  in
+  (match part with
+   | Some part ->
+      let lines =
+        match Block.value t with
+        | Raw | OCaml | Error _ -> t.Block.contents
+        | Cram _ ->
+           Fmt.failwith "Promoting Cram tests is unsupported for now."
+        | Toplevel tests ->
+           let f t =
+             t.Toplevel.command |> String.concat "\n" in
+           List.map f tests
+      in
+      let lines = Mdx_top.Part.replace ~file:input_file ~part ~lines in
+      let lines = List.map (String.concat "\n") lines in
+      let lines = String.concat "\n" lines in
+      if String.equal lines (read_file input_file) then
+        ()
+      else
+        let oc = open_out output_file in
+        output_string oc lines;
+        close_out oc
+   | None -> () );
+  Block.pp ppf t
+
+let update_file_or_block ppf md_file ml_file block direction =
+  let direction =
+    match direction with
+    | `To_md -> `To_md
+    | `To_ml -> `To_ml
+    | `Infer_timestamp ->
+       let md_file_mtime = (Unix.stat md_file).st_mtime in
+       let ml_file_mtime = (Unix.stat ml_file).st_mtime in
+       if ml_file_mtime < md_file_mtime then `To_ml
+       else `To_md
+  in
+  match direction with
+  | `To_md ->
+     update_block_with_file ppf block ml_file (Block.part block)
+  | `To_ml ->
+     update_file_with_block ppf block ml_file (Block.part block)
+
 let run ()
     non_deterministic not_verbose silent verbose_findlib prelude prelude_str
-    file section root
+    file section root direction
   =
   let c =
     Mdx_top.init ~verbose:(not not_verbose) ~silent ~verbose_findlib ()
@@ -163,33 +273,44 @@ let run ()
           | Section _
           | Text _ as t -> Mdx.pp_line ppf t
           | Block t ->
-            match active t, non_deterministic, Block.mode t, Block.value t with
-            (* Print errors *)
-            | _, _, _, Error _ -> Block.pp ppf t
-            (* Skip raw blocks. *)
-            | true, _, _, Raw -> Block.pp ppf t
-            (* The command is not active, skip it. *)
-            | false, _, _, _ -> Block.pp ppf t
-            (* the command is active but non-deterministic so skip everything *)
-            | true, false, `Non_det `Command, _ -> Block.pp ppf t
-            (* the command is active but it''s output is
-               non-deterministic; run it but keep the old output. *)
-            | true, false, `Non_det `Output, Cram { tests; _ } ->
-              Block.pp ppf t;
-              List.iter (fun t -> let _ = run_test temp_file t in ()) tests
-            | true, false, `Non_det `Output, Toplevel tests ->
-              Block.pp ppf t;
-              List.iter (fun t -> let _ = eval_test c t in ()) tests
-            (* Run raw OCaml code *)
-            | true, _, _, OCaml ->
-              eval_raw c ~line:t.line t.contents;
-              Block.pp ppf t
-            (* Cram tests. *)
-            | true, _, _, Cram { tests; pad } ->
-              run_cram_tests ?root ppf temp_file pad tests t
-            (* Top-level tests. *)
-            | true, _, _, Toplevel tests ->
-              run_toplevel_tests c ppf tests t
+            in_env (Block.environment t)
+              (fun () ->
+                 match active t, non_deterministic, Block.mode t, Block.value t with
+                 (* Print errors *)
+                 | _, _, _, Error _ -> Block.pp ppf t
+                 (* Skip raw blocks. *)
+                 | true, _, _, Raw -> Block.pp ppf t
+                 (* The command is not active, skip it. *)
+                 | false, _, _, _ -> Block.pp ppf t
+                 (* the command is active but non-deterministic so skip everything *)
+                 | true, false, `Non_det `Command, _ -> Block.pp ppf t
+                 (* the command is active but it''s output is
+                    non-deterministic; run it but keep the old output. *)
+                 | true, false, `Non_det `Output, Cram { tests; _ } ->
+                   Block.pp ppf t;
+                   List.iter (fun t -> let _ = run_test temp_file t in ()) tests
+                 | true, false, `Non_det `Output, Toplevel tests ->
+                   Block.pp ppf t;
+                   List.iter (fun t -> let _ = eval_test c t in ()) tests
+                 (* Run raw OCaml code *)
+                 | true, _, _, OCaml ->
+                   (match Block.file t with
+                    | Some ml_file ->
+                      update_file_or_block ppf file ml_file t direction
+                    | None ->
+                      eval_raw c ~line:t.line t.contents;
+                      Block.pp ppf t )
+                 (* Cram tests. *)
+                 | true, _, _, Cram { tests; pad } ->
+                   run_cram_tests ?root ppf temp_file pad tests t
+                 (* Top-level tests. *)
+                 | true, _, _, Toplevel tests ->
+                   match Block.file t with
+                   | Some ml_file ->
+                     update_file_or_block ppf file ml_file t direction
+                   | None ->
+                     run_toplevel_tests c ppf tests t
+              )
         ) items;
       Format.pp_print_flush ppf ();
       Buffer.contents buf);
@@ -206,7 +327,7 @@ let cmd =
   Term.(pure run
         $ Cli.setup $ Cli.non_deterministic $ Cli.not_verbose
         $ Cli.silent $ Cli.verbose_findlib $ Cli.prelude $ Cli.prelude_str
-        $ Cli.file $ Cli.section $ Cli.root),
+        $ Cli.file $ Cli.section $ Cli.root $ Cli.direction),
   Term.info "mdx-test" ~version:"%%VERSION%%" ~doc ~exits ~man
 
 let main () = Term.(exit_status @@ eval cmd)

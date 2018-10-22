@@ -12,8 +12,10 @@ build: [
 depends: [
   "base" {>= "v0.11.0"}
   "base-unix"
+  "bos"
   "cmdliner"
   "dune" {build}
+  "fpath"
   "ocaml-migrate-parsetree" {>= "1.0.6"}
   "reason" {= "1.13.4"}
   "stdio"

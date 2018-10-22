@@ -145,6 +145,16 @@ let basics = "ppx basics", HtmlTests.make Html.[
   [[%html {|<div><p>a</p><!-- b --><hr/></div>|}]],
   [div [p [pcdata "a"]; tot (Xml.comment " b "); hr ()]] ;
 
+  "figcaption first",
+  [[%html {|<figure> <figcaption> hello </figcaption> <img src="foo.jpg" alt="a" /> </figure>|}]],
+  [figure ~figcaption:(`Top (figcaption [pcdata " hello "]))
+     [pcdata " "; img ~src:"foo.jpg" ~alt:"a" () ; pcdata " " ]];
+  
+  "figcaption last",
+  [[%html {|<figure> <img src="foo.jpg" alt="a" /> <figcaption> hello </figcaption> </figure>|}]],
+  [figure ~figcaption:(`Bottom (figcaption [pcdata " hello "]))
+     [pcdata " "; img ~src:"foo.jpg" ~alt:"a" () ; pcdata " " ]];
+  
 ]
 
 let attribs = "ppx attribs", HtmlTests.make Html.[
@@ -201,6 +211,9 @@ let attribs = "ppx attribs", HtmlTests.make Html.[
   [[%html "<div aria-hidden=true></div>"]],
   [div ~a:[a_aria "hidden" ["true"]] []] ;
 
+  "touch events",
+  [[%html "<div ontouchstart='alert()'></div>"]],
+  [div ~a:[a_ontouchstart "alert()"] []] ;
 ]
 
 let ns_nesting = "namespace nesting" , HtmlTests.make Html.[
@@ -435,3 +448,5 @@ let tests = [
   svg_element_names ;
   wrapping ;
 ]
+
+let () = Alcotest.run "tyxml-ppx" tests

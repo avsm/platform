@@ -89,6 +89,9 @@ let pp ppf b =
 
 let labels = [
   "dir"              , [`Any];
+  "file"             , [`Any];
+  "part"             , [`Any];
+  "env"              , [`Any];
   "non-deterministic", [`None; `Some "command"; `Some "output"]
 ]
 
@@ -141,6 +144,14 @@ let directory t = match get_label t "dir" with
   | None   -> None
   | Some d -> d
 
+let file t = match get_label t "file" with
+  | None   -> None
+  | Some f -> f
+
+let part t = match get_label t "part" with
+  | None   -> None
+  | Some l -> l
+
 let mode t =
   match get_label t "non-deterministic" with
   | None                  -> `Normal
@@ -148,6 +159,12 @@ let mode t =
   | Some (Some "output")  -> `Non_det `Output
   | Some (Some "command") -> `Non_det `Command
   | Some (Some _)         -> `Normal
+
+let environment t = match get_label t "env" with
+  | None
+  | Some None
+  | Some (Some "default") -> "default"
+  | Some (Some s) -> s
 
 let value t = t.value
 let section t = t.section
