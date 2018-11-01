@@ -136,28 +136,45 @@ let opam p = match p.opam with
     >>= fun name -> pkg p
     >>| Topkg.Private.Pkg.opam ~name >>= Fpath.of_string
 
+let opam_field_descr p =
+  opam_field p "synopsis" >>= function
+  | None -> Ok None
+  | Some syn ->
+      opam_field p "description" >>= function
+      | None -> Ok None
+      | Some descr -> Ok (Some (List.hd syn, List.hd descr))
+
 let opam_descr p =
   let descr_file_for_opam opam =
     if Fpath.has_ext ".opam" opam then Fpath.(rem_ext opam + ".descr") else
     Fpath.(parent opam / "descr")
   in
-  let read f = OS.File.read f >>= fun c -> Topkg_care_opam.Descr.of_string c in
+  let read f =
+    OS.File.read f
+    >>= fun c -> Topkg_care_opam.Descr.of_string c
+    >>| fun d -> d, false
+  in
   match p.opam_descr with
   | Some f -> read f
   | None ->
-      opam p
-      >>= fun opam -> Ok (descr_file_for_opam opam)
-      >>= fun descr_file -> OS.File.exists descr_file
-      >>= function
-      | true ->
-          Logs.info (fun m -> m "Found opam descr file %a" Fpath.pp descr_file);
-          read descr_file
-      | false ->
-          readme p
-          >>= fun readme ->
-          Logs.info
-            (fun m -> m "Extracting opam descr from %a" Fpath.pp readme);
-          Topkg_care_opam.Descr.of_readme_file readme
+      opam_field_descr p >>= function
+      | Some descr -> Ok (descr, true)
+      | None ->
+          opam p
+          >>= fun opam -> Ok (descr_file_for_opam opam)
+          >>= fun descr_file -> OS.File.exists descr_file
+          >>= function
+          | true ->
+              Logs.info (fun m -> m "Found opam descr file %a"
+                            Fpath.pp descr_file);
+              read descr_file
+          | false ->
+              readme p
+              >>= fun readme ->
+              Logs.info
+                (fun m -> m "Extracting opam descr from %a" Fpath.pp readme);
+              Topkg_care_opam.Descr.of_readme_file readme
+              >>| fun d -> d, false
 
 let change_logs p = match p.change_logs with
 | Some f -> Ok f
@@ -434,7 +451,7 @@ let lint_opams p =
   |> Logs.on_error_msg ~use:(fun () -> 1)
 
 let lint_deps_default_excludes =
-  let exclude = ["ocamlfind"; "ocamlbuild"; "topkg"] in
+  let exclude = ["ocamlfind"; "ocamlbuild"; "topkg"; "ocaml"] in
   Topkg_care_ocamlfind.base_packages
   |> String.Set.union Topkg_care_opam.ocaml_base_packages
   |> String.Set.union (String.Set.of_list exclude)

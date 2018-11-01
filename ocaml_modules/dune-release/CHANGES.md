@@ -1,3 +1,21 @@
+<<<<<<< HEAD
+=======
+## 1.1.0 (2018-10-17)
+
+- Remove the status and log commands (#95, @samoht)
+- Fix `dune-release publish doc` when using multiple packages (#96, @samoht)
+- Fix inferred package name when reading `dune-project` files (#104. @samoht)
+- Add .ps and .eps files to default files excluded from watermarking
+  (backport of dbuenzli/topkg@6cf1eae)
+- Fix distribution uri when homepage is using github.io (#102, @samoht)
+- `dune-release lint` now checks that a description and a synopsis exist
+  in opam2 files (#101, @samoht)
+- Add a more explicit error message if `git checkout` fails in the local
+  opam-repository (#98, @samoht)
+- Do not create an extra `_html` folder when publishing docs on Linux
+  (#94, @anuragsoni and @samoht)
+
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
 ## 1.0.1 (2018-09-24)
 
 - Fix opam2 format upgrade when submitting a PR (#91, @samoht)

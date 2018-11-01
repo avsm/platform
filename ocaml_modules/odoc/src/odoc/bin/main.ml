@@ -251,6 +251,7 @@ module Html_fragment : sig
   val info: Term.info
 end = struct
 
+<<<<<<< HEAD
   let html_fragment directories root_uri output_file input_file =
     let env = Env.create ~important_digests:false ~directories in
     let input_file = Fs.File.of_string input_file in
@@ -260,6 +261,19 @@ end = struct
       if last_char <> '/' then root_uri ^ "/" else root_uri
     in
     Html_fragment.from_mld ~env ~root_uri ~output:output_file input_file
+=======
+  let html_fragment directories xref_base_uri output_file input_file =
+    let env = Env.create ~important_digests:false ~directories in
+    let input_file = Fs.File.of_string input_file in
+    let output_file = Fs.File.of_string output_file in
+    let xref_base_uri =
+      if xref_base_uri = "" then xref_base_uri
+      else
+        let last_char = String.get xref_base_uri (String.length xref_base_uri - 1) in
+        if last_char <> '/' then xref_base_uri ^ "/" else xref_base_uri
+    in
+    Html_fragment.from_mld ~env ~xref_base_uri ~output:output_file input_file
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
 
   let cmd =
     let output =
@@ -271,6 +285,7 @@ end = struct
       let doc = "Input documentation page file" in
       Arg.(required & pos 0 (some file) None & info ~doc ~docv:"file.mld" [])
     in
+<<<<<<< HEAD
     let root_uri =
       let doc = "Root URI used to resolve cross-references. Set this to the \
                  root of the global docset during local development. By default \
@@ -278,6 +293,15 @@ end = struct
       Arg.(value & opt string "" & info ~docv:"URI" ~doc ["root-uri"])
     in
     Term.(const html_fragment $ odoc_file_directories $ root_uri $ output $ input)
+=======
+    let xref_base_uri =
+      let doc = "Base URI used to resolve cross-references. Set this to the \
+                 root of the global docset during local development. By default \
+                 `.' is used." in
+      Arg.(value & opt string "" & info ~docv:"URI" ~doc ["xref-base-uri"])
+    in
+    Term.(const html_fragment $ odoc_file_directories $ xref_base_uri $ output $ input)
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
 
   let info =
     Term.info ~doc:"Generates an html fragment file from an mld one" "html-fragment"

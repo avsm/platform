@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 PACKAGES=opam-devel dune-release utop bun odoc merlin ocp-indent ocamlformat ocamlfind craml
 PINS=ocp-indent odoc tyxml ocamlformat merlin lwt ocamlfind mccs,https://github.com/AltGr/ocaml-mccs.git
+=======
+PACKAGES=opam-devel dune-release utop odoc merlin ocp-indent ocamlformat ocamlfind mdx
+PINS=ocp-indent odoc tyxml ocamlformat merlin lwt ocamlfind markup mccs,https://github.com/AltGr/ocaml-mccs.git mdx,https://github.com/realworldocaml/mdx.git
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
 
 build:
 	./build.sh native

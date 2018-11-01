@@ -1,4 +1,6 @@
-language: generic
+language: node_js
+node_js:
+  - "10"
 
 env:
   - OCAML=4.02.3
@@ -8,8 +10,22 @@ env:
   - OCAML=4.05.0
   - OCAML=4.06.1
   - OCAML=4.07.0
+  - ESY_BUILD=YES ESY__CACHE=/home/travis/.esy
+
+cache:
+  directories:
+  - /home/travis/.opam
+  - /home/travis/.esy
+  - /home/travis/.nvm
+  - ./_build/default
+
+install:
+  - ./test/ci/install-deps.sh
+  - "if [[ $OCAML ]]; then eval `opam config env`; fi"
+  - ./test/ci/print-versions.sh
 
 before_script:
+<<<<<<< HEAD
   - sudo add-apt-repository -y ppa:robert7/tidy-html5
   - sudo apt-get update
   - sudo apt-get install tidy
@@ -20,13 +36,11 @@ before_script:
   - eval `opam config env`
   - opam --version
   - ocaml -version
+=======
+  - ./test/ci/clean-scratch.sh
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
 
-script:
-  - opam pin add -y --no-action odoc .
-  - opam install -y --deps-only odoc
-  - make test
-  - opam pin add -y --dev-repo dune
-  - make dune-test
+script: ./test/ci/build.sh
 
 notifications:
   email:

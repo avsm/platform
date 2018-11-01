@@ -137,12 +137,16 @@ let wrap_if_fits_and cnd pre suf k fs =
   k fs ;
   fits_breaks_if cnd suf "" fs
 
-let wrap_fits_breaks_if cnd pre suf k fs =
-  fits_breaks_if cnd pre (pre ^ " ") fs ;
-  k fs ;
-  fits_breaks_if cnd suf ("@ " ^ suf) fs
+let wrap_fits_breaks_if ?(space = true) c cnd pre suf k fs =
+  if (not c.Conf.indicate_multiline_delimiters) && not space then
+    wrap_if_k cnd (str pre) (str suf) k fs
+  else (
+    fits_breaks_if cnd pre (pre ^ " ") fs ;
+    k fs ;
+    fits_breaks_if cnd suf ("@ " ^ suf) fs )
 
-let wrap_fits_breaks x = wrap_fits_breaks_if true x
+let wrap_fits_breaks ?(space = true) conf x =
+  wrap_fits_breaks_if ~space conf true x
 
 (** Boxes ---------------------------------------------------------------*)
 

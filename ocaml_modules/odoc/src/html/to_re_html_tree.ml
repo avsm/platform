@@ -15,6 +15,7 @@ module RE = Html_generator.Make (struct
   end
 
   module Type = struct
+<<<<<<< HEAD
     let handle_constructor_params name args = name @ args
 
     let handle_substitution_params name args = name @ args
@@ -41,6 +42,34 @@ module RE = Html_generator.Make (struct
       let field_separator = ","
 
       let label_value_separator = ": "
+=======
+    let annotation_separator = ": "
+
+    let handle_constructor_params name args = name @ args
+
+    let handle_substitution_params name args = name @ args
+
+    let handle_format_params p = "(" ^ p ^ ")"
+
+    let type_def_semicolon = true
+
+    let private_keyword = "pri"
+
+    let parenthesize_constructor = true
+
+    module Variant = struct
+      let parenthesize_params = true
+    end
+
+    module Tuple = struct
+      let element_separator = ", "
+
+      let always_parenthesize = true
+    end
+
+    module Record = struct
+      let field_separator = ","
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
     end
 
     let var_prefix = "'"

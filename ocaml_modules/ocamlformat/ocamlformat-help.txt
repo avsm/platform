@@ -44,6 +44,9 @@ OPTIONS (CODE FORMATTING STYLE)
            fit-or-vertical vertically breaks expressions if they do not fit
            on a single line. The default value is wrap.
 
+       --break-sequences
+           Force sequence expressions to break irrespective of margin.
+
        --break-string-literals={wrap|newlines|never}
            Break string literals. wrap mode wraps string literals at the
            margin. Quoted strings such as {id|...|id} are preserved. newlines
@@ -136,6 +139,10 @@ OPTIONS (CODE FORMATTING STYLE)
            lines between one-liners of similar sorts. The default value is
            sparse.
 
+       --no-indicate-multiline-delimiters
+           Print a space inside a delimiter to indicate that it's matching
+           delimiter is on a different line.
+
        --no-indicate-nested-or-patterns
            Control whether or not to indicate nested or-pattern using
            indentation.
@@ -153,7 +160,9 @@ OPTIONS (CODE FORMATTING STYLE)
            tuples. The default value is always.
 
        --sequence-style={separator|terminator}
-           Style of sequence. The default value is separator.
+           Style of sequence. separator puts spaces before and after
+           semicolons. terminator only puts spaces after semicolons. The
+           default value is separator.
 
        --type-decl={compact|sparse}
            Style of type declaration. compact will try to format constructors
@@ -174,7 +183,7 @@ OPTIONS
            Aggregate options. Options are specified as a comma-separated list
            of pairs: option=VAL,...,option=VAL.
 
-       --disable-outside-project
+       --disable-outside-detected-project
            Do not read .ocamlformat config files outside the current project.
            The project root of an input file is taken to be the nearest
            ancestor directory that contains a .git or .hg or dune-project
@@ -219,6 +228,13 @@ OPTIONS
            Output file. Mutually exclusive with --inplace. Write to stdout if
            omitted.
 
+<<<<<<< HEAD
+=======
+       --ocp-indent-config
+           Read .ocp-indent configuration files. match-clause sets
+           cases-exp-indent to the same value.
+
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
        -p {default|compact|sparse|janestreet},
        --profile={default|compact|sparse|janestreet}
            Preset profiles which set all options, overriding lower priority
@@ -232,6 +248,11 @@ OPTIONS
 
        -q, --quiet
            Quiet. May be set in .ocamlformat.
+
+       --root=DIR
+           Root of the project. If specified, only take into account
+           .ocamlformat configuration files inside DIR and its
+           subdirectories.
 
        --use-file
            Parse file with unrecognized extension as a use_file.

@@ -7,6 +7,7 @@
 open Bos_setup
 open Dune_release
 
+<<<<<<< HEAD
 let gen_doc ~dry_run ~force dir pkg_name =
   let build_doc = Cmd.(v "dune" % "build" % "-p" % pkg_name % "@doc") in
   let doc_dir = Fpath.(v "_build" / "default" / "_doc") in
@@ -20,12 +21,23 @@ let gen_doc ~dry_run ~force dir pkg_name =
   R.join @@ Sos.with_dir ~dry_run dir do_doc ()
 
 let publish_doc ~dry_run pkg =
+=======
+let gen_doc ~dry_run ~force dir pkg_names =
+  let names = String.concat ~sep:"," pkg_names in
+  let build_doc = Cmd.(v "dune" % "build" % "-p" % names % "@doc") in
+  let doc_dir = Fpath.(v "_build" / "default" / "_doc" / "_html") in
+  let do_doc () = Sos.run ~dry_run ~force build_doc in
+  R.join @@ Sos.with_dir ~dry_run dir do_doc () >>= fun () ->
+  Ok Fpath.(dir // doc_dir)
+
+let publish_doc ~dry_run pkg_names pkg =
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
   Pkg.distrib_file ~dry_run pkg
   >>= fun archive -> Pkg.publish_msg pkg
   >>= fun msg -> Archive.untbz ~dry_run ~clean:true archive
   >>= fun dir -> OS.Dir.exists dir
-  >>= fun force -> Pkg.name pkg
-  >>= fun name -> gen_doc ~dry_run ~force dir name
+  >>= fun force -> Pkg.infer_pkg_names dir pkg_names
+  >>= fun pkg_names -> gen_doc ~dry_run ~force dir pkg_names
   >>= fun docdir -> Delegate.publish_doc ~dry_run pkg ~msg ~docdir
 
 let publish_distrib ~dry_run pkg =
@@ -39,7 +51,11 @@ let publish_alt ~dry_run pkg kind =
   >>= fun msg     -> Delegate.publish_alt ~dry_run pkg ~kind ~msg ~archive
 
 let publish ()
+<<<<<<< HEAD
     build_dir name _pkg_names version tag keep_v opam delegate change_log
+=======
+    build_dir name pkg_names version tag keep_v opam delegate change_log
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
     distrib_uri distrib_file publish_msg dry_run publish_artefacts
   =
   begin
@@ -55,7 +71,7 @@ let publish ()
     in
     let publish_artefact acc artefact =
       acc >>= fun () -> match artefact with
-      | `Doc      -> publish_doc ~dry_run pkg
+      | `Doc      -> publish_doc ~dry_run pkg_names pkg
       | `Distrib  -> publish_distrib ~dry_run pkg
       | `Alt kind -> publish_alt ~dry_run pkg kind
     in

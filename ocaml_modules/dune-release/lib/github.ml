@@ -38,8 +38,22 @@ let publish_in_git_branch ~dry_run ~remote ~branch ~name ~version ~docdir ~dir =
   let cp src dst =
     let src = Fpath.(cwd // src) in
     let src = Fpath.to_dir_path src in
-    (* FIXME we lost Windows friends here, fix bos #30 *)
-    Sos.run ~dry_run Cmd.(v "cp" % "-R" % p src % p dst)
+    let rec copy_dir src dst =
+      OS.Dir.contents ~dotfiles:true ~rel:true src >>= fun files ->
+      List.fold_left (fun acc file ->
+          acc >>= fun () ->
+          let src = Fpath.(src // file) in
+          let dst = Fpath.(dst // file) in
+          OS.File.exists src >>= function
+          | false ->
+              Sos.mkdir ~dry_run dst >>= fun _ ->
+              copy_dir src dst
+          | true  ->
+              Sos.read_file ~dry_run src >>= fun file ->
+              Sos.write_file ~dry_run dst file
+        ) (Ok ()) files
+    in
+    copy_dir src dst
   in
   let delete dir =
     if not (Fpath.is_current_dir dir) then Sos.delete_dir ~dry_run dir else
@@ -267,10 +281,20 @@ let assert_tag_exists ~dry_run tag =
 
 let publish_distrib ~dry_run ~msg ~archive p =
   let git_for_repo r = Cmd.of_list (Cmd.to_list @@ Vcs.cmd r) in
+<<<<<<< HEAD
   (if dry_run then Ok (D.user, D.repo) else Pkg.distrib_user_and_repo p)
   >>= fun (user, repo) -> Pkg.tag p
   >>= fun tag ->  assert_tag_exists ~dry_run tag
   >>= fun () -> OS.Cmd.must_exist Cmd.(v "curl" % "-s" % "-S" % "-K" % "-")
+=======
+  let curl = Cmd.(v "curl" % "-L" % "-s" % "-S" % "-K" % "-") in
+  (match Pkg.distrib_user_and_repo p with
+  | Error _ as e -> if dry_run then Ok (D.user, D.repo) else e
+  | r -> r)
+  >>= fun (user, repo) -> Pkg.tag p
+  >>= fun tag ->  assert_tag_exists ~dry_run tag
+  >>= fun () -> OS.Cmd.must_exist curl
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
   >>= fun curl -> Vcs.get ()
   >>= fun vcs -> Ok (git_for_repo vcs)
   >>= fun git -> Pkg.tag p

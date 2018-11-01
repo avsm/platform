@@ -292,12 +292,21 @@
      <code> ]</code><span class="keyword">;</span>
     </dt>
     <dt class="spec type" id="type-object_">
+<<<<<<< HEAD
      <a href="#type-object_" class="anchor"></a><code><span class="keyword">type </span>object_</code><code><span class="keyword"> = </span>{. a : int, b : int, c : int, }</code><span class="keyword">;</span>
     </dt>
    </dl>
    <article class="spec module-type" id="module-type-X">
     <a href="#module-type-X" class="anchor"></a><code><span class="keyword">module type </span><a href="module-type-X/index.html">X</a> = <span class="keyword">{</span> ... <span class="keyword">}</span><span class="keyword">;</span></code>
    </article>
+=======
+     <a href="#type-object_" class="anchor"></a><code><span class="keyword">type </span>object_</code><code><span class="keyword"> = </span>{. a: int, b: int, c: int, }</code><span class="keyword">;</span>
+    </dt>
+   </dl>
+   <div class="spec module-type" id="module-type-X">
+    <a href="#module-type-X" class="anchor"></a><code><span class="keyword">module type </span><a href="module-type-X/index.html">X</a> = <span class="keyword">{</span> ... <span class="keyword">}</span><span class="keyword">;</span></code>
+   </div>
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
    <dl>
     <dt class="spec type" id="type-module_">
      <a href="#type-module_" class="anchor"></a><code><span class="keyword">type </span>module_</code><code><span class="keyword"> = </span>(<span class="keyword">module </span><a href="module-type-X/index.html">X</a>)</code><span class="keyword">;</span>
@@ -342,6 +351,7 @@
      <a href="#type-named_variant" class="anchor"></a><code><span class="keyword">type </span>named_variant('a)</code><code><span class="keyword"> = </span><span class="type-var">'a</span></code><code><span class="keyword"> constraint </span><span class="type-var">'a</span> = [&lt; <a href="index.html#type-polymorphic_variant">polymorphic_variant</a> ]</code><span class="keyword">;</span>
     </dt>
     <dt class="spec type" id="type-exact_object">
+<<<<<<< HEAD
      <a href="#type-exact_object" class="anchor"></a><code><span class="keyword">type </span>exact_object('a)</code><code><span class="keyword"> = </span><span class="type-var">'a</span></code><code><span class="keyword"> constraint </span><span class="type-var">'a</span> = {. a : int, b : int, }</code><span class="keyword">;</span>
     </dt>
     <dt class="spec type" id="type-lower_object">
@@ -349,6 +359,15 @@
     </dt>
     <dt class="spec type" id="type-poly_object">
      <a href="#type-poly_object" class="anchor"></a><code><span class="keyword">type </span>poly_object('a)</code><code><span class="keyword"> = </span><span class="type-var">'a</span></code><code><span class="keyword"> constraint </span><span class="type-var">'a</span> = {. a : a. <span class="type-var">'a</span>, }</code><span class="keyword">;</span>
+=======
+     <a href="#type-exact_object" class="anchor"></a><code><span class="keyword">type </span>exact_object('a)</code><code><span class="keyword"> = </span><span class="type-var">'a</span></code><code><span class="keyword"> constraint </span><span class="type-var">'a</span> = {. a: int, b: int, }</code><span class="keyword">;</span>
+    </dt>
+    <dt class="spec type" id="type-lower_object">
+     <a href="#type-lower_object" class="anchor"></a><code><span class="keyword">type </span>lower_object('a)</code><code><span class="keyword"> = </span><span class="type-var">'a</span></code><code><span class="keyword"> constraint </span><span class="type-var">'a</span> = {.. a: int, b: int, }</code><span class="keyword">;</span>
+    </dt>
+    <dt class="spec type" id="type-poly_object">
+     <a href="#type-poly_object" class="anchor"></a><code><span class="keyword">type </span>poly_object('a)</code><code><span class="keyword"> = </span><span class="type-var">'a</span></code><code><span class="keyword"> constraint </span><span class="type-var">'a</span> = {. a: a. <span class="type-var">'a</span>, }</code><span class="keyword">;</span>
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
     </dt>
     <dt class="spec type" id="type-as_">
      <a href="#type-as_" class="anchor"></a><code><span class="keyword">type </span>as_</code><code><span class="keyword"> = </span>(int<span class="keyword"> as </span>a<span class="keyword">, </span><span class="type-var">'a</span>)</code><span class="keyword">;</span>

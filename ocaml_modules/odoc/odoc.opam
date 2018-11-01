@@ -22,8 +22,8 @@ depends: [
   "cppo" {build}
   "dune" {build}
   "fpath" {build}
+  "result" {build}
   "tyxml" {build & >= "4.0.0"}
-  "result"
 
   # Development dependencies. These should be removed in opam files sent to the
   # opam repo.
@@ -32,7 +32,7 @@ depends: [
   "markup" {>= "0.8.0"}
   "lambdasoup"
   "ocamlfind"
-  "sexplib"
+  "sexplib" {>= "113.33.00"}
 ]
 
 build: [

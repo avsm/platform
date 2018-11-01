@@ -10,6 +10,10 @@ open Dune_release
 let lint () dry_run name pkg_names version tag keep_v lints =
   begin
     Config.keep_v keep_v >>= fun keep_v ->
+<<<<<<< HEAD
+=======
+    Pkg.infer_pkg_names Fpath.(v ".") pkg_names >>= fun pkg_names ->
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
     let pkg = Pkg.v ~dry_run ?name ?version ~keep_v ?tag () in
     OS.Dir.current () >>= fun dir ->
     List.fold_left (fun acc name ->

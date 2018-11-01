@@ -33,10 +33,17 @@ val v :
   ?distrib:Distrib.t -> ?lint_files:Fpath.t list option ->
   unit -> t
 
+<<<<<<< HEAD
 val infer_name: unit -> (string, R.msg) result
 (** Infer the name of the projet. *)
 
 val infer_pkg_names: string list -> (string list, R.msg) result
+=======
+val infer_name: Fpath.t -> (string, R.msg) result
+(** Infer the name of the projet. *)
+
+val infer_pkg_names: Fpath.t -> string list -> (string list, R.msg) result
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
 (** Infer the package list. *)
 
 val name : t -> (string, R.msg) result

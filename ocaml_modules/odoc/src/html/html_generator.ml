@@ -76,6 +76,11 @@ module type Syntax = sig
   end
 
   module Type : sig
+<<<<<<< HEAD:ocaml_modules/odoc/src/html/html_generator.ml
+=======
+    val annotation_separator : string
+
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a:ocaml_modules/odoc/src/html/html_generator.ml
     val handle_constructor_params :
          ('inner, 'outer) text Html.elt list
       -> ('inner, 'outer) text Html.elt list
@@ -106,8 +111,11 @@ module type Syntax = sig
 
     module Record : sig
       val field_separator : string
+<<<<<<< HEAD:ocaml_modules/odoc/src/html/html_generator.ml
 
       val label_value_separator : string
+=======
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a:ocaml_modules/odoc/src/html/html_generator.ml
     end
 
     val var_prefix : string
@@ -133,6 +141,7 @@ module type Syntax = sig
            list
     end
   end
+<<<<<<< HEAD:ocaml_modules/odoc/src/html/html_generator.ml
 
   module Mod : sig
     val open_tag : string
@@ -244,6 +253,119 @@ module type Html_generator = sig
   end
 end
 
+=======
+
+  module Mod : sig
+    val open_tag : string
+
+    val close_tag : string
+
+    val close_tag_semicolon : bool
+
+    val include_semicolon : bool
+
+    val functor_keyword : bool
+  end
+
+  module Class : sig
+    val open_tag : string
+
+    val close_tag : string
+  end
+
+  module Value : sig
+    val variable_keyword : string
+
+    val semicolon : bool
+  end
+end
+
+(**
+   Main module signature.
+ *)
+module type Html_generator = sig
+  module Top_level_markup : sig
+    val lay_out :
+         item_to_id:('item -> string option)
+      -> item_to_spec:('item -> string option)
+      -> render_leaf_item:('item -> rendered_item * Comment.docs)
+      -> render_nested_article:('item -> rendered_item * Comment.docs * Html_tree.t list)
+      -> (_, 'item) tagged_item list
+      -> rendered_item * toc * Html_tree.t list
+
+    val render_toc :
+      toc -> [> Html_types.flow5_without_header_footer] Html.elt list
+  end
+
+  module Type_declaration : sig
+    val type_decl : Lang.TypeDecl.t -> rendered_item * Comment.docs
+
+    val extension : Lang.Extension.t -> rendered_item * Comment.docs
+
+    val exn : Lang.Exception.t -> rendered_item * Comment.docs
+
+    val format_params :
+         ?delim:[`parens | `brackets]
+      -> Lang.TypeDecl.param list
+      -> [> `PCDATA] Html.elt
+
+    val format_manifest :
+         ?compact_variants:bool
+      -> Lang.TypeDecl.Equation.t
+      -> ('inner, 'outer) text Html.elt list * bool
+
+    val format_constraints :
+         (Lang.TypeExpr.t * Lang.TypeExpr.t) list
+      -> ('inner, 'outer) text Html.elt list
+  end
+
+  module Type_expression : sig
+    val type_expr :
+         ?needs_parentheses:bool
+      -> Lang.TypeExpr.t
+      -> ('inner, 'outer) text Html.elt list
+
+    val format_type_path :
+         delim:[`parens | `brackets]
+      -> Lang.TypeExpr.t list
+      -> ('inner, 'outer) text Html.elt list
+      -> ('inner, 'outer) text Html.elt list
+  end
+
+  module Value : sig
+    val value : Lang.Value.t -> rendered_item * Comment.docs
+
+    val external_ : Lang.External.t -> rendered_item * Comment.docs
+  end
+
+  module Page : sig
+    val compilation_unit :
+      ?theme_uri:Html_tree.uri -> Lang.Compilation_unit.t -> Html_tree.t
+
+    val page : ?theme_uri:Html_tree.uri -> Lang.Page.t -> Html_tree.t
+  end
+
+  module Class : sig
+    val class_ :
+         ?theme_uri:Html_tree.uri
+      -> Lang.Class.t
+      -> rendered_item * Comment.docs * Html_tree.t list
+
+    val class_type :
+         ?theme_uri:Html_tree.uri
+      -> Lang.ClassType.t
+      -> rendered_item * Comment.docs * Html_tree.t list
+  end
+
+  module Module : sig
+    val signature :
+         ?theme_uri:Html_tree.uri
+      -> Lang.Signature.t
+      -> rendered_item * toc * Html_tree.t list
+  end
+end
+
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a:ocaml_modules/odoc/src/html/html_generator.ml
 (**
    Main functor to create an {!To_html_tree.Html_generator}
  *)
@@ -297,6 +419,7 @@ struct
     let fields =
       list_concat_map t.fields ~f:(function
         | Model.Lang.TypeExpr.Object.Method {name; type_} ->
+<<<<<<< HEAD:ocaml_modules/odoc/src/html/html_generator.ml
             (Html.pcdata (name ^ " : ") :: type_expr type_)
             @ [Html.pcdata Syn.Obj.field_separator]
         | Inherit type_ ->
@@ -306,6 +429,17 @@ struct
         if t.open_ then Html.pcdata Syn.Obj.open_tag_extendable
         else Html.pcdata Syn.Obj.open_tag_closed
     in
+=======
+            (Html.pcdata (name ^ Syn.Type.annotation_separator) :: type_expr type_)
+            @ [Html.pcdata Syn.Obj.field_separator]
+        | Inherit type_ ->
+            type_expr type_ @ [Html.pcdata Syn.Obj.field_separator] )
+    in
+    let open_tag =
+        if t.open_ then Html.pcdata Syn.Obj.open_tag_extendable
+        else Html.pcdata Syn.Obj.open_tag_closed
+    in
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a:ocaml_modules/odoc/src/html/html_generator.ml
     let close_tag =
         if t.open_ then Html.pcdata Syn.Obj.close_tag_extendable
         else Html.pcdata Syn.Obj.close_tag_closed
@@ -458,7 +592,11 @@ struct
             ; Html.code (
                 (if mutable_ then Markup.keyword "mutable " else Html.pcdata "")
                 :: (Html.pcdata name)
+<<<<<<< HEAD:ocaml_modules/odoc/src/html/html_generator.ml
                 :: (Html.pcdata Syn.Type.Record.label_value_separator)
+=======
+                :: (Html.pcdata Syn.Type.annotation_separator)
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a:ocaml_modules/odoc/src/html/html_generator.ml
                 :: (type_expr typ)
                 @  [Html.pcdata Syn.Type.Record.field_separator]
               )
@@ -526,13 +664,17 @@ struct
               if Syn.Type.Variant.parenthesize_params
               then Html.pcdata "(" :: params @ [ Html.pcdata ")" ]
               else
+<<<<<<< HEAD:ocaml_modules/odoc/src/html/html_generator.ml
                 Markup.keyword (if is_gadt then " : " else " of ") :: params
+=======
+                Markup.keyword (if is_gadt then Syn.Type.annotation_separator else " of ") :: params
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a:ocaml_modules/odoc/src/html/html_generator.ml
             )
             @ ret_type
           )
         ]
       | Record fields ->
-        Html.code [ cstr; Markup.keyword (if is_gadt then " : " else " of ") ]
+        Html.code [ cstr; Markup.keyword (if is_gadt then Syn.Type.annotation_separator else " of ") ]
         :: record fields
         @ [ Html.code ret_type ]
 
@@ -780,7 +922,7 @@ struct
     let value =
       Markup.keyword (Syn.Value.variable_keyword ^ " ") ::
       Html.pcdata name ::
-      Html.pcdata " : " ::
+      Html.pcdata Syn.Type.annotation_separator ::
       type_expr t.type_
       @ ( if Syn.Value.semicolon then [ Markup.keyword ";" ] else [] )
     in
@@ -791,7 +933,7 @@ struct
     let external_ =
       Markup.keyword "external " ::
       Html.pcdata name ::
-      Html.pcdata " : " ::
+      Html.pcdata Syn.Type.annotation_separator ::
       type_expr t.type_ @
       Html.pcdata " = " ::
       Syn.Type.External.handle_primitives t.primitives
@@ -842,7 +984,7 @@ sig
     item_to_id:('item -> string option) ->
     item_to_spec:('item -> string option) ->
     render_leaf_item:('item -> rendered_item * Comment.docs) ->
-    render_nested_article:('item -> rendered_item * Html_tree.t list) ->
+    render_nested_article:('item -> rendered_item * Comment.docs * Html_tree.t list) ->
     ((_, 'item) tagged_item) list ->
       rendered_item * toc * Html_tree.t list
 
@@ -988,7 +1130,7 @@ struct
     item_to_id : 'item -> string option;
     item_to_spec : 'item -> string option;
     render_leaf_item : 'item -> rendered_item * Comment.docs;
-    render_nested_article : 'item -> rendered_item * Html_tree.t list;
+    render_nested_article : 'item -> rendered_item * Comment.docs * Html_tree.t list;
   }
 
   let finish_section state =
@@ -999,10 +1141,12 @@ struct
 
   let is_deeper_section_level =
     let level_to_int = function
-      | `Title -> 1
-      | `Section -> 2
-      | `Subsection -> 3
-      | `Subsubsection -> 4
+      | `Title -> 0
+      | `Section -> 1
+      | `Subsection -> 2
+      | `Subsubsection -> 3
+      | `Paragraph -> 4
+      | `Subparagraph -> 5
     in
     fun other_level ~than ->
       level_to_int other_level > level_to_int than
@@ -1032,14 +1176,25 @@ struct
           }
 
       | `Nested_article item ->
-        let html, subpages = state.render_nested_article item in
+        let html, maybe_docs, subpages = state.render_nested_article item in
         let html, maybe_id = add_anchor state.item_to_id item html in
         let a = add_spec state.item_to_spec item maybe_id in
-        section_items section_level {state with
-            input_items;
-            acc_html = (Html.article ~a html)::state.acc_html;
-            acc_subpages = state.acc_subpages @ subpages;
-          }
+        let html =
+          match maybe_docs with
+          | [] -> Html.div ~a html
+          | docs ->
+            let docs = Documentation.first_to_html docs in
+            let docs = (docs :> (Html_types.dd_content Html.elt) list) in
+            (* Temporary coercion until https://github.com/ocsigen/tyxml/pull/193
+               is released in TyXML; see also type [rendered_item]. *)
+            let html = List.map Html.Unsafe.coerce_elt html in
+            Html.dl [Html.dt ~a html; Html.dd docs]
+        in
+        section_items section_level { state with
+          input_items;
+          acc_html = html::state.acc_html;
+          acc_subpages = state.acc_subpages @ subpages;
+        }
 
       | `Comment `Stop ->
         let input_items = skip_everything_until_next_stop_comment input_items in
@@ -1186,11 +1341,11 @@ module Class :
 sig
   val class_ :
     ?theme_uri:Html_tree.uri -> Lang.Class.t ->
-      ((Html_types.article_content Html.elt) list) * (Html_tree.t list)
+      rendered_item * Comment.docs * Html_tree.t list
 
   val class_type :
     ?theme_uri:Html_tree.uri -> Lang.ClassType.t ->
-      ((Html_types.article_content Html.elt) list) * (Html_tree.t list)
+      rendered_item * Comment.docs * Html_tree.t list
 end =
 struct
   let class_signature_item_to_id : Lang.ClassSignature.item -> _ = function
@@ -1249,7 +1404,7 @@ struct
       private_ ::
       virtual_ ::
       Html.pcdata name ::
-      Html.pcdata " : " ::
+      Html.pcdata Syn.Type.annotation_separator ::
       type_expr t.type_
     in
     [Html.code method_], t.doc
@@ -1265,7 +1420,7 @@ struct
       mutable_ ::
       virtual_ ::
       Html.pcdata name ::
-      Html.pcdata " : " ::
+      Html.pcdata Syn.Type.annotation_separator ::
       type_expr t.type_
     in
     [Html.code val_], t.doc
@@ -1324,14 +1479,12 @@ struct
       virtual_ ::
       params ::
       cname ::
-      Html.pcdata " : " ::
+      Html.pcdata Syn.Type.annotation_separator ::
       cd
     in
-    let region =
-      [Html.code class_def_content]
-        (* ~doc:(relax_docs_type (Documentation.first_to_html t.doc)) *)
-    in
-    region, subtree
+    let region = [Html.code class_def_content] in
+    region, t.doc, subtree
+
 
   and class_type ?theme_uri (t : Model.Lang.ClassType.t) =
     let name = Paths.Identifier.name t.id in
@@ -1364,11 +1517,8 @@ struct
       Html.pcdata " = " ::
       expr
     in
-    let region =
-      [Html.code ctyp]
-        (* ~doc:(relax_docs_type (Documentation.first_to_html t.doc)) *)
-    in
-    region, subtree
+    let region = [Html.code ctyp] in
+    region, t.doc, subtree
 end
 open Class
 
@@ -1376,9 +1526,8 @@ open Class
 
 module Module :
 sig
-  val signature :
-    ?theme_uri:Html_tree.uri -> Lang.Signature.t ->
-      (Html_types.div_content Html.elt) list * toc * Html_tree.t list
+  val signature : ?theme_uri:Html_tree.uri -> Lang.Signature.t ->
+    rendered_item * toc * Html_tree.t list
 end =
 struct
   let signature_item_to_id : Lang.Signature.item -> _ = function
@@ -1463,7 +1612,7 @@ struct
       | None ->
         (
           Html.pcdata (Paths.Identifier.name arg.id) ::
-          Html.pcdata " : " ::
+          Html.pcdata Syn.Type.annotation_separator ::
           mty (Paths.Identifier.signature_of_module arg.id) arg.expr
         ), []
       | Some expansion ->
@@ -1482,7 +1631,7 @@ struct
         Html_tree.leave ();
         (
           Html.a ~a:[ a_href ~kind:`Arg link_name ] [Html.pcdata name] ::
-          Html.pcdata " : " ::
+          Html.pcdata Syn.Type.annotation_separator ::
           mty (Paths.Identifier.signature_of_module arg.id) arg.expr
         ), [subtree]
     in
@@ -1520,7 +1669,7 @@ struct
 
   and module_
       : ?theme_uri:Html_tree.uri -> Model.Lang.Module.t ->
-          Html_types.article_content Html.elt list * Html_tree.t list
+          rendered_item * Comment.docs * Html_tree.t list
       = fun ?theme_uri t ->
     let modname = Paths.Identifier.name t.id in
     let md =
@@ -1545,28 +1694,30 @@ struct
         in
         Html_tree.enter ~kind:(`Mod) modname;
         let doc = Documentation.to_html t.doc in
-        let doc = (doc :> (Html_types.div_content Html.elt) list) in
         let expansion, subpages = module_expansion ?theme_uri expansion in
-        let expansion =
-          match doc with
-          | [] -> expansion
-          | _ -> Html.div ~a:[ Html.a_class ["doc"] ] doc :: expansion
-        in
-        let subtree = Html_tree.make ?theme_uri expansion subpages in
+        let subtree = Html_tree.make ~header_docs:doc ?theme_uri expansion subpages in
         Html_tree.leave ();
         Html.a ~a:[ a_href ~kind:`Mod modname ] [Html.pcdata modname], [subtree]
     in
+<<<<<<< HEAD:ocaml_modules/odoc/src/html/html_generator.ml
     let md_def_content = Markup.keyword "module " :: modname :: md @ ( if Syn.Mod.close_tag_semicolon then [ Markup.keyword ";" ] else [] ) in
     let region =
       [Html.code md_def_content]
         (* ~doc:(relax_docs_type (Documentation.first_to_html t.doc)) *)
     in
     region, subtree
+=======
+    let md_def_content =
+      Markup.keyword "module " :: modname :: md @
+      (if Syn.Mod.close_tag_semicolon then [Markup.keyword ";"] else []) in
+    let region = [Html.code md_def_content] in
+    region, t.doc, subtree
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a:ocaml_modules/odoc/src/html/html_generator.ml
 
   and module_decl (base : Paths.Identifier.signature) md =
     begin match md with
     | Alias _ -> Html.pcdata " = "
-    | ModuleType _ -> Html.pcdata " : "
+    | ModuleType _ -> Html.pcdata Syn.Type.annotation_separator
     end ::
     module_decl' base md
 
@@ -1601,7 +1752,7 @@ struct
         begin match expr with
         | Signature _
         | Path _ -> Html.pcdata " = "
-        | _ -> Html.pcdata " : "
+        | _ -> Html.pcdata Syn.Type.annotation_separator
         end ::
         mty (Paths.Identifier.signature_of_module_type t.id) expr
     in
@@ -1639,11 +1790,8 @@ struct
         @ ( if Syn.Mod.close_tag_semicolon then [ Markup.keyword ";" ] else [] )
       )
     in
-    let region =
-      [Html.code mty_def]
-        (* ~doc:(relax_docs_type (Documentation.first_to_html t.doc)) *)
-    in
-    region, subtree
+    let region = [Html.code mty_def] in
+    region, t.doc, subtree
 
   and mty
     : 'inner_row 'outer_row.
@@ -1669,7 +1817,11 @@ struct
         | href -> Html.a ~a:[ Html.a_href href ] [ to_print ]
       in
       ( if Syn.Mod.functor_keyword then [ Markup.keyword "functor" ] else [] ) @
+<<<<<<< HEAD:ocaml_modules/odoc/src/html/html_generator.ml
       Html.pcdata " (" :: name :: Html.pcdata " : " ::
+=======
+      Html.pcdata " (" :: name :: Html.pcdata Syn.Type.annotation_separator ::
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a:ocaml_modules/odoc/src/html/html_generator.ml
       mty base arg.expr @
       [Html.pcdata ")"; Html.pcdata " "] @ Syn.Type.arrow :: Html.pcdata " " ::
       mty base expr
@@ -1765,6 +1917,7 @@ struct
           [Html.div ~a:[Html.a_class ["doc"]]
             (docs @ incl)])
     ],
+    [],
     tree
 end
 open Module

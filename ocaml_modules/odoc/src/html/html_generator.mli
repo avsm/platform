@@ -48,6 +48,11 @@ module type Syntax = sig
   end
 
   module Type : sig
+<<<<<<< HEAD
+=======
+    val annotation_separator : string
+
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
     val handle_constructor_params :
          ('inner, 'outer) text Html.elt list
       -> ('inner, 'outer) text Html.elt list
@@ -78,8 +83,11 @@ module type Syntax = sig
 
     module Record : sig
       val field_separator : string
+<<<<<<< HEAD
 
       val label_value_separator : string
+=======
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
     end
 
     val var_prefix : string
@@ -140,7 +148,11 @@ module type Html_generator = sig
          item_to_id:('item -> string option)
       -> item_to_spec:('item -> string option)
       -> render_leaf_item:('item -> rendered_item * Comment.docs)
+<<<<<<< HEAD
       -> render_nested_article:('item -> rendered_item * Html_tree.t list)
+=======
+      -> render_nested_article:('item -> rendered_item * Comment.docs * Html_tree.t list)
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
       -> (_, 'item) tagged_item list
       -> rendered_item * toc * Html_tree.t list
 
@@ -200,12 +212,20 @@ module type Html_generator = sig
     val class_ :
          ?theme_uri:Html_tree.uri
       -> Lang.Class.t
+<<<<<<< HEAD
       -> Html_types.article_content Html.elt list * Html_tree.t list
+=======
+      -> rendered_item * Comment.docs * Html_tree.t list
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
 
     val class_type :
          ?theme_uri:Html_tree.uri
       -> Lang.ClassType.t
+<<<<<<< HEAD
       -> Html_types.article_content Html.elt list * Html_tree.t list
+=======
+      -> rendered_item * Comment.docs * Html_tree.t list
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
   end
 
   module Module : sig

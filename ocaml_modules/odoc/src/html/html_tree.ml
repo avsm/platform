@@ -66,7 +66,11 @@ module Relative_link = struct
     exception Not_linkable
     exception Can't_stop_before
 
+<<<<<<< HEAD
     val href : ?root_uri:string -> stop_before:bool -> _ Identifier.t -> string
+=======
+    val href : ?xref_base_uri:string -> stop_before:bool -> _ Identifier.t -> string
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
   end = struct
     exception Not_linkable
 
@@ -78,10 +82,17 @@ module Relative_link = struct
 
     exception Can't_stop_before
 
+<<<<<<< HEAD
     let href ?root_uri ~stop_before id =
       match root_uri, Url.from_identifier ~stop_before id with
       (* If root_uri is defined, do not perform relative URI resolution. *)
       | Some root_uri, Ok { Url. page; anchor; kind } ->
+=======
+    let href ?xref_base_uri ~stop_before id =
+      match xref_base_uri, Url.from_identifier ~stop_before id with
+      (* If xref_base_uri is defined, do not perform relative URI resolution. *)
+      | Some xref_base_uri, Ok { Url. page; anchor; kind } ->
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
         let absolute_target =
           List.rev (
             if !semantic_uris || kind = "page" then
@@ -90,7 +101,11 @@ module Relative_link = struct
               "index.html" :: page
           )
         in
+<<<<<<< HEAD
         let page = root_uri ^ String.concat "/" absolute_target in
+=======
+        let page = xref_base_uri ^ String.concat "/" absolute_target in
+>>>>>>> 6c0d22059a376f2e5e7fcfdde3014740a747ec3a
         begin match anchor with
         | "" -> page
         | anchor -> page ^ "#" ^ anchor

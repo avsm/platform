@@ -65,6 +65,7 @@ type 'a t = {
   json       : bool;
   verbose    : bool;
   test_dir   : string;
+  run_id     : string;
 
 }
 
@@ -81,9 +82,10 @@ let empty () =
   let show_errors = false in
   let json = false in
   let test_dir = Sys.getcwd () in
+  let run_id = Uuidm.to_string ~upper:true Uuidm.nil in
   { name; errors; tests; paths; doc; speed;
     max_label; speed_level;
-    show_errors; json; verbose; test_dir }
+    show_errors; json; verbose; test_dir; run_id }
 
 let compare_speed_level s1 s2 =
   match s1, s2 with
@@ -154,7 +156,11 @@ let short_string_of_path (Path (n, i)) = Printf.sprintf "%s.%03d" n i
 let file_of_path path ext =
   Printf.sprintf "%s.%s" (short_string_of_path path) ext
 
-let output_file t path = Filename.concat t.test_dir (file_of_path path "output")
+let output_dir t =
+  Filename.concat t.test_dir t.run_id
+
+let output_file t path =
+  Filename.concat (output_dir t) (file_of_path path "output")
 
 let mkdir_p path mode =
   let rec mk parent = function
@@ -169,7 +175,8 @@ let mkdir_p path mode =
   | ""::xs -> mk "/" xs | xs -> mk "." xs
 
 let prepare t =
-  if not (Sys.file_exists t.test_dir) then mkdir_p t.test_dir 0o755
+  let test_dir = output_dir t in
+  if not (Sys.file_exists test_dir) then mkdir_p test_dir 0o755
 
 let color c ppf fmt = Fmt.(styled c string) ppf fmt
 let red_s fmt = color `Red fmt
@@ -314,10 +321,9 @@ let skip_label (path, _) = path, skip_fun
 let filter_test labels (test: path * 'a rrun) =
   let Path (n, i), _ = test in
   match labels with
-  | []    -> Some test
-  | [m]   -> if n=m then Some test else None
-  | [m;j] -> if n=m && int_of_string j = i then Some test else None
-  | _     -> failwith "filter_test"
+  | None, _ -> Some test
+  | Some m, None   -> if n=m then Some test else None
+  | Some m, Some j -> if n=m && j = i then Some test else None
 
 let map_test f l = List.map (fun (path, test) -> path, f path test) l
 
@@ -384,7 +390,9 @@ let show_result t result =
     in
     let full_logs ppf =
       if t.verbose then Fmt.string ppf ""
-      else Fmt.pf ppf "The full test results are available in `%s`.\n" t.test_dir
+      else
+        Fmt.pf ppf "The full test results are available in `%s`.\n"
+          (output_dir t)
     in
     Fmt.pr "%t%t in %.3fs. %d test%s run.\n%!"
       full_logs test_results result.time result.success (s result.success)
@@ -458,7 +466,7 @@ let run_registred_tests t () args =
 let run_subtest t labels () args =
   let is_empty = filter_tests ~subst:false labels t.tests = [] in
   if is_empty then (
-    Fmt.(pf stderr) "%a\n" red "Invalid request!";
+    Fmt.(pf stderr) "%a\n" red "Invalid request (no tests to run, filter skipped everything)!";
     exit 1
   ) else
     let tests = filter_tests ~subst:true labels t.tests in
@@ -473,8 +481,9 @@ let json =
   Arg.(value & flag & info ["json"] ~docv:"" ~doc)
 
 let test_dir =
+  let default_dir = Filename.concat (Sys.getcwd ()) "_build/_tests" in
   let doc = "Where to store the log files of the tests." in
-  Arg.(value & opt dir "_build/_tests"  & info ["o"] ~docv:"DIR" ~doc)
+  Arg.(value & opt dir default_dir & info ["o"] ~docv:"DIR" ~doc)
 
 let verbose =
   let env = Arg.env_var "ALCOTEST_VERBOSE" in
@@ -510,10 +519,15 @@ let default_cmd t args =
 
 let test_cmd t args =
   let doc = "Run a given test." in
-  let label =
-    let doc = "The list of labels identifying a subsets of the tests to run" in
-    Arg.(value & pos_all string [] & info [] ~doc ~docv:"LABEL")
+  let testname =
+    let doc = "The label (name) of the test identifying a subset of the tests to run" in
+    Arg.(value & pos 0 (some string) None & info [] ~doc ~docv:"NAME")
   in
+  let testcase =
+    let doc = "The test case number identifying a single test to run" in
+    Arg.(value & pos 1 (some int) None & info [] ~doc ~docv:"TESTCASE")
+  in
+  let label = Term.(pure (fun n t -> n, t) $ testname $ testcase) in
   Term.(pure run_subtest $ of_env t $ label $ set_color $ args),
   Term.info "test" ~doc
 
@@ -522,9 +536,15 @@ let list_cmd t =
   Term.(pure list_tests $ of_env t $ set_color),
   Term.info "list" ~doc
 
+let random_state = Random.State.make_self_init ()
+
 let run_with_args ?(and_exit = true) ?argv name args (tl: 'a test list) =
+  let run_id =
+    Uuidm.v4_gen random_state ()
+    |> Uuidm.to_string ~upper:true in
   Fmt.(pf stdout) "Testing %a.\n" bold_s name;
-  let t = empty () in
+  Fmt.(pf stdout) "This run has ID `%s`.\n" run_id;
+  let t = { (empty ()) with run_id=run_id} in
   let t = List.fold_left (fun t (name, tests) -> register t name tests) t tl in
   let choices = [
     list_cmd t;
@@ -673,3 +693,5 @@ let line (oc:out_channel) ?color c =
   in
   let str: string = Fmt.(to_to_string @@ fun ppf -> line ppf ?color) c in
   Printf.fprintf oc "%s" str
+
+let () = at_exit (Format.pp_print_flush Format.err_formatter)
