@@ -1,5 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 0-7:\
-   \n'6': bad heading level (0-5 allowed)"))
- (warnings ()))

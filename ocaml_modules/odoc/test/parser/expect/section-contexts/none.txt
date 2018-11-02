@@ -1,5 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, characters 0-7:\
-   \nheadings not allowed in this comment"))
- (warnings ()))

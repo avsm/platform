@@ -9,7 +9,7 @@ if [ "$MODE" != "native" ]; then
   echo Forcing a local compiler to be built for $MODE
   WITH_OCAML=1
 elif [ -x "$(command -v ocamlc)" ]; then
-  if [ "$(ocamlc -version | tr -d '\015')" != "4.07.0" ]; then
+  if [ "$(ocamlc -version | tr -d '\015')" != "4.07.1+rc1" ]; then
     echo 'OCaml compiler detected is not 4.07.0, so building local version'
     WITH_OCAML=1
   else

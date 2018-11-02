@@ -1,5 +1,0 @@
-((output
-  (error
-    "File \"f.ml\", line 1, character 0 to line 2, character 4:\
-   \nline break is not allowed in '[...]' (code)"))
- (warnings ()))
