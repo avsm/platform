@@ -9,17 +9,17 @@ if [ "$MODE" != "native" ]; then
   echo Forcing a local compiler to be built for $MODE
   WITH_OCAML=1
 elif [ -x "$(command -v ocamlc)" ]; then
-  if [ "$(ocamlc -version | tr -d '\015')" != "4.07.1+rc1" ]; then
-    echo 'OCaml compiler detected is not 4.07.0, so building local version'
+  if [ "$(ocamlc -version | tr -d '\015')" != "4.07.1" ]; then
+    echo 'OCaml compiler detected is not 4.07.1, so building local version'
     WITH_OCAML=1
   else
-    echo 'Using system OCaml 4.07 compiler'
+    echo 'Using system OCaml 4.07.1 compiler'
   fi
 else
   if [ -x $(pwd)/_obj/bin/ocamlc ] ; then
     export PATH=$(pwd)/_obj/bin:$PATH
   else
-    echo 'OCaml compiler not detected, building a local version of 4.07.0'
+    echo 'OCaml compiler not detected, building a local version of 4.07.1'
     WITH_OCAML=1
   fi
 fi
@@ -33,10 +33,6 @@ fi
 
 if [ $WITH_OCAML -eq 1 ]; then
   PREFIX="`pwd`/_obj"
-
-  if [ ! -e bootstrap/ocaml/Makefile -a -d .git ] ; then
-    git submodule update --init bootstrap/ocaml
-  fi
 
   cd bootstrap/ocaml
 
@@ -121,13 +117,6 @@ fi
 
 cd bootstrap/dune
 if [ ! -x _build/install/default/bin/dune ] ; then
-  if [ ! -e Makefile -a -d ../../.git ] ; then
-    cd ../..
-    git submodule update --init bootstrap/dune
-    cd bootstrap/dune
-  fi
-#  git remote add dra27 https://github.com/dra27/dune.git -f
-#  git checkout dra27/let-syntax-crlf
   $MAKE release
 else
   ./boot.exe --release || (rm -f boot.exe && $MAKE)
