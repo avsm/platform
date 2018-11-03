@@ -1,0 +1,37 @@
+language: node_js
+node_js:
+  - "10"
+
+env:
+  - OCAML=4.02.3
+  - OCAML=4.02.3+buckle-master
+  - OCAML=4.03.0
+  - OCAML=4.04.2
+  - OCAML=4.05.0
+  - OCAML=4.06.1
+  - OCAML=4.07.0
+  - ESY_BUILD=YES ESY__CACHE=/home/travis/.esy
+
+cache:
+  directories:
+  - /home/travis/.opam
+  - /home/travis/.esy
+  - /home/travis/.nvm
+  - ./_build/default
+
+install:
+  - ./test/ci/install-deps.sh
+  - "if [[ $OCAML ]]; then eval `opam config env`; fi"
+  - ./test/ci/print-versions.sh
+
+before_script:
+  - ./test/ci/clean-scratch.sh
+
+script: ./test/ci/build.sh
+
+notifications:
+  email:
+    recipients:
+      - antonbachin@yahoo.com
+    on_success: always
+    on_failure: always

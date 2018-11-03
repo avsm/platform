@@ -1,0 +1,26 @@
+opam-version: "1.2"
+
+version: "dev"
+
+synopsis: "PPX for building statically correct TyXML documents using the HTML and SVG syntax"
+
+maintainer: "dev@ocsigen.org"
+author: "The ocsigen team"
+homepage: "https://ocsigen.org/tyxml/"
+bug-reports: "https://github.com/ocsigen/tyxml/issues"
+doc: "https://ocsigen.org/tyxml/manual/"
+dev-repo: "https://github.com/ocsigen/tyxml.git"
+
+build: [
+  ["dune" "build" "-p" name "-j" jobs "@install"]
+  ["dune" "runtest" "-p" name] {with-test}
+]
+
+depends: [
+  "dune" {build}
+  "tyxml"
+  "markup" {>= "0.7.2"}
+  "ppx_tools_versioned"
+  "alcotest" {test}
+]
+available: ocaml-version >= "4.02"
