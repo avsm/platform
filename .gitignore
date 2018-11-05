@@ -3,3 +3,8 @@ _obj
 _opam
 .merlin
 *.install
+bootstrap/ocaml/config/auto-aux/Makefile
+bootstrap/ocaml/config/auto-aux/hasgot.c
+bootstrap/ocaml/config/auto-aux/m.h
+bootstrap/ocaml/config/auto-aux/s.h
+bootstrap/ocaml/config/auto-aux/tst
