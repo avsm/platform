@@ -1,3 +1,0 @@
-File "t04bad.ml", line 10, characters 15-41:
-Error: The definition of A.t contains a cycle:
-       int * A.t
