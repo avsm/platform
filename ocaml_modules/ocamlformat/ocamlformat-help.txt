@@ -147,9 +147,6 @@ OPTIONS (CODE FORMATTING STYLE)
            Control whether or not to indicate nested or-pattern using
            indentation.
 
-       --no-parse-docstrings
-           Parse and format docstrings.
-
        --no-wrap-fun-args
            Style for function call and function definition.
 
@@ -157,15 +154,34 @@ OPTIONS (CODE FORMATTING STYLE)
            Attempt to generate output which does not change (much) when
            post-processing with ocp-indent.
 
+       --parens-ite
+           Uses parentheses around if-then-else branches that spread across
+           multiple lines.
+
        --parens-tuple={always|multi-line-only}
-           Parens tuples. always always uses parentheses around tuples.
-           multi-line-only mode will try to skip parens for single-line
-           tuples. The default value is always.
+           Parens tuple expressions. always always uses parentheses around
+           tuples. multi-line-only mode will try to skip parens for
+           single-line tuples. The default value is always.
+
+       --parens-tuple-patterns={multi-line-only|always}
+           Parens tuple patterns. multi-line-only mode will try to skip
+           parens for single-line tuple patterns. always always uses
+           parentheses around tuples patterns. The default value is
+           multi-line-only.
+
+       --parse-docstrings
+           Parse and format docstrings.
 
        --sequence-style={separator|terminator}
            Style of sequence. separator puts spaces before and after
            semicolons. terminator only puts spaces after semicolons. The
            default value is separator.
+
+       --single-case={compact|sparse}
+           Style of pattern matching expressions with only a single case.
+           compact will try to format a single case on a single line. sparse
+           will always break the line before a single case. The default value
+           is compact.
 
        --type-decl={compact|sparse}
            Style of type declaration. compact will try to format constructors

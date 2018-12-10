@@ -876,7 +876,7 @@ and fmt_row_field c ctx = function
       let doc, atrs = doc_atrs atrs in
       hvbox 0
         ( fmt_str_loc c ~pre:"`" name
-        $ fmt_if (not (const && List.is_empty typs)) " of "
+        $ fmt_if (not (const && List.is_empty typs)) " of@ "
         $ fmt_if (const && not (List.is_empty typs)) " & "
         $ list typs "@ & " (sub_typ ~ctx >> fmt_core_type c)
         $ fmt_attributes c ~key:"@" atrs
@@ -945,6 +945,9 @@ and fmt_pattern c ?pro ?parens ({ctx= ctx0; ast= pat} as xpat) =
             "Ppat_interval is only produced by the sequence of 3 tokens: \
              CONSTANT-DOTDOT-CONSTANT " )
   | Ppat_tuple pats ->
+      let parens =
+        parens || Poly.(c.conf.parens_tuple_patterns = `Always)
+      in
       hvbox 0
         (wrap_if_breaks "( " "@ )"
            (wrap_if_fits_and parens "(" ")"
@@ -1027,7 +1030,8 @@ and fmt_pattern c ?pro ?parens ({ctx= ctx0; ast= pat} as xpat) =
       let nested =
         match ctx0 with
         | Pat {ppat_desc= Ppat_or _} -> true
-        | Exp {pexp_desc= Pexp_match _ | Pexp_function _} -> true
+        | Exp {pexp_desc= Pexp_match _ | Pexp_try _ | Pexp_function _} ->
+            true
         | _ -> false
       in
       let xpats = sugar_or_pat c xpat in
@@ -1937,12 +1941,20 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
         | Pexp_try _ -> "try"
         | _ -> impossible "previous match"
       in
-      match cs with
-      | []
-       |_ :: _ :: _
-       |[ { pc_lhs=
-              {ppat_desc= Ppat_or _ | Ppat_alias ({ppat_desc= Ppat_or _}, _)}
-          } ] ->
+      let compact =
+        match cs with
+        | []
+         |_ :: _ :: _
+         |[ { pc_lhs=
+                { ppat_desc=
+                    Ppat_or _ | Ppat_alias ({ppat_desc= Ppat_or _}, _) } }
+          ] ->
+            None
+        | [x] ->
+            if Poly.(c.conf.single_case = `Compact) then Some x else None
+      in
+      match compact with
+      | None ->
           let leading_cmt = Cmts.fmt_before c.cmts e0.pexp_loc in
           hvbox 0
             (wrap_fits_breaks_if ~space:false c.conf parens "(" ")"
@@ -1955,7 +1967,7 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
                    $ fmt_expression c (sub_exp ~ctx e0)
                    $ fmt "@ with" )
                $ fmt "@ " $ fmt_cases c ctx cs ))
-      | [{pc_lhs; pc_guard; pc_rhs}] ->
+      | Some {pc_lhs; pc_guard; pc_rhs} ->
           (* side effects of Cmts.fmt_before before [fmt_pattern] is
              important *)
           let xpc_rhs = sub_exp ~ctx pc_rhs in
@@ -3155,7 +3167,7 @@ and fmt_signature_item c {ast= si} =
       $ fmt_attributes c ~key:"@@@" atrs
   | Psig_exception exc ->
       hvbox 2
-        (fmt_exception ~pre:(fmt "exception@ ") c (fmt " of ") ctx exc)
+        (fmt_exception ~pre:(fmt "exception@ ") c (fmt " of@ ") ctx exc)
   | Psig_extension (ext, atrs) ->
       hvbox 0
         ( fmt_extension c ctx "%%" ext
@@ -3719,9 +3731,10 @@ and fmt_structure c ctx itms =
     List.group itms ~break:(fun (itmI, cI) (itmJ, cJ) ->
         Ast.break_between c.cmts (Str itmI, cI.conf) (Str itmJ, cJ.conf) )
   in
+  let break_struct = c.conf.break_struct || Poly.(ctx = Top) in
   let fmt_grp ~last:last_grp itms =
     list_fl itms (fun ~first ~last (itm, c) ->
-        fmt_if_k (not first) (fmt_or c.conf.break_struct "@\n" "@ ")
+        fmt_if_k (not first) (fmt_or break_struct "@\n" "@ ")
         $ maybe_disabled c itm.pstr_loc []
           @@ fun c ->
           fmt_structure_item c ~last:(last && last_grp) (sub_str ~ctx itm)
@@ -3729,10 +3742,10 @@ and fmt_structure c ctx itms =
   in
   hvbox 0
     (list_fl grps (fun ~first ~last grp ->
-         fmt_if (c.conf.break_struct && not first) "\n@\n"
-         $ fmt_if ((not c.conf.break_struct) && not first) "@;<1000 0>"
+         fmt_if (break_struct && not first) "\n@\n"
+         $ fmt_if ((not break_struct) && not first) "@;<1000 0>"
          $ fmt_grp ~last grp
-         $ fits_breaks_if ((not c.conf.break_struct) && not last) "" "\n" ))
+         $ fits_breaks_if ((not break_struct) && not last) "" "\n" ))
 
 and fmt_structure_item c ~last:last_item ?ext {ctx; ast= si} =
   protect (Str si)

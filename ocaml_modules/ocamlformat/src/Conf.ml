@@ -38,10 +38,13 @@ type t =
   ; max_iters: int
   ; module_item_spacing: [`Compact | `Sparse]
   ; ocp_indent_compat: bool
+  ; parens_ite: bool
   ; parens_tuple: [`Always | `Multi_line_only]
+  ; parens_tuple_patterns: [`Always | `Multi_line_only]
   ; parse_docstrings: bool
   ; quiet: bool
   ; sequence_style: [`Separator | `Terminator]
+  ; single_case: [`Compact | `Sparse]
   ; type_decl: [`Compact | `Sparse]
   ; wrap_comments: bool
   ; wrap_fun_args: bool }
@@ -815,8 +818,18 @@ module Formatting = struct
       (fun conf x -> {conf with ocp_indent_compat= x})
       (fun conf -> conf.ocp_indent_compat)
 
+  let parens_ite =
+    let doc =
+      "Uses parentheses around if-then-else branches that spread across \
+       multiple lines."
+    in
+    let names = ["parens-ite"] in
+    C.flag ~default:false ~names ~doc ~section
+      (fun conf x -> {conf with parens_ite= x})
+      (fun conf -> conf.parens_ite)
+
   let parens_tuple =
-    let doc = "Parens tuples." in
+    let doc = "Parens tuple expressions." in
     let names = ["parens-tuple"] in
     let all =
       [ ( "always"
@@ -831,10 +844,26 @@ module Formatting = struct
       (fun conf x -> {conf with parens_tuple= x})
       (fun conf -> conf.parens_tuple)
 
+  let parens_tuple_patterns =
+    let doc = "Parens tuple patterns." in
+    let names = ["parens-tuple-patterns"] in
+    let all =
+      [ ( "multi-line-only"
+        , `Multi_line_only
+        , "$(b,multi-line-only) mode will try to skip parens for \
+           single-line tuple patterns." )
+      ; ( "always"
+        , `Always
+        , "$(b,always) always uses parentheses around tuples patterns." ) ]
+    in
+    C.choice ~names ~all ~doc ~section
+      (fun conf x -> {conf with parens_tuple_patterns= x})
+      (fun conf -> conf.parens_tuple_patterns)
+
   let parse_docstrings =
     let doc = "Parse and format docstrings." in
     let names = ["parse-docstrings"] in
-    C.flag ~default:true ~names ~doc ~section
+    C.flag ~default:false ~names ~doc ~section
       (fun conf x -> {conf with parse_docstrings= x})
       (fun conf -> conf.parse_docstrings)
 
@@ -852,6 +881,25 @@ module Formatting = struct
     C.choice ~names ~all ~doc ~section
       (fun conf x -> {conf with sequence_style= x})
       (fun conf -> conf.sequence_style)
+
+  let single_case =
+    let doc =
+      "Style of pattern matching expressions with only a single case."
+    in
+    let names = ["single-case"] in
+    let all =
+      [ ( "compact"
+        , `Compact
+        , "$(b,compact) will try to format a single case on a single line."
+        )
+      ; ( "sparse"
+        , `Sparse
+        , "$(b,sparse) will always break the line before a single case." )
+      ]
+    in
+    C.choice ~names ~all ~doc ~section
+      (fun conf x -> {conf with single_case= x})
+      (fun conf -> conf.single_case)
 
   let type_decl =
     let doc = "Style of type declaration." in
@@ -1126,10 +1174,13 @@ let default_profile =
   ; max_iters= C.default max_iters
   ; module_item_spacing= C.default Formatting.module_item_spacing
   ; ocp_indent_compat= C.default Formatting.ocp_indent_compat
+  ; parens_ite= C.default Formatting.parens_ite
   ; parens_tuple= C.default Formatting.parens_tuple
+  ; parens_tuple_patterns= C.default Formatting.parens_tuple_patterns
   ; parse_docstrings= C.default Formatting.parse_docstrings
   ; quiet= C.default quiet
   ; sequence_style= C.default Formatting.sequence_style
+  ; single_case= C.default Formatting.single_case
   ; type_decl= C.default Formatting.type_decl
   ; wrap_comments= C.default Formatting.wrap_comments
   ; wrap_fun_args= C.default Formatting.wrap_fun_args }
@@ -1148,6 +1199,7 @@ let compact_profile =
   ; let_and= `Compact
   ; let_binding_spacing= `Compact
   ; module_item_spacing= `Compact
+  ; single_case= `Compact
   ; type_decl= `Compact
   ; wrap_fun_args= true }
 
@@ -1165,6 +1217,7 @@ let sparse_profile =
   ; let_and= `Sparse
   ; let_binding_spacing= `Sparse
   ; module_item_spacing= `Sparse
+  ; single_case= `Sparse
   ; type_decl= `Sparse
   ; wrap_fun_args= false }
 
@@ -1196,10 +1249,13 @@ let janestreet_profile =
   ; max_iters= default_profile.max_iters
   ; module_item_spacing= `Compact
   ; ocp_indent_compat= false
+  ; parens_ite= true
   ; parens_tuple= `Multi_line_only
+  ; parens_tuple_patterns= `Multi_line_only
   ; parse_docstrings= true
   ; quiet= default_profile.quiet
   ; sequence_style= `Terminator
+  ; single_case= `Sparse
   ; type_decl= `Sparse
   ; wrap_comments= false
   ; wrap_fun_args= false }

@@ -12,30 +12,38 @@
 open Octavius.Types
 open Fmt
 
-let str s =
+let escape_brackets =
+  String.Escaping.escape ~escapeworthy:['['; ']'] ~escape_char:'\\'
+
+let escape_all =
+  String.Escaping.escape ~escapeworthy:['@'; '{'; '}'; '['; ']']
+    ~escape_char:'\\'
+
+let str ?(escape = true) s =
+  let escape = if escape then Staged.unstage escape_all else Fn.id in
   s
   |> String.split_on_chars ~on:['\t'; '\n'; '\011'; '\012'; '\r'; ' ']
   |> List.filter ~f:(Fn.non String.is_empty)
-  |> fun s -> list s "@ " str
+  |> fun s -> list s "@ " (fun s -> escape s |> str)
 
 let verbatim s = Fmt.str s
 
 let fmt_ref_kind = function
-  | RK_element -> str ""
-  | RK_module -> str "module:"
-  | RK_module_type -> str "modtype:"
-  | RK_class -> str "class:"
-  | RK_class_type -> str "classtype:"
-  | RK_value -> str "val:"
-  | RK_type -> str "type:"
-  | RK_exception -> str "exception:"
-  | RK_attribute -> str "attribute:"
-  | RK_method -> str "method:"
-  | RK_section -> str "section:"
-  | RK_recfield -> str "recfield:"
-  | RK_const -> str "const:"
+  | RK_element -> str "!"
+  | RK_module -> str "!module:"
+  | RK_module_type -> str "!modtype:"
+  | RK_class -> str "!class:"
+  | RK_class_type -> str "!classtype:"
+  | RK_value -> str "!val:"
+  | RK_type -> str "!type:"
+  | RK_exception -> str "!exception:"
+  | RK_attribute -> str "!attribute:"
+  | RK_method -> str "!method:"
+  | RK_section -> str "!section:"
+  | RK_recfield -> str "!recfield:"
+  | RK_const -> str "!const:"
   | RK_link -> str ":"
-  | RK_custom s -> str s $ str ":"
+  | RK_custom s -> str "!" $ str s $ str ":"
 
 let rec fmt_style style txt =
   let s =
@@ -54,7 +62,9 @@ let rec fmt_style style txt =
 
 and fmt_text_elt = function
   | Raw s -> str s
-  | Code s -> hovbox 0 (wrap "[" "]" (str s))
+  | Code s ->
+      hovbox 0
+        (wrap "[" "]" (verbatim ((Staged.unstage escape_brackets) s)))
   | PreCode s -> hovbox 0 (wrap "{[\n" "@\n]}" (hovbox 0 (verbatim s)))
   | Verbatim s -> hovbox 0 (wrap "{v\n" "@\nv}" (hovbox 0 (verbatim s)))
   | Style (st, txt) -> fmt_style st txt
@@ -69,21 +79,20 @@ and fmt_text_elt = function
         (wrap "{" "}"
            ( str (Int.to_string i)
            $ str ":" $ str s $ fmt "@ " $ fmt_text txt ))
-  | Ref (rk, s, None) -> hovbox 0 (wrap "{!" "}" (fmt_ref_kind rk $ str s))
+  | Ref (rk, s, None) -> hovbox 0 (wrap "{" "}" (fmt_ref_kind rk $ str s))
   | Ref (rk, s, Some txt) ->
       hovbox 0
         (wrap "{" "}"
-           ( hovbox 0 (wrap "{!" "}" (fmt_ref_kind rk $ str s))
+           ( hovbox 0 (wrap "{" "}" (fmt_ref_kind rk $ str s))
            $ fmt "@ " $ fmt_text txt ))
   | Special_ref (SRK_module_list l) ->
       hvbox 0 (wrap "{!modules:" "}" (list l "@," str))
   | Special_ref SRK_index_list -> str "{!indexlist}"
   | Target (s, l) ->
+      let target = Option.value_map s ~default:"" ~f:(fun s -> s ^ ":") in
       hovbox 0
         (wrap "{" "}"
-           ( char '%'
-           $ str (Option.value s ~default:"latex")
-           $ char ':' $ str l $ char '%' ))
+           (char '%' $ str target $ str ~escape:false l $ char '%'))
 
 and fmt_list kind l =
   let light_syntax =
@@ -112,16 +121,21 @@ and fmt_list kind l =
 and fmt_newline = close_box $ fmt "\n@\n" $ open_hovbox 0
 
 and fmt_text txt =
-  let ops = ['.'; ':'; ';'; ','] in
-  let is_op c = List.mem ops c ~equal:Char.equal in
+  let no_space_before = ['.'; ':'; ';'; ','; '-'; ')'; '\''] in
+  let no_space_after = ['.'; '-'; '('] in
+  let no_space_before c = List.mem no_space_before c ~equal:Char.equal in
+  let no_space_after c = List.mem no_space_after c ~equal:Char.equal in
   let f ?prev:_ curr ?next =
     match next with
-    | Some (Raw x) when is_op x.[0] -> fmt_text_elt curr
+    | Some (Raw x) when no_space_before x.[0] -> fmt_text_elt curr
     | Some Newline -> fmt_text_elt curr
     | Some next -> (
       match curr with
       | Newline -> fmt_newline
       | List _ | Enum _ -> fmt_text_elt curr $ fmt_newline
+      | Raw x when no_space_after x.[String.length x - 1] -> (
+          fmt_text_elt curr
+          $ match next with List _ | Enum _ -> fmt "@\n" | _ -> fmt "" )
       | _ -> (
           fmt_text_elt curr
           $ match next with List _ | Enum _ -> fmt "@\n" | _ -> fmt "@ " ) )
@@ -161,3 +175,12 @@ let fmt (txt, tags) =
   else
     vbox 0
       (hovbox 0 (fmt_text txt) $ fmt "@;" $ vbox 0 (list tags "@;" fmt_tag))
+
+let diff c x y =
+  let norm z =
+    let f (txt, _) = Normalize.docstring c txt in
+    Set.of_list
+      (module String)
+      (List.map ~f (List.dedup_and_sort ~compare:Poly.compare z))
+  in
+  Set.symmetric_diff (norm x) (norm y)
