@@ -1,15 +1,15 @@
 .PHONY : build
 build :
-	jbuilder build --dev
+	dune build
 
 .PHONY : test
 test : build
-	jbuilder build --dev @tester
+	dune build @tester
 	cd _build/default/test/unit && ./test_main.exe -runner sequential
 
 .PHONY : clean
 clean :
-	jbuilder clean
+	dune clean
 	for TEST in `ls -d test/usage/*` ; \
 	do \
 		make -wC $$TEST clean ; \
@@ -35,22 +35,19 @@ save-test-output :
 	(cd $(PRESERVE) && find ./fixtures -name '*reference.*') \
 	  | xargs -I FILE cp $(PRESERVE)/FILE test/unit/FILE
 
-# Currently unused; awaiting restoration of self-instrumentation.
 GH_PAGES := gh-pages
 
 .PHONY : gh-pages
 gh-pages:
-	false
-	ocamlbuild $(OCAMLBUILD_FLAGS) postprocess.byte
-	make -C tests coverage
+	opam list --installed lambdasoup
+	opam list --installed omd
+	dune build doc/postprocess.exe
 	rm -rf $(GH_PAGES)
-	mkdir -p $(GH_PAGES)
-	omd README.md | _build/doc/postprocess.byte > $(GH_PAGES)/index.html
+	git clone git@github.com:aantron/bisect_ppx.git $(GH_PAGES)
 	cd $(GH_PAGES) && \
-		git init && \
-		git remote add github git@github.com:aantron/bisect_ppx.git && \
-		mkdir -p coverage && \
-		cp -r ../tests/_report/* coverage/ && \
-		git add -A && \
-		git commit -m 'Bisect_ppx demonstration' && \
-		git push -uf github master:gh-pages
+	  git checkout gh-pages
+	omd README.md | dune exec doc/postprocess.exe > $(GH_PAGES)/index.html
+	cd $(GH_PAGES) && \
+	  git add -A && \
+	  git commit --amend --no-edit && \
+	  git push -f

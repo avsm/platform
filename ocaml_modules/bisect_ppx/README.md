@@ -1,26 +1,24 @@
-# Bisect_ppx &nbsp; [![version 1.3.4][version]][releases] [![Travis status][travis-img]][travis] [![Coverage][coveralls-img]][coveralls]
+# Bisect_ppx &nbsp; [![version 1.4.0][version]][releases] [![Travis status][travis-img]][travis] [![Coverage][coveralls-img]][coveralls]
 
 [Bisect_ppx][self] is a code coverage tool for OCaml. It helps you test
-thoroughly by showing which parts of your code are **not** tested. You can also
-use it for tracing: run one test, and see what is visited.
+thoroughly by showing which parts of your code are **not** tested.
 
 [![Bisect_ppx usage example][sample]][self-coverage]
 
 <br>
 
 For a live demonstration, see the [coverage report][self-coverage] Bisect_ppx
-generates for itself. You may also want to see
-[projects that use Bisect_ppx](#bisect_ppx-in-practice).
+generates for itself.
 
-[self]:          https://github.com/aantron/bisect_ppx
-[releases]:      https://github.com/aantron/bisect_ppx/releases
-[version]:       https://img.shields.io/badge/version-1.3.4-blue.svg
+[self]: https://github.com/aantron/bisect_ppx
+[releases]: https://github.com/aantron/bisect_ppx/releases
+[version]: https://img.shields.io/badge/version-1.4.0-blue.svg
 [self-coverage]: http://aantron.github.io/bisect_ppx/coverage/
-[travis]:        https://travis-ci.org/aantron/bisect_ppx/branches
-[travis-img]:    https://img.shields.io/travis/aantron/bisect_ppx/master.svg
-[coveralls]:     https://coveralls.io/github/aantron/bisect_ppx?branch=master
+[travis]: https://travis-ci.org/aantron/bisect_ppx/branches
+[travis-img]: https://img.shields.io/travis/aantron/bisect_ppx/master.svg
+[coveralls]: https://coveralls.io/github/aantron/bisect_ppx?branch=master
 [coveralls-img]: https://img.shields.io/coveralls/aantron/bisect_ppx/master.svg
-[sample]:        https://raw.githubusercontent.com/aantron/bisect_ppx/master/doc/sample.gif
+[sample]: https://raw.githubusercontent.com/aantron/bisect_ppx/master/doc/sample.gif
 
 
 
@@ -38,8 +36,7 @@ to run that script, then refresh your browser.
    You can also install [without OPAM][without-opam].
 
 2. When compiling for testing, include Bisect_ppx. Instructions are also
-   available for [Ocamlbuild][ocamlbuild], [OASIS][oasis] and
-   [Jbuilder][jbuilder].
+   available for [Dune][dune], [Ocamlbuild][ocamlbuild], and [OASIS][oasis].
 
         ocamlfind c -package bisect_ppx -c my_code.ml
         ocamlfind c -c my_tests.ml
@@ -63,20 +60,33 @@ to run that script, then refresh your browser.
     - Yellow lines contain expressions, some of which were visited, but others not.
     - White lines are those that don't contain visitable expressions. They may have type declarations, keywords, or something else that Bisect_ppx did not, or cannot instrument.
 
-You can submit a coverage report to Coveralls.io using [ocveralls][ocveralls].
-Note that Bisect_ppx reports are more precise than Coveralls, which only
-considers whole lines as visited or not.
-
 See also the [advanced usage][advanced].
 
+### Coveralls.io
+
+(**New**) You can generate a Coveralls json report using the `bisect-ppx-report`
+tool with the `-coveralls` flag.
+Note that Bisect_ppx reports are more precise than Coveralls, which only
+considers whole lines as visited or not. The built in Coveralls reporter will
+consider a full line unvisited if any point on that line is not visited,
+check the html report to verify precisly which points are not covered.
+
+Example using the built in Coveralls reporter on Travis CI (which sets [`$TRAVIS_JOB_ID`][travis-vars]):
+
+      bisect-ppx-report \
+          -I _build/ \
+          -coveralls coverage.json \
+          -service-name travis-ci \
+          -service-job-id $TRAVIS_JOB_ID \
+          bisect*.out
+      curl -L -F json_file=@./coverage.json https://coveralls.io/api/v1/jobs
+
 [without-opam]: https://github.com/aantron/bisect_ppx/blob/master/doc/advanced.md#WithoutOPAM
-[ocamlbuild]:   https://github.com/aantron/bisect_ppx/blob/master/doc/advanced.md#Ocamlbuild
-[oasis]:        https://github.com/aantron/bisect_ppx/blob/master/doc/advanced.md#OASIS
-[jbuilder]:     https://github.com/aantron/bisect_ppx/blob/master/doc/advanced.md#Jbuilder
-[ocveralls]:    https://github.com/sagotch/ocveralls
-[advanced]:     https://github.com/aantron/bisect_ppx/blob/master/doc/advanced.md
-
-
+[ocamlbuild]: https://github.com/aantron/bisect_ppx/blob/master/doc/advanced.md#Ocamlbuild
+[oasis]: https://github.com/aantron/bisect_ppx/blob/master/doc/advanced.md#OASIS
+[dune]: https://github.com/aantron/bisect_ppx/blob/master/doc/advanced.md#Dune
+[advanced]: https://github.com/aantron/bisect_ppx/blob/master/doc/advanced.md
+[travis-vars]: https://docs.travis-ci.com/user/environment-variables/#default-environment-variables
 
 <br>
 
@@ -92,17 +102,17 @@ A small sample of projects using Bisect_ppx:
 - [Ketrew][ketrew]
 - [Sosa][sosa]
 
-[lwt]:                https://github.com/ocsigen/lwt
-[oml]:                https://github.com/hammerlab/oml
-[oml-coveralls]:      https://coveralls.io/github/hammerlab/oml?branch=HEAD
-[ctypes]:             https://github.com/ocamllabs/ocaml-ctypes
-[ctypes-coveralls]:   https://coveralls.io/github/ocamllabs/ocaml-ctypes
-[ocaml-irc-client]:   https://github.com/johnelse/ocaml-irc-client
-[irc-coveralls]:      https://coveralls.io/github/johnelse/ocaml-irc-client
-[markupml]:           https://github.com/aantron/markup.ml
+[lwt]: https://github.com/ocsigen/lwt
+[oml]: https://github.com/hammerlab/oml
+[oml-coveralls]: https://coveralls.io/github/hammerlab/oml?branch=HEAD
+[ctypes]: https://github.com/ocamllabs/ocaml-ctypes
+[ctypes-coveralls]: https://coveralls.io/github/ocamllabs/ocaml-ctypes
+[ocaml-irc-client]: https://github.com/johnelse/ocaml-irc-client
+[irc-coveralls]: https://coveralls.io/github/johnelse/ocaml-irc-client
+[markupml]: https://github.com/aantron/markup.ml
 [markupml-coveralls]: https://coveralls.io/github/aantron/markup.ml?branch=master
-[ketrew]:             https://github.com/hammerlab/ketrew
-[sosa]:               https://github.com/hammerlab/sosa
+[ketrew]: https://github.com/hammerlab/ketrew
+[sosa]: https://github.com/hammerlab/sosa
 
 
 
