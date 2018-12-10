@@ -1,4 +1,5 @@
 _build
+_b0
 tmp
 *~
 \.\#*
@@ -6,3 +7,4 @@ tmp
 *.byte
 *.native
 cmdliner.install
+src/.merlin

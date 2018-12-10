@@ -26,8 +26,6 @@
 
 (** {1:top Interface} *)
 
-open Result
-
 (** Man page specification.
 
     Man page generation is automatically handled by [Cmdliner],
@@ -243,6 +241,11 @@ module Term : sig
   val choice_names : string list t
   (** [choice_names] is a term that evaluates to the names of the terms
       to choose from. *)
+
+  val with_used_args : 'a t -> ('a * string list) t
+  (** [with_used_args t] is a term that evaluates to [t] tupled
+      with the arguments from the command line that where used to
+      evaluate [t]. *)
 
   (** {1:tinfo Term information}
 
@@ -991,7 +994,7 @@ that have multiple commands each with their own syntax:
 A command is defined by coupling a term with {{!Term.tinfo}term
 information}. The term information defines the command name and its
 man page. Given a list of commands the function {!Term.eval_choice}
-will execute the term corresponding to the [COMMAND] argument or or a
+will execute the term corresponding to the [COMMAND] argument or a
 specific "main" term if there is no [COMMAND] argument.
 
 {2:doclang Documentation markup language}
@@ -1211,7 +1214,7 @@ let prompt_str = function
 | Always -> "always" | Once -> "once" | Never -> "never"
 
 let rm prompt recurse files =
-  Printf.printf "prompt = %s\nrecurse = %b\nfiles = %s\n"
+  Printf.printf "prompt = %s\nrecurse = %B\nfiles = %s\n"
     (prompt_str prompt) recurse (String.concat ", " files)
 
 (* Command line interface *)
@@ -1282,7 +1285,7 @@ let cp verbose recurse force srcs dest =
     `Error (false, dest ^ " is not a directory")
   else
     `Ok (Printf.printf
-     "verbose = %b\nrecurse = %b\nforce = %b\nsrcs = %s\ndest = %s\n"
+     "verbose = %B\nrecurse = %B\nforce = %B\nsrcs = %s\ndest = %s\n"
       verbose recurse force (String.concat ", " srcs) dest)
 
 (* Command line interface *)
@@ -1370,7 +1373,6 @@ let tail lines follow verb pid files =
 
 (* Command line interface *)
 
-open Result
 open Cmdliner
 
 let lines =
@@ -1451,7 +1453,7 @@ use of {!Term.ret} on the lifted [help] function.
 
 If the program is invoked without a command we just want to show the
 help of the program as printed by [Cmdliner] with [--help]. This is
-done by the [no_cmd] term.
+done by the [default_cmd] term.
 
 {[
 (* Implementations, just print the args. *)
@@ -1466,14 +1468,14 @@ let verb_str = function
   | Normal -> "normal" | Quiet -> "quiet" | Verbose -> "verbose"
 
 let pr_copts oc copts = Printf.fprintf oc
-    "debug = %b\nverbosity = %s\nprehook = %s\n"
+    "debug = %B\nverbosity = %s\nprehook = %s\n"
     copts.debug (verb_str copts.verb) (opt_str_str copts.prehook)
 
 let initialize copts repodir = Printf.printf
     "%arepodir = %s\n" pr_copts copts repodir
 
 let record copts name email all ask_deps files = Printf.printf
-    "%aname = %s\nemail = %s\nall = %b\nask-deps = %b\nfiles = %s\n"
+    "%aname = %s\nemail = %s\nall = %B\nask-deps = %B\nfiles = %s\n"
     pr_copts copts (opt_str_str name) (opt_str_str email) all ask_deps
     (String.concat ", " files)
 
