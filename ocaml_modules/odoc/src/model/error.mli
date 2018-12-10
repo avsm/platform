@@ -1,8 +1,8 @@
 type t
 
-val make : string -> Location_.span -> t
+val make :
+  ?suggestion:string -> ('a, unit, string, Location_.span -> t) format4 -> 'a
 val filename_only : string -> string -> t
-val format : ('a, unit, string, Location_.span -> t) format4 -> 'a
 
 val to_string : t -> string
 
@@ -17,7 +17,6 @@ type 'a with_warnings = {
 
 type warning_accumulator
 
-val make_warning_accumulator : unit -> warning_accumulator
+val accumulate_warnings : (warning_accumulator -> 'a) -> 'a with_warnings
 val warning : warning_accumulator -> t -> unit
-val attach_accumulated_warnings : warning_accumulator -> 'a -> 'a with_warnings
 val shed_warnings : 'a with_warnings -> 'a

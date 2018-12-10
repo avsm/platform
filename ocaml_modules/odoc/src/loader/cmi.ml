@@ -21,7 +21,6 @@ module OCamlPath = Path
 
 open Model.Paths
 open Model.Lang
-open Attrs
 
 module Env = Model.Ident_env
 module Paths = Model.Paths
@@ -415,7 +414,7 @@ let rec read_type_expr env typ =
 
 and read_row env _px row =
   let open TypeExpr in
-  let open TypeExpr.Variant in
+  let open TypeExpr.Polymorphic_variant in
   let row = Btype.row_repr row in
   let fields =
     if row.row_closed then
@@ -441,21 +440,26 @@ and read_row env _px row =
         let kind =
           if all_present then Open else Closed (List.map fst present)
         in
-        Variant {kind; elements = [Type (Constr (p, params))]}
+        Polymorphic_variant {kind; elements = [Type (Constr (p, params))]}
   | _ ->
       let elements =
         List.map
-          (fun (l, f) ->
+          (fun (name, f) ->
             match Btype.row_field_repr f with
               | Rpresent None ->
-                  Constructor(l, true, [])
+                Constructor {name; constant = true; arguments = []; doc = []}
               | Rpresent (Some typ) ->
-                  Constructor(l, false, [read_type_expr env typ])
-              | Reither(c, typs, _, _) ->
-                  let typs =
+                Constructor {
+                  name;
+                  constant = false;
+                  arguments = [read_type_expr env typ];
+                  doc = [];
+                }
+              | Reither(constant, typs, _, _) ->
+                  let arguments =
                     List.map (read_type_expr env) typs
                   in
-                    Constructor(l, c, typs)
+                Constructor {name; constant; arguments; doc = []}
               | Rabsent -> assert false)
           sorted_fields
       in
@@ -465,7 +469,7 @@ and read_row env _px row =
           else Open
         else Closed (List.map fst present)
       in
-      Variant {kind; elements}
+      Polymorphic_variant {kind; elements}
 
 and read_object env fi nm =
   let open TypeExpr in
@@ -510,7 +514,7 @@ let read_value_description env parent id vd =
   let container =
     Identifier.label_parent_of_parent (Identifier.parent_of_signature parent)
   in
-  let doc = read_attributes container id vd.val_attributes in
+  let doc = Doc_attr.attached container vd.val_attributes in
     mark_value_description vd;
     let type_ = read_type_expr env vd.val_type in
     match vd.val_kind with
@@ -532,8 +536,8 @@ let read_label_declaration env parent ld =
   let name = parenthesise (Ident.name ld.ld_id) in
   let id = Identifier.Field(parent, name) in
   let doc =
-    read_attributes (Identifier.label_parent_of_parent parent) id
-      ld.ld_attributes
+    Doc_attr.attached
+      (Identifier.label_parent_of_parent parent) ld.ld_attributes
   in
   let mutable_ = (ld.ld_mutable = Mutable) in
   let type_ = read_type_expr env ld.ld_type in
@@ -560,7 +564,7 @@ let read_constructor_declaration env parent cd =
   let container =
     Identifier.label_parent_of_parent (Identifier.parent_of_datatype parent)
   in
-  let doc = read_attributes container id cd.cd_attributes in
+  let doc = Doc_attr.attached container cd.cd_attributes in
   let args =
     read_constructor_declaration_arguments env
       (Identifier.parent_of_datatype parent) cd.cd_args
@@ -621,7 +625,7 @@ let read_type_declaration env parent id decl =
   let container = Identifier.label_parent_of_parent
                     (Identifier.parent_of_signature parent)
   in
-  let doc = read_attributes container id decl.type_attributes in
+  let doc = Doc_attr.attached container decl.type_attributes in
   let params = mark_type_declaration decl in
   let manifest = opt_map (read_type_expr env) decl.type_manifest in
   let constraints = read_type_constraints env params in
@@ -652,7 +656,7 @@ let read_extension_constructor env parent id ext =
   let container =
     Identifier.label_parent_of_parent (Identifier.parent_of_signature parent)
   in
-  let doc = read_attributes container id ext.ext_attributes in
+  let doc = Doc_attr.attached container ext.ext_attributes in
   let args =
     read_constructor_declaration_arguments env
       (Identifier.parent_of_signature parent) ext.ext_args
@@ -663,7 +667,7 @@ let read_extension_constructor env parent id ext =
 let read_type_extension env parent id ext rest =
   let open Extension in
   let type_path = Env.Path.read_type env ext.ext_type_path in
-  let doc = empty in
+  let doc = Doc_attr.empty in
   let type_params = mark_type_extension' ext rest in
   let first = read_extension_constructor env parent id ext in
   let rest =
@@ -687,7 +691,7 @@ let read_exception env parent id ext =
   let container =
     Identifier.label_parent_of_parent (Identifier.parent_of_signature parent)
   in
-  let doc = read_attributes container id ext.ext_attributes in
+  let doc = Doc_attr.attached container ext.ext_attributes in
     mark_exception ext;
     let args =
       read_constructor_declaration_arguments env
@@ -700,7 +704,7 @@ let read_method env parent concrete (name, kind, typ) =
   let open Method in
   let name = parenthesise name in
   let id = Identifier.Method(parent, name) in
-  let doc = empty in
+  let doc = Doc_attr.empty in
   let private_ = (Btype.field_kind_repr kind) <> Fpresent in
   let virtual_ = not (Concr.mem name concrete) in
   let type_ = read_type_expr env typ in
@@ -710,7 +714,7 @@ let read_instance_variable env parent (name, mutable_, virtual_, typ) =
   let open InstanceVariable in
   let name = parenthesise name in
   let id = Identifier.InstanceVariable(parent, name) in
-  let doc = empty in
+  let doc = Doc_attr.empty in
   let mutable_ = (mutable_ = Mutable) in
   let virtual_ = (virtual_ = Virtual) in
   let type_ = read_type_expr env typ in
@@ -790,7 +794,7 @@ let read_class_type_declaration env parent id cltd =
   let container =
     Identifier.label_parent_of_parent (Identifier.parent_of_signature parent)
   in
-  let doc = read_attributes container id cltd.clty_attributes in
+  let doc = Doc_attr.attached container cltd.clty_attributes in
     mark_class_type_declaration cltd;
     let params =
       List.map2
@@ -828,7 +832,7 @@ let read_class_declaration env parent id cld =
   let container =
     Identifier.label_parent_of_parent (Identifier.parent_of_signature parent)
   in
-  let doc = read_attributes container id cld.cty_attributes in
+  let doc = Doc_attr.attached container cld.cty_attributes in
     mark_class_declaration cld;
     let params =
       List.map2
@@ -873,7 +877,7 @@ and read_module_type_declaration env parent id mtd =
   let container =
     Identifier.label_parent_of_parent (Identifier.parent_of_signature parent)
   in
-  let doc = read_attributes container id mtd.mtd_attributes in
+  let doc = Doc_attr.attached container mtd.mtd_attributes in
   let expr = opt_map (read_module_type env id 1) mtd.mtd_type in
   let expansion =
     match expr with
@@ -889,7 +893,7 @@ and read_module_declaration env parent ident md =
   let container =
     Identifier.label_parent_of_parent (Identifier.parent_of_signature parent)
   in
-  let doc = read_attributes container id md.md_attributes in
+  let doc = Doc_attr.attached container md.md_attributes in
   let canonical =
     let doc = List.map Model.Location_.value doc in
     match List.find (function `Tag (`Canonical _) -> true | _ -> false) doc with
@@ -918,6 +922,20 @@ and read_module_declaration env parent ident md =
   in
     {id; doc; type_; expansion; canonical; hidden; display_type = None}
 
+and read_type_rec_status rec_status =
+  let open Signature in
+  match rec_status with
+  | Trec_first -> Ordinary
+  | Trec_next -> And
+  | Trec_not -> Nonrec
+
+and read_module_rec_status rec_status =
+  let open Signature in
+  match rec_status with
+  | Trec_not -> Ordinary
+  | Trec_first -> Rec
+  | Trec_next -> And
+
 and read_signature env parent items =
   let env = Env.add_signature_type_items parent items env in
   let rec loop acc items =
@@ -928,9 +946,9 @@ and read_signature env parent items =
           loop (vd :: acc) rest
     | Sig_type(id, _, _) :: rest when Btype.is_row_name (Ident.name id) ->
         loop acc rest
-    | Sig_type(id, decl, _) :: rest ->
+    | Sig_type(id, decl, rec_status)::rest ->
         let decl = read_type_declaration env parent id decl in
-          loop (Type decl :: acc) rest
+      loop (Type (read_type_rec_status rec_status, decl)::acc) rest
     | Sig_typext (id, ext, Text_first) :: rest ->
         let rec inner_loop inner_acc = function
           | Sig_typext(id, ext, Text_next) :: rest ->
@@ -948,20 +966,20 @@ and read_signature env parent items =
     | Sig_typext (id, ext, Text_exception) :: rest ->
         let exn = read_exception env parent id ext in
           loop (Exception exn :: acc) rest
-    | Sig_module(id, md, _) :: rest ->
+    | Sig_module (id, md, rec_status)::rest ->
         let md = read_module_declaration env parent id md in
-          loop (Module md :: acc) rest
+      loop (Module (read_module_rec_status rec_status, md)::acc) rest
     | Sig_modtype(id, mtd) :: rest ->
         let mtd = read_module_type_declaration env parent id mtd in
           loop (ModuleType mtd :: acc) rest
-    | Sig_class(id, cl, _) :: Sig_class_type _
+    | Sig_class(id, cl, rec_status) :: Sig_class_type _
       :: Sig_type _ :: Sig_type _ :: rest ->
         let cl = read_class_declaration env parent id cl in
-          loop (Class cl :: acc) rest
+      loop (Class (read_type_rec_status rec_status, cl)::acc) rest
     | Sig_class _ :: _ -> assert false
-    | Sig_class_type(id, cltyp, _) :: Sig_type _ :: Sig_type _ :: rest ->
+    | Sig_class_type(id, cltyp, rec_status)::Sig_type _::Sig_type _::rest ->
         let cltyp = read_class_type_declaration env parent id cltyp in
-          loop (ClassType cltyp :: acc) rest
+      loop (ClassType (read_type_rec_status rec_status, cltyp)::acc) rest
     | Sig_class_type _ :: _ -> assert false
     | [] -> List.rev acc
   in
@@ -969,6 +987,6 @@ and read_signature env parent items =
 
 let read_interface root name intf =
   let id = Identifier.Root(root, name) in
-  let doc = empty in
+  let doc = Doc_attr.empty in
   let items = read_signature Env.empty id intf in
     (id, doc, items)

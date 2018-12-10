@@ -29,29 +29,6 @@ let describe_element = function
 
 
 
-let leaf_inline_element
-    : status -> Comment.leaf_inline_element with_location ->
-        Comment.leaf_inline_element with_location =
-  fun status element ->
-
-  begin match element.value with
-  | `Code_span c as token ->
-    begin match String.index c '\n' with
-    | exception Not_found -> ()
-    | _ ->
-      Parse_error.not_allowed
-        ~what:(Token.describe `Single_newline)
-        ~in_what:(Token.describe token)
-        element.location
-      |> Error.warning status.warnings
-    end
-  | _ -> ()
-  end;
-
-  element
-
-
-
 let rec non_link_inline_element
     : status -> surrounding:_ -> Ast.inline_element with_location ->
         Comment.non_link_inline_element with_location =
@@ -59,20 +36,22 @@ let rec non_link_inline_element
 
   match element with
   | {value = #Comment.leaf_inline_element; _} as element ->
-    let element = leaf_inline_element status element in
-    (element :> Comment.non_link_inline_element with_location)
+    element
 
   | {value = `Styled (style, content); _} ->
     `Styled (style, non_link_inline_elements status ~surrounding content)
     |> Location.same element
 
-  | {value = `Reference _; _}
-  | {value = `Link _; _} as element ->
+  | {value = `Reference (_, _, content); _}
+  | {value = `Link (_, content); _} as element ->
     Parse_error.not_allowed
       ~what:(describe_element element.value)
       ~in_what:(describe_element surrounding)
       element.location
-    |> Error.raise_exception
+    |> Error.warning status.warnings;
+
+    `Styled (`Emphasis, non_link_inline_elements status ~surrounding content)
+    |> Location.same element
 
 and non_link_inline_elements status ~surrounding elements =
   List.map (non_link_inline_element status ~surrounding) elements
@@ -86,7 +65,7 @@ let rec inline_element
 
   match element with
   | {value = #Comment.leaf_inline_element; _} as element ->
-    (leaf_inline_element status element :> Comment.inline_element with_location)
+    element
 
   | {value = `Styled (style, content); location} ->
     `Styled (style, inline_elements status content)
@@ -270,7 +249,7 @@ let section_heading
     | Some top_level when
         status.sections_allowed = `All && level <= top_level && level <= 5 ->
       Error.warning status.warnings
-        (Parse_error.heading_level_must_be_lower_than_top_level
+        (Parse_error.heading_level_should_be_lower_than_top_level
           level top_level location)
     | _ -> ()
     end;
@@ -349,14 +328,12 @@ let top_level_block_elements
 
 
 
-let ast_to_comment ~sections_allowed ~parent_of_sections ast =
+let ast_to_comment warnings ~sections_allowed ~parent_of_sections ast =
   let status =
     {
-      warnings = Error.make_warning_accumulator ();
+      warnings;
       sections_allowed;
       parent_of_sections;
     }
   in
-
-  let result = Error.catch (fun () -> top_level_block_elements status ast) in
-  Error.attach_accumulated_warnings status.warnings result
+  top_level_block_elements status ast

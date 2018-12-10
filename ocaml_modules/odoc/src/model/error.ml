@@ -17,14 +17,18 @@ type t = [
   | `With_filename_only of filename_only_payload
 ]
 
-let make message location =
+let full message location =
   `With_full_location {location; message}
 
 let filename_only message file =
   `With_filename_only {file; message}
 
-let format format =
-  (Printf.ksprintf make) format
+let make ?suggestion format =
+  format |>
+  Printf.ksprintf (fun message ->
+    match suggestion with
+    | None -> full message
+    | Some suggestion -> full (message ^ "\nSuggestion: " ^ suggestion))
 
 let to_string = function
   | `With_full_location {location; message} ->
@@ -70,15 +74,13 @@ type 'a with_warnings = {
 
 type warning_accumulator = t list ref
 
-let make_warning_accumulator () = ref []
+let accumulate_warnings f =
+  let warnings = ref [] in
+  let value = f warnings in
+  {value; warnings = List.rev !warnings}
 
 let warning accumulator error =
   accumulator := error::!accumulator
-
-let attach_accumulated_warnings accumulator value =
-  let with_warnings = {value; warnings = List.rev !accumulator} in
-  accumulator := [];
-  with_warnings
 
 (* TODO This is a temporary measure until odoc is ported to handle warnings
    throughout. *)

@@ -248,7 +248,7 @@ h4 {
 /* Preformatted and code */
 
 tt, code, pre {
-  font-family: "Fira Code", "Fira Mono", courier;
+  font-family: "Fira Mono", courier;
   font-weight: 400;
 }
 
@@ -279,7 +279,7 @@ pre code {
 /* Code lexemes */
 
 .keyword {
-  font-weight: 700;
+  font-weight: 500;
 }
 
 /* Module member specification */
@@ -298,17 +298,6 @@ pre code {
 
 dl, div.spec, .doc, aside {
   margin-bottom: 20px;
-}
-
-/* Indent the second line in multiline spec definitions. */
-.spec:not(.type) > code {
-  display: block;
-  padding-left: 4ex;
-  text-indent: -4ex;
-}
-
-.spec.exception > code {
-  display: inline-block;
 }
 
 dl > dd {
@@ -335,6 +324,13 @@ section+section, section > header + dl {
   margin-left: 2ch;
 }
 .spec.type .variant p {
+  margin: 0;
+  font-style: italic;
+}
+.spec.type .record {
+  margin-left: 2ch;
+}
+.spec.type .record p {
   margin: 0;
   font-style: italic;
 }
@@ -679,10 +675,6 @@ h1+.modules, h1+.sel {
 }
 
 /* Syntax highlighting (based on github-gist) */
-
-.keyword {
-  font-weight: 500;
-}
 
 .hljs {
   display: block;

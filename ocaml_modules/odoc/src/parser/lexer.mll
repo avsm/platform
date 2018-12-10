@@ -122,11 +122,13 @@ module Error = Model.Error
 type input = {
   file : string;
   offset_to_location : int -> Location.point;
+  warnings : Error.warning_accumulator;
   lexbuf : Lexing.lexbuf;
 }
 
-let offset_span_to_location
-    ?start_offset ?adjust_start_by ?end_offset ?adjust_end_by input =
+let with_location_adjustments
+    k input ?start_offset ?adjust_start_by ?end_offset ?adjust_end_by value =
+
   let start =
     match start_offset with
     | None -> Lexing.lexeme_start input.lexbuf
@@ -147,26 +149,20 @@ let offset_span_to_location
     | None -> end_
     | Some s -> end_ - String.length s
   in
-  {
+  let location = {
     Model.Location_.file = input.file;
     start = input.offset_to_location start;
     end_ = input.offset_to_location end_;
   }
-
-let emit input ?start_offset ?adjust_start_by ?adjust_end_by token =
-  let location =
-    offset_span_to_location
-      ?start_offset ?adjust_start_by ?adjust_end_by input
   in
-  Location.at location token
+  k input location value
 
-let raise_error
-    input ?start_offset ?adjust_start_by ?end_offset ?adjust_end_by error =
-  let location =
-    offset_span_to_location
-      ?start_offset ?adjust_start_by ?end_offset ?adjust_end_by input
-  in
-  Error.raise_exception (error location)
+let emit =
+  with_location_adjustments (fun _ -> Location.at)
+
+let warning =
+  with_location_adjustments (fun input location error ->
+    Error.warning input.warnings (error location))
 
 let reference_token start target =
   match start with
@@ -176,14 +172,6 @@ let reference_token start target =
   | "{{:" -> `Begin_link_with_replacement_text target
   | _ -> assert false
 
-let emit_reference input start target =
-  let target = String.trim target in
-  let token = reference_token start target in
-  if target = "" then
-    raise_error input (Parse_error.cannot_be_empty ~what:(Token.describe token))
-  else
-    emit input token
-
 
 
 let trim_leading_space_or_accept_whitespace input start_offset text =
@@ -192,26 +180,41 @@ let trim_leading_space_or_accept_whitespace input start_offset text =
   | '\t' | '\r' | '\n' -> text
   | exception Invalid_argument _ -> ""
   | _ ->
-    raise_error
+    warning
       input
       ~start_offset
       ~end_offset:(start_offset + 2)
-      Parse_error.no_leading_whitespace_in_verbatim
+      Parse_error.no_leading_whitespace_in_verbatim;
+    text
 
 let trim_trailing_space_or_accept_whitespace text =
   match text.[String.length text - 1] with
   | ' ' -> String.sub text 0 (String.length text - 1)
   | '\t' | '\r' | '\n' -> text
-  | _ -> assert false
+  | _ -> text
+
+let emit_verbatim input start_offset buffer =
+  let t = Buffer.contents buffer in
+  let t = trim_trailing_space_or_accept_whitespace t in
+  let t = trim_leading_space_or_accept_whitespace input start_offset t in
+  let t = trim_leading_blank_lines t in
+  let t = trim_trailing_blank_lines t in
+  emit input (`Verbatim t) ~start_offset
+
+let code_block c =
+  let c = trim_leading_blank_lines c in
+  let c = trim_trailing_blank_lines c in
+  let c = trim_leading_whitespace c in
+  `Code_block c
 
 
 
 let heading_level input level =
-  if String.length level >= 2 && level.[0] = '0' then
-    raise_error
+  if String.length level >= 2 && level.[0] = '0' then begin
+    warning
       input ~start_offset:1 (Parse_error.leading_zero_in_heading_level level)
-  else
-    int_of_string level
+  end;
+  int_of_string level
 
 }
 
@@ -294,29 +297,38 @@ rule token input = parse
     { emit input (`Modules modules) }
 
   | (reference_start as start) ([^ '}']* as target) '}'
-    { emit_reference input start target }
+    { emit input (reference_token start target) }
 
   | "{[" (code_block_text as c) "]}"
-    { let c = trim_leading_blank_lines c in
-      let c = trim_trailing_blank_lines c in
-      let c = trim_leading_whitespace c in
-      emit input (`Code_block c) }
+    { emit input (code_block c) }
 
   | "{v"
     { verbatim
         (Buffer.create 1024) None (Lexing.lexeme_start lexbuf) input lexbuf }
 
-  | "{%" ((raw_markup_target as target) ':')? (raw_markup as s) "%}"
-    { let target =
+  | "{%" ((raw_markup_target as target) ':')? (raw_markup as s)
+    ("%}" | eof as e)
+    { if e <> "%}" then
+        warning
+          input
+          ~start_offset:(Lexing.lexeme_end lexbuf)
+          (Parse_error.not_allowed
+            ~what:(Token.describe `End)
+            ~in_what:(Token.describe (`Raw_markup (`Html, ""))));
+      let target_is_valid =
         match target with
-        | Some "html" -> `Html
+        | Some "html" -> true
         | Some invalid_target ->
-          raise_error input
-            (Parse_error.invalid_raw_markup_target invalid_target)
+          warning input (Parse_error.invalid_raw_markup_target invalid_target);
+          false
         | None ->
-          raise_error input Parse_error.default_raw_markup_target_not_supported
+          warning input Parse_error.default_raw_markup_target_not_supported;
+          false
       in
-      emit input (`Raw_markup (target, s)) }
+      if target_is_valid then
+        emit input (`Raw_markup (`Html, s))
+      else
+        emit input (`Code_span s) }
 
   | "{ul"
     { emit input (`Begin_list `Unordered) }
@@ -330,14 +342,14 @@ rule token input = parse
   | "{-"
     { emit input (`Begin_list_item `Dash) }
 
-  | '{' (['0'-'9']+ as level) ':' (([^ '}'] # space_char)+ as label)
+  | '{' (['0'-'9']+ as level) ':' (([^ '}'] # space_char)* as label)
     { emit
         input (`Begin_section_heading (heading_level input level, Some label)) }
 
   | '{' (['0'-'9']+ as level)
     { emit input (`Begin_section_heading (heading_level input level, None)) }
 
-  | "@author" horizontal_space+ ([^ '\r' '\n']* as author)
+  | "@author" ((horizontal_space+ [^ '\r' '\n']*)? as author)
     { emit input (`Tag (`Author author)) }
 
   | "@deprecated"
@@ -355,22 +367,22 @@ rule token input = parse
   | "@see" horizontal_space* '<' ([^ '>']* as url) '>'
     { emit input (`Tag (`See (`Url, url))) }
 
-  | "@see" horizontal_space* '\'' ([^ '>']* as filename) '\''
+  | "@see" horizontal_space* '\'' ([^ '\'']* as filename) '\''
     { emit input (`Tag (`See (`File, filename))) }
 
-  | "@see" horizontal_space* '"' ([^ '>']* as name) '"'
+  | "@see" horizontal_space* '"' ([^ '"']* as name) '"'
     { emit input (`Tag (`See (`Document, name))) }
 
-  | "@since" horizontal_space+ ([^ '\r' '\n']* as version)
+  | "@since" ((horizontal_space+ [^ '\r' '\n']*)? as version)
     { emit input (`Tag (`Since version)) }
 
   | "@before" horizontal_space+ ((_ # space_char)+ as version)
     { emit input (`Tag (`Before version)) }
 
-  | "@version" horizontal_space+ ([^ '\r' '\n']* as version)
+  | "@version" ((horizontal_space+ [^ '\r' '\n']*)? as version)
     { emit input (`Tag (`Version version)) }
 
-  | "@canonical" horizontal_space+ ([^ '\r' '\n']* as identifier)
+  | "@canonical" ((horizontal_space+ [^ '\r' '\n']*)? as identifier)
     { emit input (`Tag (`Canonical identifier)) }
 
   | "@inline"
@@ -384,77 +396,73 @@ rule token input = parse
 
 
 
-
-  | ('{' ['0'-'9'] as prefix) ':'
-    { raise_error
-        input
-        ~adjust_start_by:prefix
-        (Parse_error.cannot_be_empty ~what:"heading label") }
-
-  | '{' _? as markup
-    { raise_error input (Parse_error.bad_markup markup) }
+  | '{'
+    { try bad_markup_recovery (Lexing.lexeme_start lexbuf) input lexbuf
+      with Failure _ ->
+        warning
+          input
+          (Parse_error.bad_markup
+            "{" ~suggestion:"escape the brace with '\\{'.");
+        emit input (`Word "{") }
 
   | ']'
-    { raise_error input Parse_error.unpaired_right_bracket }
-
-  | '@' ("author" | "since" | "version" | "canonical")
-    { raise_error
-        input
-        (Parse_error.cannot_be_empty
-          ~what:(Printf.sprintf "'%s'" (Lexing.lexeme lexbuf))) }
+    { warning input Parse_error.unpaired_right_bracket;
+      emit input (`Word "]") }
 
   | "@param"
-    { raise_error input Parse_error.truncated_param }
+    { warning input Parse_error.truncated_param;
+      emit input (`Tag (`Param "")) }
 
   | "@raise"
-    { raise_error input Parse_error.truncated_raise }
+    { warning input Parse_error.truncated_raise;
+      emit input (`Tag (`Raise "")) }
 
   | "@before"
-    { raise_error input Parse_error.truncated_before }
+    { warning input Parse_error.truncated_before;
+      emit input (`Tag (`Before "")) }
 
   | "@see"
-    { raise_error input Parse_error.truncated_see }
+    { warning input Parse_error.truncated_see;
+      emit input (`Word "@see") }
 
   | '@' ['a'-'z' 'A'-'Z']+ as tag
-    { raise_error input (Parse_error.unknown_tag tag) }
+    { warning input (Parse_error.unknown_tag tag);
+      emit input (`Word tag) }
 
   | '@'
-    { raise_error input Parse_error.stray_at }
+    { warning input Parse_error.stray_at;
+      emit input (`Word "@") }
 
   | '\r'
-    { raise_error input Parse_error.stray_cr }
+    { warning input Parse_error.stray_cr;
+      token input lexbuf }
 
-  | "{!modules:" [^ '}']* eof
-    { raise_error
+  | "{!modules:" ([^ '}']* as modules) eof
+    { warning
         input
         ~start_offset:(Lexing.lexeme_end lexbuf)
         (Parse_error.not_allowed
           ~what:(Token.describe `End)
-          ~in_what:(Token.describe (`Modules ""))) }
+          ~in_what:(Token.describe (`Modules "")));
+      emit input (`Modules modules) }
 
-  | (reference_start as start) [^ '}']* eof
-    { raise_error
+  | (reference_start as start) ([^ '}']* as target) eof
+    { warning
         input
         ~start_offset:(Lexing.lexeme_end lexbuf)
         (Parse_error.not_allowed
           ~what:(Token.describe `End)
-          ~in_what:(Token.describe (reference_token start ""))) }
+          ~in_what:(Token.describe (reference_token start "")));
+      emit input (reference_token start target) }
 
-  | "{[" code_block_text eof
-    { raise_error
+  | "{[" (code_block_text as c) eof
+    { warning
         input
         ~start_offset:(Lexing.lexeme_end lexbuf)
         (Parse_error.not_allowed
           ~what:(Token.describe `End)
-          ~in_what:(Token.describe (`Code_block ""))) }
-
-  | "{%" raw_markup eof
-    { raise_error
-        input
-        ~start_offset:(Lexing.lexeme_end lexbuf)
-        (Parse_error.not_allowed
-          ~what:(Token.describe `End)
-          ~in_what:(Token.describe (`Raw_markup (`Html, "")))) }
+          ~in_what:(Token.describe (`Code_block "")));
+      emit input (code_block c) }
 
 
 
@@ -476,18 +484,21 @@ and code_span buffer nesting_level start_offset input = parse
       code_span buffer nesting_level start_offset input lexbuf }
 
   | newline newline
-    { raise_error
+    { warning
         input
         (Parse_error.not_allowed
           ~what:(Token.describe `Blank_line)
-          ~in_what:(Token.describe (`Code_span ""))) }
+          ~in_what:(Token.describe (`Code_span "")));
+      Buffer.add_char buffer '\n';
+      code_span buffer nesting_level start_offset input lexbuf }
 
   | eof
-    { raise_error
+    { warning
         input
         (Parse_error.not_allowed
           ~what:(Token.describe `End)
-          ~in_what:(Token.describe (`Code_span ""))) }
+          ~in_what:(Token.describe (`Code_span "")));
+      emit input (`Code_span (Buffer.contents buffer)) ~start_offset }
 
   | _ as c
     { Buffer.add_char buffer c;
@@ -498,12 +509,7 @@ and code_span buffer nesting_level start_offset input = parse
 and verbatim buffer last_false_terminator start_offset input = parse
   | (space_char as c) "v}"
     { Buffer.add_char buffer c;
-      let t = Buffer.contents buffer in
-      let t = trim_trailing_space_or_accept_whitespace t in
-      let t = trim_leading_space_or_accept_whitespace input start_offset t in
-      let t = trim_leading_blank_lines t in
-      let t = trim_trailing_blank_lines t in
-      emit input (`Verbatim t) ~start_offset }
+      emit_verbatim input start_offset buffer }
 
   | "v}"
     { Buffer.add_string buffer "v}";
@@ -511,20 +517,34 @@ and verbatim buffer last_false_terminator start_offset input = parse
         buffer (Some (Lexing.lexeme_start lexbuf)) start_offset input lexbuf }
 
   | eof
-    { match last_false_terminator with
+    { begin match last_false_terminator with
       | None ->
-        raise_error
+        warning
           input
           (Parse_error.not_allowed
             ~what:(Token.describe `End)
             ~in_what:(Token.describe (`Verbatim "")))
       | Some location ->
-        raise_error
+        warning
           input
           ~start_offset:location
           ~end_offset:(location + 2)
-          Parse_error.no_trailing_whitespace_in_verbatim }
+          Parse_error.no_trailing_whitespace_in_verbatim
+      end;
+      emit_verbatim input start_offset buffer }
 
   | _ as c
     { Buffer.add_char buffer c;
       verbatim buffer last_false_terminator start_offset input lexbuf }
+
+
+
+and bad_markup_recovery start_offset input = parse
+  | [^ '}']+ as text '}' as rest
+    { let suggestion =
+        Printf.sprintf "did you mean '{!%s}' or '[%s]'?" text text in
+      warning
+        input
+        ~start_offset
+        (Parse_error.bad_markup ("{" ^ rest) ~suggestion);
+      emit input (`Code_span text) ~start_offset}
