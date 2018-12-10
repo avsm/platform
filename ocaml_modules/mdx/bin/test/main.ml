@@ -19,12 +19,15 @@ open Mdx
 let src = Logs.Src.create "cram.test"
 module Log = (val Logs.src_log src : Logs.LOG)
 
-let read_file file =
-  let ic = open_in_bin file in
-  let len = in_channel_length ic in
-  let file_contents = really_input_string ic len in
-  close_in ic;
-  file_contents
+let (/) = Filename.concat
+
+let prelude_env_and_file f =
+  match Astring.String.cut ~sep:":" f with
+  | None        -> None, f
+  | Some (e, f) ->
+    if Astring.String.exists ((=) ' ') e
+    then None  , f
+    else Some e, f
 
 let read_lines file =
   let ic = open_in file in
@@ -81,13 +84,17 @@ let run_test ?root temp_file t =
   | WEXITED n -> n
   | _ -> 255
 
-let run_cram_tests ?root ppf temp_file pad tests t =
+let root_dir ?root t =
+  match root, Mdx.Block.directory t with
+  | None  , None   -> None
+  | None  , Some d -> Some (Filename.dirname t.file / d)
+  | Some r, Some d -> Some (r / d)
+  | Some d, None   -> Some d
+
+let run_cram_tests t ?root ppf temp_file pad tests =
   Block.pp_header ppf t;
   List.iter (fun test ->
-      let root = match root, Mdx.Block.directory t with
-        | Some d, _ -> (* --root always win *) Some d
-        | None  , d -> d
-      in
+      let root = root_dir ?root t in
       let n = run_test ?root temp_file test in
       let lines = read_lines temp_file in
       let output =
@@ -106,70 +113,39 @@ let run_cram_tests ?root ppf temp_file pad tests t =
     ) tests;
   Block.pp_footer ppf ()
 
-let envs = Hashtbl.create 8
-
-let rec save_summary acc s =
-  let open Env in
-  match s with
-  | Env_value (summary, id, _) ->
-     save_summary (Ident.name id :: acc) summary
-  | Env_module (summary, id, _)
-    | Env_class (summary, id, _)
-    | Env_modtype (summary, id, _)
-    | Env_cltype (summary, id, _)
-    | Env_type (summary, id, _)
-    | Env_functor_arg (summary, id)
-    | Env_open (summary,
-                #if OCAML_MAJOR >= 4 && OCAML_MINOR >= 7
-                _,
-                #endif
-                Pident id)
-    | Env_extension (summary, id, _) ->
-      let acc =
-        if Ident.binding_time id >= 1000
-        then Ident.unique_toplevel_name id :: acc
-        else acc
-      in
-      save_summary acc summary
-  | Env_empty -> acc
-  | Env_constraints (summary, _)
-    | Env_open (summary,
-                #if OCAML_MAJOR >= 4 && OCAML_MINOR >= 7
-                _,
-                #endif
-                _)
-    | Env_copy_types (summary, _) -> save_summary acc summary
-
-let in_env env_name f =
-  let env, names, objs =
-    try Hashtbl.find envs env_name
-    with Not_found ->
-      let env = Compmisc.initial_env () in
-      env, [], []
-  in
-  Toploop.toplevel_env := env;
-  List.iter2 Toploop.setvalue names objs;
-  let res = f () in
-  let env = !Toploop.toplevel_env in
-  let names = save_summary [] (Env.summary env) in
-  let objs = List.map Toploop.getvalue names in
-  Hashtbl.replace envs env_name (env, names, objs);
-  res
-
-let eval_test c test =
+let eval_test t ?root c test =
   Log.debug (fun l ->
-      l "eval_test %a" Fmt.(Dump.list string) (Toplevel.command test));
-  Mdx_top.eval c (Toplevel.command test)
+      l "eval_test %a" Fmt.(Dump.list (Fmt.fmt "%S")) (Toplevel.command test));
+  let root = root_dir ?root t in
+  with_dir root (fun () -> Mdx_top.eval c (Toplevel.command test))
 
-let eval_raw c ~line lines =
-  let t = Toplevel.{vpad=0; hpad=0; line; command = lines; output = [] } in
-  let _ = eval_test c t in
-  ()
+let err_eval ~cmd lines =
+    Fmt.epr "Got an error while evaluating:\n---\n%a\n---\n%a\n%!"
+      Fmt.(list ~sep:(unit "\n") string) cmd
+      Fmt.(list ~sep:(unit "\n") string) lines;
+    exit 1
 
-let run_toplevel_tests c ppf tests t =
+let eval_raw t ?root c ~line lines =
+  let test = Toplevel.{vpad=0; hpad=0; line; command = lines; output = [] } in
+  match eval_test t ?root c test with
+  | Ok _    -> ()
+  | Error e -> err_eval ~cmd:lines e
+
+let lines = function Ok x | Error x -> x
+
+let split_lines lines =
+  let aux acc s =
+    (* XXX(samoht) support windowns *)
+    let lines = String.split_on_char '\n' s in
+    List.append lines acc
+  in
+  List.fold_left aux [] (List.rev lines)
+
+let run_toplevel_tests ?root c ppf tests t =
   Block.pp_header ppf t;
   List.iter (fun test ->
-      let lines = eval_test c test in
+      let lines = lines (eval_test ?root t c test) in
+      let lines = split_lines lines in
       let output =
         let output = List.map (fun x -> `Output x) lines in
         if Output.equal output test.output then test.output
@@ -186,44 +162,81 @@ let run_toplevel_tests c ppf tests t =
     ) tests;
   Block.pp_footer ppf ()
 
+let trim l =
+  let rec aux = function
+    | []   -> []
+    | h::t -> if String.trim h = "" then aux t else  String.trim h :: t
+  in
+  let no_head = aux l in
+  let no_tail = List.rev (aux (List.rev no_head)) in
+  no_tail
+
+type file = { first: Mdx_top.Part.file; current: Mdx_top.Part.file }
+
+let files: (string, file) Hashtbl.t = Hashtbl.create 8
+
+let has_changed { first; current } =
+  let contents = Mdx_top.Part.contents current in
+  if contents = Mdx_top.Part.contents first
+  then None
+  else Some contents
+
+let read_parts file =
+  try Hashtbl.find files file
+  with Not_found ->
+    let parts = Mdx_top.Part.read file in
+    let f = { first=parts; current=parts} in
+    Hashtbl.add files file f;
+    f
+
+let write_parts file parts =
+  let output_file = file ^ ".corrected" in
+  match has_changed parts with
+  | None   -> if Sys.file_exists output_file then Sys.remove output_file
+  | Some c ->
+    let oc = open_out output_file in
+    output_string oc c;
+    flush oc;
+    close_out oc
+
 let update_block_with_file ppf t file part =
   Block.pp_header ppf t;
-  let lines = Mdx_top.Part.find ~file ~part in
-  let contents = String.concat "\n" lines in
-  Output.pp ppf (`Output contents);
-  Block.pp_footer ppf ()
+  let parts = read_parts file in
+  match Mdx_top.Part.find parts.current ~part with
+  | None       ->
+    Fmt.failwith "Cannot find part %S in %s"
+      (match part with None -> "" | Some p -> p)
+      file
+  | Some lines ->
+    let lines = trim lines in
+    let contents = String.concat "\n" lines in
+    Output.pp ppf (`Output contents);
+    Block.pp_footer ppf ()
 
 let update_file_with_block ppf t file part =
-  let output_file = file ^ ".corrected" in
-  let input_file =
-    if Sys.file_exists output_file then output_file
-    else file
+  let parts = read_parts file in
+  let lines =
+    match Block.value t with
+    | Raw | OCaml | Error _ -> t.Block.contents
+    | Cram _ ->
+      Fmt.failwith "Promoting Cram tests is unsupported for now."
+    | Toplevel tests ->
+      let f t =
+        t.Toplevel.command |> String.concat "\n\n" in
+      List.map f tests
   in
-  (match part with
-   | Some part ->
-      let lines =
-        match Block.value t with
-        | Raw | OCaml | Error _ -> t.Block.contents
-        | Cram _ ->
-           Fmt.failwith "Promoting Cram tests is unsupported for now."
-        | Toplevel tests ->
-           let f t =
-             t.Toplevel.command |> String.concat "\n" in
-           List.map f tests
-      in
-      let lines = Mdx_top.Part.replace ~file:input_file ~part ~lines in
-      let lines = List.map (String.concat "\n") lines in
-      let lines = String.concat "\n" lines in
-      if String.equal lines (read_file input_file) then
-        ()
-      else
-        let oc = open_out output_file in
-        output_string oc lines;
-        close_out oc
-   | None -> () );
+  let current = Mdx_top.Part.replace parts.current ~part ~lines in
+  let parts = { parts with current } in
+  Hashtbl.replace files file parts;
   Block.pp ppf t
 
-let update_file_or_block ppf md_file ml_file block direction =
+let update_file_or_block ?root ppf md_file ml_file block direction =
+  let root = root_dir ?root block in
+  let dir = Filename.dirname md_file in
+  let ml_file = match root with
+    | None   -> dir / ml_file
+    | Some r -> r / dir / ml_file
+  in
   let direction =
     match direction with
     | `To_md -> `To_md
@@ -257,11 +270,24 @@ let run ()
     | Some re, Some s -> Re.execp re (snd s)
   in
   let () = match prelude, prelude_str with
-    | None  , None   -> ()
-    | Some f, None   -> eval_raw c ~line:0 (read_lines f)
-    | None  , Some f -> eval_raw c ~line:0 [f]
-    | Some _, Some _ ->
-      Fmt.failwith "only one of --prelude and --prelude-str shoud be used"
+    | [], [] -> ()
+    | [], fs ->
+      List.iter (fun p ->
+          let env, f = prelude_env_and_file p in
+          let eval () = eval_raw Block.empty ?root c ~line:0 [f] in
+          match env with
+          | None   -> eval ()
+          | Some e -> Mdx_top.in_env e eval
+        ) fs
+    | fs, [] ->
+      List.iter (fun p ->
+          let env, f = prelude_env_and_file p in
+          let eval () = eval_raw Block.empty ?root c ~line:0 (read_lines f) in
+          match env with
+          | None   -> eval ()
+          | Some e -> Mdx_top.in_env e eval
+        ) fs
+    | _ -> Fmt.failwith "only one of --prelude or --prelude-str shoud be used"
   in
 
   Mdx.run file ~f:(fun file_contents items ->
@@ -273,9 +299,10 @@ let run ()
           | Section _
           | Text _ as t -> Mdx.pp_line ppf t
           | Block t ->
-            in_env (Block.environment t)
+            Mdx_top.in_env (Block.environment t)
               (fun () ->
-                 match active t, non_deterministic, Block.mode t, Block.value t with
+                 let active = active t && (not (Block.skip t)) in
+                 match active, non_deterministic, Block.mode t, Block.value t with
                  (* Print errors *)
                  | _, _, _, Error _ -> Block.pp ppf t
                  (* Skip raw blocks. *)
@@ -284,36 +311,46 @@ let run ()
                  | false, _, _, _ -> Block.pp ppf t
                  (* the command is active but non-deterministic so skip everything *)
                  | true, false, `Non_det `Command, _ -> Block.pp ppf t
-                 (* the command is active but it''s output is
+                 (* the command is active but it's output is
                     non-deterministic; run it but keep the old output. *)
                  | true, false, `Non_det `Output, Cram { tests; _ } ->
                    Block.pp ppf t;
-                   List.iter (fun t -> let _ = run_test temp_file t in ()) tests
+                   List.iter (fun t ->
+                       let _: int = run_test ?root temp_file t in ()
+                     ) tests
                  | true, false, `Non_det `Output, Toplevel tests ->
                    Block.pp ppf t;
-                   List.iter (fun t -> let _ = eval_test c t in ()) tests
+                   List.iter (fun test ->
+                       match eval_test t ?root c test with
+                       | Ok _    -> ()
+                       | Error e ->
+                         let output = List.map (fun l -> `Output l) e in
+                         if Output.equal test.output output then ()
+                         else err_eval ~cmd:test.command e
+                     ) tests
                  (* Run raw OCaml code *)
                  | true, _, _, OCaml ->
                    (match Block.file t with
                     | Some ml_file ->
-                      update_file_or_block ppf file ml_file t direction
+                      update_file_or_block ?root ppf file ml_file t direction
                     | None ->
-                      eval_raw c ~line:t.line t.contents;
+                      eval_raw t ?root c ~line:t.line t.contents;
                       Block.pp ppf t )
                  (* Cram tests. *)
                  | true, _, _, Cram { tests; pad } ->
-                   run_cram_tests ?root ppf temp_file pad tests t
+                   run_cram_tests t ?root ppf temp_file pad tests
                  (* Top-level tests. *)
                  | true, _, _, Toplevel tests ->
                    match Block.file t with
                    | Some ml_file ->
-                     update_file_or_block ppf file ml_file t direction
+                     update_file_or_block ?root ppf file ml_file t direction
                    | None ->
-                     run_toplevel_tests c ppf tests t
+                     run_toplevel_tests ?root c ppf tests t
               )
         ) items;
       Format.pp_print_flush ppf ();
       Buffer.contents buf);
+  Hashtbl.iter write_parts files;
   0
 
 (**** Cmdliner ****)

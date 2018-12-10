@@ -21,10 +21,24 @@
 
 (alias
  (name   runtest)
+ (deps   (:x ellipsis.md) (package mdx))
+ (action (progn
+           (run mdx test %{x})
+           (diff? %{x} %{x}.corrected))))
+
+(alias
+ (name   runtest)
  (deps   (:x envs.md) (package mdx))
  (action (progn
            (run mdx test %{x})
            (diff? %{x} %{x}.corrected))))
+
+(alias
+ (name   runtest)
+ (deps   (:x output.md) (:y output.html.expected) (package mdx))
+ (action (progn
+           (run mdx output %{x} -o output.html)
+           (diff? %{y} output.html))))
 
 (alias
  (name   runtest)
@@ -114,26 +128,43 @@
  (name   runtest)
  (deps   (:x dir.md) (package mdx))
  (action (progn
-           (run mdx test %{x})
+           (run mdx test --root "../bin" %{x})
            (diff? %{x} %{x}.corrected))))
+
+(rule (copy dir.md dir2.md))
 
 (alias
  (name   runtest)
- (deps   (:x dir.md) (:y dir.md.expected) (package mdx))
+ (deps   (:x dir2.md) (:y dir.md.expected) (package mdx))
  (action (progn
-           (run mdx test --root / %{x})
+           (run mdx test --root=.. %{x})
            (diff? %{y} %{x}.corrected))))
 
 (alias
  (name   runtest)
  (deps   (:x prelude.md) (package mdx))
  (action (progn
-           (run mdx test --prelude-str "#require \"lwt\"" %{x})
+           (run mdx
+                  test
+                  --prelude-str "#require \"lwt\""
+                  --prelude-str "toto:let x = \"42\""
+                  %{x})
            (diff? %{x} %{x}.corrected))))
 
 (alias
  (name   runtest)
- (deps   (:x sync_to_md.md) (:y sync_to_md.md.expected) (package mdx))
+ (deps   (:x prelude_file.md) prelude.ml (package mdx))
+ (action (progn
+           (run mdx test --prelude prelude.ml %{x})
+           (diff? %{x} %{x}.corrected))))
+
+
+(alias
+ (name   runtest)
+ (deps   (:x sync_to_md.md)
+         (:y sync_to_md.md.expected)
+         sync_to_md.ml
+         (package mdx))
  (action (progn
            (run mdx test --direction=to-md %{x})
            (diff? %{y} %{x}.corrected))))
@@ -141,18 +172,24 @@
 (alias
  (name   runtest)
  (deps   (:x sync_to_ml.md) (:y sync_to_ml.md.expected)
-         (:a sync_to_ml.ml) (:b sync_to_ml.ml.expected) (package mdx))
+         (:a sync_to_ml.ml) (:b sync_to_ml.ml.expected)
+         (:c sync_to_broken_ml.ml) (:d sync_to_ml.mli)
+         (package mdx))
  (action (progn
            (run mdx test --direction=to-ml %{x})
            (diff? %{y} %{x}.corrected)
-           (diff? %{b} %{a}.corrected))))
+           (diff? %{b} %{a}.corrected)
+           (diff? %{c} %{c}.corrected)
+           (diff? %{d} %{d}.corrected))))
 
 (rule
  (targets section.ml)
  (deps    (:x section.md) (package mdx))
  (action  (with-stdout-to %{targets} (run mdx pp %{x}))))
 
-(executable (name section))
+(executable
+  (name section)
+  (modules section))
 
 (rule (with-stdout-to section.out (run ./section.exe)))
 

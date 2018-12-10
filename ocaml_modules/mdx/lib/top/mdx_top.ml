@@ -115,7 +115,7 @@ module Phrase = struct
   let start t = t.startpos
 
   let parse lines =
-    let contents = String.concat " " lines in
+    let contents = String.concat "\n" lines in
     let lexbuf = Lexing.from_string contents in
     let startpos = lexbuf.Lexing.lex_start_p in
     let parsed = match Parse.toplevel_phrase lexbuf with
@@ -357,9 +357,22 @@ let trim_line str =
 let rtrim l = List.rev (ltrim (List.rev l))
 let trim l = ltrim (rtrim (List.map trim_line l))
 
+let cut_into_sentences l =
+  let ends_by_semi_semi h =
+    let len = String.length h in
+    len > 2 && h.[len-1] = ';' && h.[len-2] = ';'
+  in
+  let rec aux acc sentence = function
+    | [] -> List.rev (List.rev sentence :: acc)
+    | h::t when ends_by_semi_semi h -> aux (List.rev (h::sentence) :: acc) [] t
+    | h::t -> aux acc (h::sentence) t
+  in
+  aux [] [] l
+
 let eval t cmd =
   let buf = Buffer.create 1024 in
   let ppf = Format.formatter_of_buffer buf in
+  let errors = ref false in
   let exec_code ~capture phrase =
     let lines = ref [] in
     let capture () =
@@ -379,8 +392,9 @@ let eval t cmd =
     Oprint.out_phrase := out_phrase;
     let restore () = Oprint.out_phrase := out_phrase' in
     begin match toplevel_exec_phrase t ppf phrase with
-      | (_ : bool) -> restore ()
+      | ok -> errors := not ok || !errors; restore ()
       | exception exn ->
+        errors := true;
         restore ();
         Location.report_exception ppf exn
     end;
@@ -392,9 +406,18 @@ let eval t cmd =
   in
   redirect ~f:(fun ~capture ->
       capture_compiler_stuff ppf ~f:(fun () ->
-          match Phrase.parse cmd with
-          | Some t -> exec_code ~capture t
-          | None   -> []
+          let cmd = match cmd with
+            | [] | [_] -> cmd
+            | h::t     -> h :: List.map ((^) "  ") t
+          in
+          let phrases = cut_into_sentences cmd in
+          List.map (fun phrase ->
+              match Phrase.parse phrase with
+              | Some t -> exec_code ~capture t
+              | None   -> []
+            ) phrases
+          |> List.concat
+          |> fun x -> if !errors then Error x else Ok x
         ))
 
 
@@ -615,3 +638,67 @@ let init ~verbose:v ~silent:s ~verbose_findlib () =
   t
 
 module Part = Part
+
+let envs = Hashtbl.create 8
+
+let rec save_summary acc s =
+  let open Env in
+  match s with
+  | Env_value (summary, id, _) ->
+     save_summary (Ident.name id :: acc) summary
+  | Env_module (summary, id, _)
+    | Env_class (summary, id, _)
+    | Env_functor_arg (summary, id)
+    | Env_open (summary,
+                #if OCAML_MAJOR >= 4 && OCAML_MINOR >= 7
+                _,
+                #endif
+                Pident id)
+    | Env_extension (summary, id, _) ->
+      let acc =
+        if Ident.binding_time id >= 1000
+        then Ident.unique_toplevel_name id :: acc
+        else acc
+      in
+      save_summary acc summary
+  | Env_empty -> acc
+  | Env_constraints (summary, _)
+    | Env_cltype (summary, _, _)
+    | Env_modtype (summary, _, _)
+    | Env_type (summary, _, _)
+    | Env_open (summary,
+                #if OCAML_MAJOR >= 4 && OCAML_MINOR >= 7
+                _,
+                #endif
+                _)
+    | Env_copy_types (summary, _) -> save_summary acc summary
+
+let default_env = ref (Compmisc.initial_env ())
+let first_call = ref true
+
+let env_deps env =
+  let names = save_summary [] (Env.summary env) in
+  let objs = List.map Toploop.getvalue names in
+  env, names, objs
+
+let load_env env names objs =
+  Toploop.toplevel_env := env;
+  List.iter2 Toploop.setvalue names objs
+
+let in_env env_name f =
+  if !first_call then (
+    (* We will start from the *correct* initial environment with
+       everything loaded, for each environment. *)
+    default_env := !Toploop.toplevel_env;
+    first_call := false
+  );
+  let env, names, objs =
+    try Hashtbl.find envs env_name
+    with Not_found -> env_deps !default_env
+  in
+  load_env env names objs;
+  let res = f () in
+  let env = !Toploop.toplevel_env in
+  let env, names, objs = env_deps env in
+  Hashtbl.replace envs env_name (env, names, objs);
+  res
