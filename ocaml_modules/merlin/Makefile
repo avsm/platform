@@ -1,8 +1,5 @@
 all: build ocamlmerlin ocamlmerlin-server
 
-dev:
-	dune build --dev -j16
-
 build:
 	dune build
 
@@ -13,7 +10,7 @@ clean:
 	dune clean
 
 test:
-	dune runtest
+	dune runtest --force
 
 preprocess:
 	dune build @preprocess

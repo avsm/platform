@@ -174,9 +174,27 @@ function! merlin#Flags(...)
   let b:merlin_flags = a:000
 endfunction
 
+function! merlin#LogBuffer() abort
+  let l:filename = ":merlin-log:"
+  let l:buffer = bufnr(l:filename)
+
+  if l:buffer == -1
+    let l:buffer = bufnr(l:filename, v:true)
+
+    " Set up the buffer
+    call setbufvar(l:buffer, "&buftype", "nofile")
+    call setbufvar(l:buffer, "&bufhidden", "hide")
+    " 1 is 'noswapfile'
+    call setbufvar(l:buffer, "&swapfile", 0)
+  endif
+
+  return l:buffer
+endfunction
+
 function! merlin#DebugEnable()
   let g:merlin_debug=1
-  split :merlin-log:
+  split
+  execute "buffer " . merlin#LogBuffer()
 endfunction
 
 function! merlin#DebugDisable()
@@ -678,7 +696,7 @@ endfunction
 
 function! merlin#FindBinary()
   if !has_key(s:c, 'ocamlmerlin_path') && has_key(s:c, 'merlin_home')
-    let s:choices = filter(map(['ocamlmerlin','ocamlmerlin.native'], 's:c.merlin_home."/".v:val'), 'filereadable(v:val)')
+    let s:choices = filter(map(['ocamlmerlin','ocamlmerlin.native'], 's:c.merlin_home."/bin/".v:val'), 'filereadable(v:val)')
     if len(s:choices) > 0
       let s:c.ocamlmerlin_path =  s:choices[0]
     elseif executable('ocamlmerlin')
