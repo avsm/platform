@@ -5,8 +5,7 @@ language: c
 script: make
 env:
   matrix:
-  - DISTRO="debian-9" OCAML_VERSION="4.07"
-  - DISTRO="alpine-3.7" OCAML_VERSION="4.07"
-  - DISTRO="fedora-28" OCAML_VERSION="4.07"
-  - DISTRO="ubuntu-16.04" OCAML_VERSION="4.06"
-  - DISTRO="ubuntu-18.04" OCAML_VERSION="4.07"
+  - DISTRO="debian-stable" OCAML_VERSION="4.07"
+  - DISTRO="alpine" OCAML_VERSION="4.07"
+  - DISTRO="fedora" OCAML_VERSION="4.07"
+  - DISTRO="ubuntu" OCAML_VERSION="4.07"
