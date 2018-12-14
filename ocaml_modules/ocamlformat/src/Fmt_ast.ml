@@ -592,6 +592,18 @@ let fmt_variance = function
 let break_cases_level c =
   match c.conf.break_cases with `Fit -> 0 | `Nested -> 1 | `All -> 2
 
+let wrap_list c =
+  if c.conf.space_around_collection_expressions then wrap "[ " "@ ]"
+  else wrap_fits_breaks c.conf "[" "]"
+
+let wrap_array c =
+  if c.conf.space_around_collection_expressions then wrap "[| " "@ |]"
+  else wrap_fits_breaks c.conf "[|" "|]"
+
+let wrap_record c =
+  if c.conf.space_around_collection_expressions then wrap "{ " "@ }"
+  else wrap_fits_breaks c.conf "{" "}"
+
 let doc_atrs = Ast.doc_atrs
 
 let fmt_docstring c ?(standalone = false) ?pro ?epi doc =
@@ -948,8 +960,13 @@ and fmt_pattern c ?pro ?parens ({ctx= ctx0; ast= pat} as xpat) =
       let parens =
         parens || Poly.(c.conf.parens_tuple_patterns = `Always)
       in
+      let wrap_multiline =
+        if c.conf.indicate_multiline_delimiters then
+          wrap_if_breaks "( " "@ )"
+        else wrap_if_breaks "(" ")"
+      in
       hvbox 0
-        (wrap_if_breaks "( " "@ )"
+        (wrap_multiline
            (wrap_if_fits_and parens "(" ")"
               (list pats "@,, " (sub_pat ~ctx >> fmt_pattern c))))
   | Ppat_construct (lid, None) -> (
@@ -968,7 +985,7 @@ and fmt_pattern c ?pro ?parens ({ctx= ctx0; ast= pat} as xpat) =
     match sugar_list_pat c pat with
     | Some (loc_xpats, nil_loc) ->
         hvbox 0
-          (wrap_fits_breaks c.conf "[" "]"
+          (wrap_list c
              ( list loc_xpats "@,; " (fun (locs, xpat) ->
                    Cmts.fmt_list c.cmts locs @@ fmt_pattern c xpat )
              $ Cmts.fmt c.cmts ~pro:(fmt " ") ~epi:(fmt "") nil_loc
@@ -1016,7 +1033,7 @@ and fmt_pattern c ?pro ?parens ({ctx= ctx0; ast= pat} as xpat) =
       in
       hvbox 0
         (wrap_if parens "(" ")"
-           (wrap_fits_breaks c.conf "{" "}"
+           (wrap_record c
               ( list flds "@,; " fmt_field
               $ fmt_if Poly.(closed_flag = Open) "; _" )))
   | Ppat_array [] ->
@@ -1024,7 +1041,7 @@ and fmt_pattern c ?pro ?parens ({ctx= ctx0; ast= pat} as xpat) =
         (wrap_fits_breaks c.conf "[|" "|]" (Cmts.fmt_within c.cmts ppat_loc))
   | Ppat_array pats ->
       hvbox 0
-        (wrap_fits_breaks c.conf "[|" "|]"
+        (wrap_array c
            (list pats "@;<0 1>; " (sub_pat ~ctx >> fmt_pattern c)))
   | Ppat_or _ ->
       let nested =
@@ -1324,7 +1341,9 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
           let very_last = last_grp && last in
           fmt_if_k very_first
             (fits_breaks_if parens_or_nested "("
-               (if parens_or_forced then "( " else ""))
+               ( if parens_or_forced then
+                 if c.conf.indicate_multiline_delimiters then "( " else "("
+               else "" ))
           $ fmt_cmts
           $ fmt_if_k first
               (open_hovbox (if first_grp && parens then -2 else 0))
@@ -1332,7 +1351,10 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
           $ fmt_if_k last close_box
           $ fmt_or_k very_last
               (fits_breaks_if parens_or_nested ")"
-                 (if parens_or_forced then "@ )" else ""))
+                 ( if parens_or_forced then
+                   if c.conf.indicate_multiline_delimiters then "@ )"
+                   else "@,)"
+                 else "" ))
               (break_unless_newline 1 0) )
     in
     let op_args_grouped =
@@ -1582,7 +1604,8 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
                              | Pexp_fun _ | Pexp_function _ -> Some false
                              | _ -> None )
                            xbody )
-                   $ fits_breaks ")" "@ )" )
+                   $ fmt_or_k c.conf.indicate_multiline_delimiters
+                       (fits_breaks ")" "@ )") (fits_breaks ")" "@,)") )
                $ fmt_atrs ))
       | ( lbl
         , ( { pexp_desc= Pexp_function [{pc_lhs; pc_guard= None; pc_rhs}]
@@ -1611,7 +1634,8 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
                        $ fmt "@ ->" )
                    $ fmt "@ "
                    $ cbox 0 (fmt_expression c (sub_exp ~ctx pc_rhs))
-                   $ fits_breaks ")" " )"
+                   $ fmt_or_k c.conf.indicate_multiline_delimiters
+                       (fits_breaks ")" " )") (fmt ")")
                    $ Cmts.fmt_after c.cmts pexp_loc )
                $ fmt_atrs ))
       | (lbl, ({pexp_desc= Pexp_function cs; pexp_loc} as eN)) :: rev_e1N
@@ -1629,7 +1653,9 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
                       $ fmt_label lbl ":" $ fmt "(function"
                       $ fmt_attributes c ~pre:(fmt " ") ~key:"@"
                           eN.pexp_attributes ))
-               $ fmt "@ " $ fmt_cases c ctx'' cs $ fits_breaks ")" " )"
+               $ fmt "@ " $ fmt_cases c ctx'' cs
+               $ fmt_or_k c.conf.indicate_multiline_delimiters
+                   (fits_breaks ")" " )") (fmt ")")
                $ Cmts.fmt_after c.cmts pexp_loc
                $ fmt_atrs ))
       | _ ->
@@ -1641,7 +1667,7 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
         $ fmt_atrs )
   | Pexp_array e1N ->
       hvbox 0
-        ( wrap_fits_breaks c.conf "[|" "|]"
+        ( wrap_array c
             (fmt_expressions c width (sub_exp ~ctx) e1N "@;<0 1>; "
                (sub_exp ~ctx >> fmt_expression c))
         $ fmt_atrs )
@@ -1653,7 +1679,9 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
               ( hvbox 2
                   ( fmt_or paren_body "assert (@," "assert@ "
                   $ fmt_expression c ~parens:false (sub_exp ~ctx e0) )
-              $ fits_breaks_if paren_body ")" "@ )"
+              $ fmt_or_k c.conf.indicate_multiline_delimiters
+                  (fits_breaks_if paren_body ")" "@ )")
+                  (fits_breaks_if paren_body ")" "@,)")
               $ fmt_atrs )))
   | Pexp_constant const ->
       wrap_if
@@ -1705,7 +1733,7 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
           (wrap_if
              (not (List.is_empty pexp_attributes))
              "(" ")"
-             ( wrap_fits_breaks c.conf "[" "]"
+             ( wrap_list c
                  ( fmt_expressions c width snd loc_xes "@,; "
                      (fun (locs, xexp) ->
                        Cmts.fmt_list c.cmts ~eol:(fmt "@;<1 2>") locs
@@ -1727,7 +1755,9 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
   | Pexp_construct (({txt= Lident "::"} as lid), Some arg) ->
       wrap_if parens "(" ")"
         ( hvbox 2
-            ( wrap "( " " )" (fmt_longident_loc c lid)
+            ( fmt_or_k c.conf.indicate_multiline_delimiters
+                (wrap "( " " )" (fmt_longident_loc c lid))
+                (wrap "(" ")" (fmt_longident_loc c lid))
             $ fmt "@ "
             $ fmt_expression c (sub_exp ~ctx arg) )
         $ fmt_atrs )
@@ -1763,7 +1793,9 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
                 $ fmt "@ " )
             $ fmt "->" )
           $ fmt_body c ?ext xbody )
-        $ fits_breaks_if parens ")" "@ )" )
+        $ fmt_or_k c.conf.indicate_multiline_delimiters
+            (fits_breaks_if parens ")" "@ )")
+            (fits_breaks_if parens ")" "@,)") )
   | Pexp_function cs ->
       wrap_if parens "(" ")"
         ( hvbox 2
@@ -1775,7 +1807,7 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
   | Pexp_ident {txt; loc} ->
       let wrap, wrap_ident =
         if is_symbol exp && not (List.is_empty pexp_attributes) then
-          (wrap_if true "( " " )", true)
+          (wrap "( " " )", true)
         else if is_symbol exp then (wrap_if parens "( " " )", false)
         else (wrap_if parens "(" ")", false)
       in
@@ -1814,7 +1846,9 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
                           $ fmt_if parens_bch " (" $ fmt "@ "
                           $ fmt_expression c ~box:false ~parens:false xbch
                           )
-                      $ fmt_if parens_bch " )" )
+                      $ fmt_if parens_bch
+                          ( if c.conf.indicate_multiline_delimiters then " )"
+                          else ")" ) )
                     $ fmt_if (not last) "@ "
                 | `Keyword_first ->
                     opt xcnd (fun xcnd ->
@@ -1830,7 +1864,10 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
                         ( fmt_or (Option.is_some xcnd) "then" "else"
                         $ fmt_if parens_bch " (" $ fmt "@ "
                         $ fmt_expression c ~box:false ~parens:false xbch
-                        $ fmt_if parens_bch " )" )
+                        $ fmt_if parens_bch
+                            ( if c.conf.indicate_multiline_delimiters then
+                              " )"
+                            else ")" ) )
                     $ fmt_if (not last) "@ " )))
   | Pexp_let (rec_flag, bindings, body) ->
       wrap_if
@@ -1997,7 +2034,9 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
                    $ fmt "@ ->" $ fmt_if parens_here " (" )
                $ fmt "@ "
                $ cbox 0 (fmt_expression c ?parens:parens_for_exp xpc_rhs)
-               $ fmt_if parens_here " )" )) )
+               $ fmt_if parens_here
+                   ( if c.conf.indicate_multiline_delimiters then " )"
+                   else ")" ) )) )
   | Pexp_pack me ->
       let {opn; pro; psp; bdy; cls; esp; epi} =
         fmt_module_expr c (sub_mod ~ctx me)
@@ -2033,7 +2072,7 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
                  $ cbox 0 (fmt_expression c (sub_exp ~ctx f)) ))
       in
       hvbox 0
-        ( wrap_fits_breaks c.conf "{" "}"
+        ( wrap_record c
             (hovbox (-2)
                ( opt default (fun d ->
                      hvbox 2
@@ -2098,7 +2137,9 @@ and fmt_expression c ?(box = true) ?epi ?eol ?parens ?ext
       let wrap =
         if parens then wrap_fits_breaks c.conf "(" ")"
         else if no_parens_if_break then Fn.id
-        else wrap_if_breaks "( " "@ )"
+        else if c.conf.indicate_multiline_delimiters then
+          wrap_if_breaks "( " "@ )"
+        else wrap_if_breaks "(" ")"
       in
       hvbox 0
         (wrap (list es "@,, " (sub_exp ~ctx >> fmt_expression c)) $ fmt_atrs)
@@ -2465,7 +2506,9 @@ and fmt_class_expr c ?eol ?(box = true) ({ast= exp} as xexp) =
             $ fmt "->" )
           $ close_box $ fmt "@ "
           $ fmt_class_expr c ~eol:(fmt "@;<1000 0>") xbody )
-        $ fits_breaks_if parens ")" "@ )" )
+        $ fmt_or_k c.conf.indicate_multiline_delimiters
+            (fits_breaks_if parens ")" "@ )")
+            (fits_breaks_if parens ")" "@,)") )
   | Pcl_apply (e0, e1N1) ->
       wrap_if parens "(" ")" (hvbox 2 (fmt_args_grouped e0 e1N1) $ fmt_atrs)
   | Pcl_let (rec_flag, bindings, body) ->
@@ -2731,7 +2774,9 @@ and fmt_cases c ctx cs =
             | true, true, true -> fmt " (@;<1 4>" )
           $ hovbox 0
               ( hovbox 0 (fmt_expression c ?parens:parens_for_exp xrhs)
-              $ fmt_if parens_here "@ )" ) ) )
+              $ fmt_or_k c.conf.indicate_multiline_delimiters
+                  (fmt_if parens_here "@ )")
+                  (fmt_if parens_here "@,)") ) ) )
 
 and fmt_value_description c ctx vd =
   let { pval_name= {txt; loc}
@@ -2811,7 +2856,7 @@ and fmt_type_declaration c ?(pre = "") ?(suf = ("" : _ format)) ?(brk = suf)
           (fmt_manifest ~priv:Public mfst $ fmt " =" $ fmt_private_flag priv)
         $ fmt "@ "
         $ hvbox 0
-            (wrap_fits_breaks c.conf "{" "}"
+            (wrap_record c
                (list_fl lbl_decls (fun ~first ~last x ->
                     fmt_if (not first)
                       ( match c.conf.type_decl with
@@ -2913,8 +2958,7 @@ and fmt_constructor_arguments c ctx pre args =
       fmt pre $ hvbox 0 (list typs "@ * " (sub_typ ~ctx >> fmt_core_type c))
   | Pcstr_record lds ->
       fmt pre
-      $ wrap_fits_breaks c.conf "{" "}"
-          (list lds "@,; " (fmt_label_declaration c ctx))
+      $ wrap_record c (list lds "@,; " (fmt_label_declaration c ctx))
 
 and fmt_constructor_arguments_result c ctx args res =
   let pre : _ format = if Option.is_none res then " of@ " else " :@ " in
@@ -3537,7 +3581,8 @@ and fmt_module_expr c ({ast= m} as xmod) =
             ( Option.call ~f:pro_e $ psp_e $ bdy_e $ esp_e
             $ Option.call ~f:epi_e $ fmt " :@ " $ Option.call ~f:pro_t
             $ psp_t $ bdy_t $ esp_t $ Option.call ~f:epi_t )
-          $ fits_breaks ")" " )"
+          $ fmt_or_k c.conf.indicate_multiline_delimiters
+              (fits_breaks ")" " )") (fmt ")")
       ; cls= close_box $ cls_e $ cls_t
       ; esp= fmt ""
       ; epi=

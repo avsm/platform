@@ -1,5 +1,5 @@
 opam-version: "1.2"
-version: "2.0.1"
+version: "2.0.2"
 maintainer: "opam-devel@lists.ocaml.org"
 authors: [
   "Vincent Bernardoff <vb@luminar.eu.org>"
@@ -22,9 +22,9 @@ build: [
 ]
 build-test: [make "tests"]
 depends: [
-  "opam-client" {= "2.0.1"}
+  "opam-client" {= "2.0.2"}
   "cmdliner" {>= "0.9.8"}
-  "jbuilder" {build & >= "1.0+beta20"}
+  "dune" {build & >= "1.2.1"}
 ]
 post-messages: [
 "The development version of opam has been successfuly compiled into %{lib}%/%{name}%. You should not run it from there, please install the binaries to your PATH, e.g. with
