@@ -7,6 +7,8 @@
  * This file is a part of utop.
  *)
 
+[@@@warning "-9-27-32"]
+
 open Types
 open LTerm_read_line
 open UTop_token
@@ -383,7 +385,7 @@ let visible_modules () =
             Array.fold_left
               (fun acc fname ->
                 if Filename.check_suffix fname ".cmi" then
-                  String_set.add (String.capitalize (Filename.chop_suffix fname ".cmi")) acc
+                  String_set.add (String.capitalize_ascii (Filename.chop_suffix fname ".cmi")) acc
                 else
                   acc)
               acc
@@ -541,10 +543,12 @@ let list_global_names () =
     | Env.Env_constraints (summary, _) ->
         loop acc summary
 #endif
-#if OCAML_VERSION >= (4, 07, 0)
+#if OCAML_VERSION >= (4, 06, 0)
     | Env.Env_copy_types (summary, _) ->
         loop acc summary
-    | Env.Env_open(summary, _skip, path) ->
+#endif
+#if OCAML_VERSION >= (4, 07, 0)
+    | Env.Env_open(summary, _, path) ->
 #else
     | Env.Env_open(summary, path) ->
 #endif
@@ -610,10 +614,12 @@ let list_global_fields () =
     | Env.Env_constraints (summary, _) ->
         loop acc summary
 #endif
-#if OCAML_VERSION >= (4, 07, 0)
+#if OCAML_VERSION >= (4, 06, 0)
     | Env.Env_copy_types (summary, _) ->
         loop acc summary
-    | Env.Env_open(summary, _skip, path) ->
+#endif
+#if OCAML_VERSION >= (4, 07, 0)
+    | Env.Env_open(summary, _, path) ->
 #else
     | Env.Env_open(summary, path) ->
 #endif
@@ -771,12 +777,14 @@ let labels_of_newclass longident =
    +-----------------------------------------------------------------+ *)
 
 (* Filter blanks and comments except for the last token. *)
-let rec filter tokens =
-  match tokens with
-    | [] -> []
-    | [((Blanks | Comment (_, true)), loc)] -> [(Blanks, loc)]
-    | ((Blanks | Comment (_, true)), _) :: rest -> filter rest
-    | x :: rest -> x :: filter rest
+let filter tokens =
+  let rec aux acc = function
+    | [] -> acc
+    | [((Blanks | Comment (_, true)), loc)] -> (Blanks, loc) :: acc
+    | ((Blanks | Comment (_, true)), _) :: rest -> aux acc rest
+    | x :: rest -> aux (x :: acc) rest
+  in
+  List.rev (aux [] tokens)
 
 (* Reverse and filter blanks and comments except for the last
    token. *)
