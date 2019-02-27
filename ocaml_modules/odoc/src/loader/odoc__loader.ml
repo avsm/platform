@@ -93,7 +93,7 @@ let read_cmt ~make_root ~filename =
       in
       let hidden = Model.Root.contains_double_underscore name in
       let root = make_root ~module_name:name ~digest in
-      let id = Model.Paths.Identifier.Root(root, name) in
+      let id = `Root(root, Model.Names.UnitName.of_string name) in
       let items =
         List.map (fun file ->
           let pref = Misc.chop_extensions file in
@@ -103,8 +103,8 @@ let read_cmt ~make_root ~filename =
       let items = List.sort String.compare items in
       let items =
         List.map (fun name ->
-          let id = Model.Paths.Identifier.Module(id, name) in
-          let path = Model.Paths.Path.Root name in
+          let id = `Module(id, Model.Names.ModuleName.of_string name) in
+          let path = `Root name in
           {Model.Lang.Compilation_unit.Packed.id; path})
           items
       in
@@ -168,7 +168,7 @@ let read_cmi ~make_root ~filename =
     | (name, Some digest) :: imports when name = cmi_info.cmi_name ->
       Error.catch begin fun () ->
         let root = make_root ~module_name:name ~digest:digest in
-        let (id, doc, items) = Cmi.read_interface root name cmi_info.cmi_sign in
+        let (id, doc, items) = Cmi.read_interface root name (Model.Compat.signature cmi_info.cmi_sign) in
         let imports =
           List.map (fun (s, d) ->
             Model.Lang.Compilation_unit.Import.Unresolved(s, d)) imports

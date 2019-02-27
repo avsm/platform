@@ -94,7 +94,7 @@ module Case = struct
       match case.theme_uri with
       | Some _ -> "custom_theme" :: opts
       | None -> opts in
-    let opts = String.concat "," (List.sort Pervasives.compare opts) in
+    let opts = String.concat "," (List.sort compare opts) in
     Env.package ^ "+" ^ opts
 
   let cmi_file case  = Env.path `scratch // (case.name ^ ".cmi")
@@ -258,18 +258,32 @@ let source_files = [
   ("module.mli", ["Module/index.html"]);
   ("interlude.mli", ["Interlude/index.html"]);
   ("include.mli", ["Include/index.html"]);
+  ("include2.ml", ["Include2/index.html"]);
   ("mld.mld", ["mld.html"]);
-  ("nested.mli", ["Nested/index.html"]);
+  ("nested.mli", [
+      "Nested/index.html";
+      "Nested/F/index.html";
+      "Nested/F/argument-1-Arg1/index.html";
+      "Nested/F/argument-2-Arg2/index.html";
+      "Nested/X/index.html";
+      "Nested/class-z/index.html";
+      "Nested/class-inherits/index.html";
+      "Nested/module-type-Y/index.html";
+    ]);
   ("type.mli", ["Type/index.html"]);
   ("external.mli", ["External/index.html"]);
   ("functor.mli", ["Functor/index.html"]);
   ("class.mli", ["Class/index.html"]);
   ("stop.mli", ["Stop/index.html"]);
   ("bugs.ml", ["Bugs/index.html"]);
+  ("alias.ml", [
+      "Alias/index.html";
+      "Alias/X/index.html";
+    ]);
 ]
 
 let source_files =
-  let latest_supported = "4.07." in
+  let latest_supported = "4.08." in
   match String.sub (Sys.ocaml_version) 0 (String.length latest_supported) with
   | s when s = latest_supported -> source_files @ [("recent.mli", ["Recent/index.html"])]
   | _ -> source_files

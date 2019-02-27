@@ -19,24 +19,23 @@ esac
 
 # Install esy or opam
 if [[ $ESY_BUILD == YES ]]; then
-  npm --global install esy@0.3.x
+  npm --global install esy@0.5.x
 else
   OPAM_RELEASES=https://github.com/ocaml/opam/releases/
-  OPAM_VERSION=2.0.1
-  OPAM_PKG=opam-${OPAM_VERSION}-x86_64
+  OPAM_VERSION=2.0.3
 
   case $TRAVIS_OS_NAME in
-  "linux")
-    wget ${OPAM_RELEASES}/download/${OPAM_VERSION}/${OPAM_PKG}-linux
-    sudo mv ${OPAM_PKG}-linux /usr/local/bin/opam
-    sudo chmod a+x /usr/local/bin/opam
-  ;;
-
-  "osx")
-    brew install opam
-    brew link opam
-  ;;
+  "linux") OPAM_OS=linux;;
+    "osx") OPAM_OS=macos;;
+        *) echo Unsupported system $TRAVIS_OS_NAME; exit 1;;
   esac
 
-  opam init -y --compiler=$OCAML --disable-sandboxing
+  OPAM_PKG=opam-${OPAM_VERSION}-x86_64-${OPAM_OS}
+
+  wget ${OPAM_RELEASES}/download/${OPAM_VERSION}/${OPAM_PKG}
+  sudo mv ${OPAM_PKG} /usr/local/bin/opam
+  sudo chmod a+x /usr/local/bin/opam
+
+  opam init -y --bare --disable-sandboxing
+  opam switch create . $OCAML $REPOSITORIES --no-install
 fi

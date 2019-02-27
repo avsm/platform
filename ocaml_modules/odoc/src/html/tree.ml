@@ -19,6 +19,8 @@
 module Html = Tyxml.Html
 module Paths = Model.Paths
 
+open Model.Names
+
 type syntax = OCaml | Reason
 
 type kind = [ `Arg | `Mod | `Mty | `Class | `Cty | `Page ]
@@ -66,7 +68,7 @@ module Relative_link = struct
     exception Not_linkable
     exception Can't_stop_before
 
-    val href : ?xref_base_uri:string -> stop_before:bool -> _ Identifier.t -> string
+    val href : ?xref_base_uri:string -> stop_before:bool -> Identifier.t -> string
   end = struct
     exception Not_linkable
 
@@ -138,20 +140,19 @@ module Relative_link = struct
   end
 
   module Of_path = struct
-    let rec to_html : type a. stop_before:bool -> a Path.t -> _ =
+    let rec to_html : stop_before:bool -> Path.t -> _ =
       fun ~stop_before path ->
-        let open Path in
         match path with
-        | Root root -> [ Html.txt root ]
-        | Forward root -> [ Html.txt root ] (* FIXME *)
-        | Dot (prefix, suffix) ->
-          let link = to_html ~stop_before:true prefix in
+        | `Root root -> [ Html.txt root ]
+        | `Forward root -> [ Html.txt root ] (* FIXME *)
+        | `Dot (prefix, suffix) ->
+          let link = to_html ~stop_before:true (prefix :> Path.t) in
           link @ [ Html.txt ("." ^ suffix) ]
-        | Apply (p1, p2) ->
-          let link1 = to_html ~stop_before p1 in
-          let link2 = to_html ~stop_before p2 in
+        | `Apply (p1, p2) ->
+          let link1 = to_html ~stop_before (p1 :> Path.t) in
+          let link2 = to_html ~stop_before (p2 :> Path.t) in
           link1 @ Html.txt "(":: link2 @ [ Html.txt ")" ]
-        | Resolved rp ->
+        | `Resolved rp ->
           let id = Path.Resolved.identifier rp in
           let txt = Url.render_path path in
           begin match Id.href ~stop_before id with
@@ -169,32 +170,31 @@ module Relative_link = struct
       | "" -> suffix
       | _  -> prefix ^ "." ^ suffix
 
-    let rec render_raw : type a. (a, _) Fragment.raw -> string =
+    let rec render_raw : Fragment.t -> string =
       fun fragment ->
-        let open Fragment in
         match fragment with
-        | Resolved rr -> render_resolved rr
-        | Dot (prefix, suffix) -> dot (render_raw prefix) suffix
+        | `Resolved rr -> render_resolved rr
+        | `Dot (prefix, suffix) -> dot (render_raw (prefix :> Fragment.t)) suffix
 
-    and render_resolved : type a. (a, _) Fragment.Resolved.raw -> string =
+    and render_resolved : Fragment.Resolved.t -> string =
+      let open Fragment.Resolved in
       fun fragment ->
-        let open Fragment.Resolved in
         match fragment with
-        | Root -> ""
-        | Subst (_, rr) -> render_resolved (any_sort rr)
-        | SubstAlias (_, rr) -> render_resolved (any_sort rr)
-        | Module (rr, s) -> dot (render_resolved rr) s
-        | Type (rr, s) -> dot (render_resolved rr) s
-        | Class (rr, s) -> dot (render_resolved rr) s
-        | ClassType (rr, s) -> dot (render_resolved rr) s
+        | `Root -> ""
+        | `Subst (_, rr) -> render_resolved (rr :> t)
+        | `SubstAlias (_, rr) -> render_resolved (rr :> t)
+        | `Module (rr, s) -> dot (render_resolved (rr :> t)) (ModuleName.to_string s)
+        | `Type (rr, s) -> dot (render_resolved (rr :> t)) (TypeName.to_string s)
+        | `Class (rr, s) -> dot (render_resolved ( rr :> t)) (ClassName.to_string s)
+        | `ClassType (rr, s) -> dot (render_resolved (rr :> t)) (ClassTypeName.to_string s)
 
-    let rec to_html : type a. stop_before:bool ->
-      Identifier.signature -> (a, _) Fragment.raw -> _ =
+    let rec to_html : stop_before:bool ->
+      Identifier.Signature.t -> Fragment.t -> _ =
       fun ~stop_before id fragment ->
         let open Fragment in
         match fragment with
-        | Resolved Resolved.Root ->
-          begin match Id.href ~stop_before:true id with
+        | `Resolved `Root ->
+          begin match Id.href ~stop_before:true (id :> Identifier.t) with
           | href ->
             [Html.a ~a:[Html.a_href href] [Html.txt (Identifier.name id)]]
           | exception Id.Not_linkable -> [ Html.txt (Identifier.name id) ]
@@ -202,8 +202,8 @@ module Relative_link = struct
             Printf.eprintf "[FRAG] Id.href failed: %S\n%!" (Printexc.to_string exn);
             [ Html.txt (Identifier.name id) ]
           end
-        | Resolved rr ->
-          let id = Resolved.identifier id (Obj.magic rr : a Resolved.t) in
+        | `Resolved rr ->
+          let id = Resolved.identifier id (rr :> Resolved.t) in
           let txt = render_resolved rr in
           begin match Id.href ~stop_before id with
           | href ->
@@ -213,8 +213,8 @@ module Relative_link = struct
             Printf.eprintf "[FRAG] Id.href failed: %S\n%!" (Printexc.to_string exn);
             [ Html.txt txt ]
           end
-        | Dot (prefix, suffix) ->
-          let link = to_html ~stop_before:true id prefix in
+        | `Dot (prefix, suffix) ->
+          let link = to_html ~stop_before:true id (prefix :> Fragment.t) in
           link @ [ Html.txt ("." ^ suffix) ]
   end
 
@@ -265,8 +265,8 @@ let page_creator ?kind ?(theme_uri = Relative "./") ~path header_docs content =
     add_dotdot uri ~n
   in
 
+  let name = List.hd @@ List.rev path in
   let head : Html_types.head Html.elt =
-    let name = List.hd @@ List.rev path in
     let title_string = Printf.sprintf "%s (%s)" name (String.concat "." path) in
 
     let theme_uri =
@@ -291,9 +291,6 @@ let page_creator ?kind ?(theme_uri = Relative "./") ~path header_docs content =
   in
 
   let wrapped_content : (Html_types.div_content Html.elt) list =
-    let up_href =
-      if !Relative_link.semantic_uris then ".." else "../index.html" in
-
     let title_prefix =
       match kind with
       | None
@@ -326,6 +323,12 @@ let page_creator ?kind ?(theme_uri = Relative "./") ~path header_docs content =
     in
 
     let header_content =
+      let dot = if !Relative_link.semantic_uris then "" else "index.html" in
+      let dotdot = add_dotdot ~n:1 dot in
+      let up_href = match kind with
+      | Some `Page when name <> "index" -> dot
+      | _ -> dotdot
+      in
       let has_parent = List.length path > 1 in
       if has_parent then
         let nav =
@@ -337,11 +340,16 @@ let page_creator ?kind ?(theme_uri = Relative "./") ~path header_docs content =
           ] @
             (* Create breadcrumbs *)
             let space = Html.txt " " in
-            let init =
-              if !Relative_link.semantic_uris then "" else "index.html"
+            let breadcrumb_spec = match kind with
+            | Some `Page -> (fun n x -> n, dot, x)
+            | _ -> (fun n x -> n, add_dotdot ~n dot, x)
             in
-            List.rev path |>
-            List.mapi (fun n x -> n, add_dotdot ~n init, x) |>
+            let rev_path = match kind with
+            | Some `Page when name = "index" -> List.tl (List.rev path)
+            | _ -> List.rev path
+            in
+            rev_path |>
+            List.mapi breadcrumb_spec |>
             List.rev |>
             Utils.list_concat_map ?sep:(Some([space; Html.entity "#x00BB"; space]))
               ~f:(fun (n, addr, lbl) ->
