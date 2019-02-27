@@ -1,7 +1,7 @@
 (library
   (name opam_file_format)
   (public_name opam-file-format)
-  (synopsis "opam file format handling library")
+  (synopsis "Parser and printer for the opam file syntax")
   (wrapped false)
   (modules_without_implementation opamParserTypes))
 
