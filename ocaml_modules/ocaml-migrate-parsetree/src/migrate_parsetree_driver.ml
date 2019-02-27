@@ -77,6 +77,8 @@ type 'types rewriter = config -> cookies -> 'types get_mapper
 type rewriter_group =
     Rewriters : 'types ocaml_version * (string * 'types rewriter) list -> rewriter_group
 
+let rewriter_group_names (Rewriters (_, l)) = List.map fst l
+
 let uniq_rewriter = Hashtbl.create 7
 module Pos_map = Map.Make(struct
     type t = int
@@ -369,9 +371,14 @@ let load_file file =
       | Intf fn ->
         (fn, Intf (Parse.interface lexbuf)))
 
-let with_output output ~f =
+let with_output ?bin output ~f =
   match output with
-  | None -> f stdout
+  | None ->
+      begin match bin with
+      | Some bin -> set_binary_mode_out stdout bin
+      | None -> ()
+      end;
+      f stdout
   | Some fn -> with_file_out fn ~f
 
 type output_mode =
@@ -414,7 +421,7 @@ let process_file ~config ~output ~output_mode ~embed_errors file =
   in
   match output_mode with
   | Dump_ast ->
-    with_output output ~f:(fun oc ->
+    with_output ~bin:true output ~f:(fun oc ->
       let ast =
         match ast with
         | Intf (_, sg) -> Ast_io.Intf ((module OCaml_current), sg)
@@ -431,7 +438,24 @@ let process_file ~config ~output ~output_mode ~embed_errors file =
   | Null ->
     ()
 
+let print_transformations () =
+  let print_group name = function
+    | [] -> ()
+    | names ->
+        Printf.printf "%s:\n" name;
+        List.iter (Printf.printf "%s\n") names
+  in
+  all_rewriters ()
+  |> List.map rewriter_group_names
+  |> List.concat
+  |> print_group "Registered Transformations";
+  Ppx_derivers.derivers ()
+  |> List.map (fun (x, _) -> x)
+  |> print_group "Registered Derivers"
+
+
 let run_as_standalone_driver () =
+  let request_print_transformations = ref false in
   let output = ref None in
   let output_mode = ref Pretty_print in
   let output_mode_arg = ref "" in
@@ -485,6 +509,8 @@ let run_as_standalone_driver () =
       "FILE Treat FILE as a .ml file"
     ; "--embed-errors", Arg.Unit (fun () -> set_embed_errors "--embed-errors"),
       " Embed error reported by rewriters into the AST"
+    ; "--print-transformations", Arg.Set request_print_transformations,
+      " Print registered transformations in their order of executions"
     ]
   in
   let spec = Arg.align (spec @ registered_args ()) in
@@ -493,6 +519,10 @@ let run_as_standalone_driver () =
   try
     reset_args ();
     Arg.parse spec (fun anon -> files := guess_file_kind anon :: !files) usage;
+    if !request_print_transformations then begin
+      print_transformations ();
+      exit 0
+    end;
     let output = !output in
     let output_mode = !output_mode in
     let embed_errors = !embed_errors in
