@@ -41,36 +41,25 @@ module Deps = struct
     | Complex l -> l
 end
 
-module Virtual = struct
-  module Modules = struct
-    type t =
-      | Unexpanded
-  end
-
-  module Dep_graph = struct
-    type t =
-      | Local
-  end
-
-  type t =
-    { modules   : Modules.t
-    ; dep_graph : Dep_graph.t
-    }
+module Source = struct
+  type 'a t =
+    | Local
+    | External of 'a
 end
 
 type t =
   { loc              : Loc.t
   ; name             : Lib_name.t
-  ; kind             : Dune_file.Library.Kind.t
+  ; kind             : Lib_kind.t
   ; status           : Status.t
   ; src_dir          : Path.t
-  ; obj_dir          : Path.t
-  ; private_obj_dir  : Path.t option
+  ; orig_src_dir     : Path.t option
+  ; obj_dir          : Obj_dir.t
   ; version          : string option
   ; synopsis         : string option
   ; archives         : Path.t list Mode.Dict.t
   ; plugins          : Path.t list Mode.Dict.t
-  ; foreign_objects  : Path.t list
+  ; foreign_objects  : Path.t list Source.t
   ; foreign_archives : Path.t list Mode.Dict.t
   ; jsoo_runtime     : Path.t list
   ; jsoo_archive     : Path.t option
@@ -79,11 +68,13 @@ type t =
   ; pps              : (Loc.t * Lib_name.t) list
   ; optional         : bool
   ; virtual_deps     : (Loc.t * Lib_name.t) list
-  ; dune_version : Syntax.Version.t option
-  ; sub_systems      : Dune_file.Sub_system_info.t Sub_system_name.Map.t
-  ; virtual_         : Virtual.t option
+  ; dune_version     : Syntax.Version.t option
+  ; sub_systems      : Sub_system_info.t Sub_system_name.Map.t
+  ; virtual_         : Lib_modules.t Source.t option
   ; implements       : (Loc.t * Lib_name.t) option
+  ; wrapped          : Wrapped.t Dune_file.Library.Inherited.t option
   ; main_module_name : Dune_file.Library.Main_module_name.t
+  ; modes            : Mode.Dict.Set.t
   }
 
 let user_written_deps t =
@@ -91,9 +82,12 @@ let user_written_deps t =
     ~init:(Deps.to_lib_deps t.requires)
     ~f:(fun acc s -> Dune_file.Lib_dep.Direct s :: acc)
 
-let of_library_stanza ~dir ~ext_lib ~ext_obj (conf : Dune_file.Library.t) =
+let of_library_stanza ~dir ~has_native ~ext_lib ~ext_obj
+      (conf : Dune_file.Library.t) =
   let (_loc, lib_name) = conf.name in
-  let obj_dir = Utils.library_object_directory ~dir lib_name in
+  let obj_dir =
+    Obj_dir.make_local ~dir
+      ~has_private_modules:(conf.private_modules <> None) lib_name in
   let gen_archive_file ~dir ext =
     Path.relative dir (Lib_name.Local.to_string lib_name ^ ext) in
   let archive_file = gen_archive_file ~dir in
@@ -110,26 +104,19 @@ let of_library_stanza ~dir ~ext_lib ~ext_obj (conf : Dune_file.Library.t) =
     | Some p -> Public p.package
   in
   let virtual_library = Dune_file.Library.is_virtual conf in
-  let private_obj_dir =
-    Option.map conf.private_modules ~f:(fun _ ->
-      Utils.library_private_obj_dir ~obj_dir)
-  in
-  let (foreign_archives, foreign_objects) =
+  let foreign_archives =
     let stubs =
       if Dune_file.Library.has_stubs conf then
         [Dune_file.Library.stubs_archive conf ~dir ~ext_lib]
       else
         []
     in
-    ({ Mode.Dict.
+    { Mode.Dict.
        byte   = stubs
      ; native =
          Path.relative dir (Lib_name.Local.to_string lib_name ^ ext_lib)
          :: stubs
      }
-    , List.map (conf.c_names @ conf.cxx_names) ~f:(fun (_, name) ->
-        Path.relative obj_dir (name ^ ext_obj))
-    )
   in
   let foreign_archives =
     match conf.stdlib with
@@ -146,15 +133,10 @@ let of_library_stanza ~dir ~ext_lib ~ext_obj (conf : Dune_file.Library.t) =
       }
     | _ -> foreign_archives
   in
-  let jsoo_archive = Some (gen_archive_file ~dir:obj_dir ".cma.js") in
-  let virtual_ =
-    Option.map conf.virtual_modules ~f:(fun _ ->
-      { Virtual.
-        modules = Virtual.Modules.Unexpanded
-      ; dep_graph = Virtual.Dep_graph.Local
-      }
-    )
-  in
+  let jsoo_archive =
+    Some (gen_archive_file ~dir:(Obj_dir.obj_dir obj_dir) ".cma.js") in
+  let virtual_ = Option.map conf.virtual_modules ~f:(fun _ -> Source.Local) in
+  let foreign_objects = Source.Local in
   let (archives, plugins) =
     if virtual_library then
       ( Mode.Dict.make_both []
@@ -166,10 +148,13 @@ let of_library_stanza ~dir ~ext_lib ~ext_obj (conf : Dune_file.Library.t) =
       )
   in
   let main_module_name = Dune_file.Library.main_module_name conf in
+  let name = Dune_file.Library.best_name conf in
+  let modes = Dune_file.Mode_conf.Set.eval ~has_native conf.modes in
   { loc = conf.buildable.loc
-  ; name = Dune_file.Library.best_name conf
+  ; name
   ; kind     = conf.kind
   ; src_dir  = dir
+  ; orig_src_dir = None
   ; obj_dir
   ; version  = None
   ; synopsis = conf.synopsis
@@ -190,42 +175,49 @@ let of_library_stanza ~dir ~ext_lib ~ext_obj (conf : Dune_file.Library.t) =
   ; virtual_
   ; implements = conf.implements
   ; main_module_name
-  ; private_obj_dir
+  ; modes
+  ; wrapped = Some conf.wrapped
   }
 
-let of_findlib_package pkg =
-  let module P = Findlib.Package in
-  let loc = P.loc pkg in
-  let add_loc x = (loc, x) in
-  let sub_systems =
-    match P.dune_file pkg with
-    | None -> Sub_system_name.Map.empty
-    | Some fn -> Installed_dune_file.load fn
+let of_dune_lib dp =
+  let module Lib = Dune_package.Lib in
+  let src_dir = Lib.dir dp in
+  let virtual_ =
+    if Lib.virtual_ dp then
+      Some (Source.External (Option.value_exn (Lib.modules dp)))
+    else
+      None
   in
-  { loc              = loc
-  ; name             = Findlib.Package.name pkg
-  ; kind             = Normal
-  ; src_dir          = P.dir pkg
-  ; obj_dir          = P.dir pkg
-  ; version          = P.version pkg
-  ; synopsis         = P.description pkg
-  ; archives         = P.archives pkg
-  ; plugins          = P.plugins pkg
-  ; jsoo_runtime     = P.jsoo_runtime pkg
-  ; jsoo_archive     = None
-  ; requires         = Simple (List.map (P.requires pkg) ~f:add_loc)
-  ; ppx_runtime_deps = List.map (P.ppx_runtime_deps pkg) ~f:add_loc
-  ; pps              = []
-  ; virtual_deps     = []
-  ; optional         = false
-  ; status           = Installed
-  ; foreign_objects  = []
-  ; (* We don't know how these are named for external libraries *)
-    foreign_archives = Mode.Dict.make_both []
-  ; sub_systems      = sub_systems
+  let wrapped =
+    Lib.wrapped dp
+    |> Option.map ~f:(fun w -> Dune_file.Library.Inherited.This w)
+  in
+  let obj_dir = Obj_dir.make_external ~dir:src_dir in
+  { loc = Lib.loc dp
+  ; name = Lib.name dp
+  ; kind = Lib.kind dp
+  ; status = Installed
+  ; src_dir
+  ; orig_src_dir = Lib.orig_src_dir dp
+  ; obj_dir
+  ; version = Lib.version dp
+  ; synopsis = Lib.synopsis dp
+  ; requires = Simple (Lib.requires dp)
+  ; main_module_name = This (Lib.main_module_name dp)
+  ; foreign_objects = Source.External (Lib.foreign_objects dp)
+  ; plugins = Lib.plugins dp
+  ; archives = Lib.archives dp
+  ; ppx_runtime_deps = Lib.ppx_runtime_deps dp
+  ; foreign_archives = Lib.foreign_archives dp
+  ; jsoo_runtime = Lib.jsoo_runtime dp
+  ; jsoo_archive = None
+  ; pps = []
+  ; optional = false
+  ; virtual_deps = []
   ; dune_version = None
-  ; virtual_ = None
-  ; implements = None
-  ; main_module_name = This None
-  ; private_obj_dir = None
+  ; sub_systems = Lib.sub_systems dp
+  ; virtual_
+  ; implements = Lib.implements dp
+  ; modes = Lib.modes dp
+  ; wrapped
   }

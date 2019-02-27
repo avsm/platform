@@ -6,18 +6,14 @@ module Kind = struct
   type t =
     | Dune
     | Jbuilder
-
-  let to_sexp t =
-    Sexp.Atom
-      (match t with
-       | Dune -> "dune"
-       | Jbuilder -> "jbuilder")
 end
 
 module Name : sig
   type t = private
     | Named     of string
     | Anonymous of Path.t
+
+  val pp : t Fmt.t
 
   val compare : t -> t -> Ordering.t
 
@@ -35,6 +31,8 @@ module Name : sig
   val anonymous_root : t
 
   module Infix : Comparable.OPS with type t = t
+
+  module Map : Map.S with type key = t
 end = struct
   module T = struct
     type t =
@@ -51,9 +49,17 @@ end = struct
 
   include T
 
+  module Map = Map.Make(T)
+
   module Infix = Comparable.Operators(T)
 
   let anonymous_root = Anonymous Path.root
+
+  let pp fmt = function
+    | Named n ->
+      Format.fprintf fmt "Named %S" n
+    | Anonymous p ->
+      Format.fprintf fmt "Anonymous %s" (Path.to_string_maybe_quoted p)
 
   let to_string_hum = function
     | Named     s -> s
@@ -130,25 +136,35 @@ module Project_file = struct
   type t =
     { file           : Path.t
     ; mutable exists : bool
+    ; project_name   : Name.t
     }
 
-  let to_sexp { file; exists } =
+  let pp fmt { file ; exists; project_name } =
+    Fmt.record fmt
+      [ "file", Fmt.const Path.pp file
+      ; "exists", Fmt.const Format.pp_print_bool exists
+      ; "project_name", (fun fmt () -> Name.pp fmt project_name)
+      ]
+
+  let to_sexp { file; exists; project_name } =
     Sexp.Encoder.(
       record
         [ "file", Path.to_sexp file
         ; "exists", bool exists
+        ; "project_name", Name.to_sexp project_name
         ])
 end
 
 type t =
-  { kind          : Kind.t
-  ; name          : Name.t
-  ; root          : Path.Local.t
-  ; version       : string option
-  ; packages      : Package.t Package.Name.Map.t
-  ; stanza_parser : Stanza.t list Dune_lang.Decoder.t
-  ; project_file  : Project_file.t
-  ; extension_args : Univ_map.t
+  { name            : Name.t
+  ; root            : Path.Local.t
+  ; version         : string option
+  ; packages        : Package.t Package.Name.Map.t
+  ; stanza_parser   : Stanza.t list Dune_lang.Decoder.t
+  ; project_file    : Project_file.t
+  ; extension_args  : Univ_map.t
+  ; parsing_context : Univ_map.t
+  ; implicit_transitive_deps : bool
   }
 
 let packages t = t.packages
@@ -156,6 +172,24 @@ let version t = t.version
 let name t = t.name
 let root t = t.root
 let stanza_parser t = t.stanza_parser
+let file t = t.project_file.file
+let implicit_transitive_deps t = t.implicit_transitive_deps
+
+let pp fmt { name ; root ; version ; project_file ; parsing_context = _
+           ; extension_args = _; stanza_parser = _ ; packages
+           ; implicit_transitive_deps } =
+  Fmt.record fmt
+    [ "name", Fmt.const Name.pp name
+    ; "root", Fmt.const Path.Local.pp root
+    ; "version", Fmt.const (Fmt.optional Format.pp_print_string) version
+    ; "project_file", Fmt.const Project_file.pp project_file
+    ; "packages",
+      Fmt.const
+        (Fmt.ocaml_list (Fmt.tuple Package.Name.pp Package.pp))
+        (Package.Name.Map.to_list packages)
+    ; "implicit_transitive_deps",
+      Fmt.const Format.pp_print_bool implicit_transitive_deps
+    ]
 
 let find_extension_args t key =
   Univ_map.find t.extension_args key
@@ -164,6 +198,14 @@ include Versioned_file.Make(struct
     type t = Stanza.Parser.t list
   end)
 
+let default_dune_language_version =
+  ref (Syntax.greatest_supported_version Stanza.syntax)
+
+let get_dune_lang () =
+  { (Lang.get_exn "dune" ) with version = !default_dune_language_version }
+
+type created_or_already_exist = Created | Already_exist
+
 module Project_file_edit = struct
   open Project_file
 
@@ -171,31 +213,43 @@ module Project_file_edit = struct
     kerrf ~f:print_to_console "@{<warning>Info@}: %s\n" s
 
   let ensure_exists t =
-    if not t.exists then begin
-      let ver = (Lang.get_exn "dune").version in
-      let s = sprintf "(lang dune %s)" (Syntax.Version.to_string ver) in
+    if t.exists then
+      Already_exist
+    else begin
+      let ver = !default_dune_language_version in
+      let lines =
+        [sprintf "(lang dune %s)" (Syntax.Version.to_string ver)]
+      in
+      let lines =
+        match t.project_name with
+        | Anonymous _ -> lines
+        | Named s ->
+          lines @ [Dune_lang.to_string ~syntax:Dune
+                     (List [ Dune_lang.atom "name"
+                           ; Dune_lang.atom_or_quoted_string s
+                           ])]
+      in
       notify_user
-        (sprintf "creating file %s with this contents: %s"
-           (Path.to_string_maybe_quoted t.file) s);
-      Io.write_file t.file (s ^ "\n") ~binary:false;
-      t.exists <- true
+        (sprintf "creating file %s with this contents:\n%s\n"
+           (Path.to_string_maybe_quoted t.file)
+           (List.map lines ~f:((^) "| ") |> String.concat ~sep:"\n"));
+      Io.write_lines t.file lines ~binary:false;
+      t.exists <- true;
+      Created
     end
 
-  let get t =
-    ensure_exists t;
-    t.file
-
   let append t str =
-    let file = get t in
-    let prev = Io.read_file file ~binary:false in
+    let what = ensure_exists t in
+    let prev = Io.read_file t.file ~binary:false in
     notify_user
       (sprintf "appending this line to %s: %s"
-         (Path.to_string_maybe_quoted file) str);
-    Io.with_file_out file ~binary:false ~f:(fun oc ->
+         (Path.to_string_maybe_quoted t.file) str);
+    Io.with_file_out t.file ~binary:false ~f:(fun oc ->
       List.iter [prev; str] ~f:(fun s ->
         output_string oc s;
         let len = String.length s in
-        if len > 0 && s.[len - 1] <> '\n' then output_char oc '\n'))
+        if len > 0 && s.[len - 1] <> '\n' then output_char oc '\n'));
+    what
 end
 
 let ensure_project_file_exists t =
@@ -287,12 +341,15 @@ module Extension = struct
                return () >>= fun () ->
                if not !dune_project_edited then begin
                  dune_project_edited := true;
-                 Project_file_edit.append project_file
-                   (Dune_lang.to_string ~syntax:Dune
-                      (List [ Dune_lang.atom "using"
-                            ; Dune_lang.atom name
-                            ; Dune_lang.atom (Syntax.Version.to_string version)
-                            ]))
+                 ignore (
+                   Project_file_edit.append project_file
+                     (Dune_lang.to_string ~syntax:Dune
+                        (List [ Dune_lang.atom "using"
+                              ; Dune_lang.atom name
+                              ; Dune_lang.atom
+                                  (Syntax.Version.to_string version)
+                              ]))
+                   : created_or_already_exist)
                end;
                p))
           in
@@ -307,22 +364,72 @@ module Extension = struct
         acc)
 end
 
-let make_parsing_context ~(lang : Lang.Instance.t) ~extensions =
-  let acc = Univ_map.singleton (Syntax.key lang.syntax) lang.version in
-  List.fold_left extensions ~init:acc
-    ~f:(fun acc ((ext : Extension.instance), _) ->
-      Univ_map.add acc (Syntax.key (Extension.syntax ext.extension)) ext.version)
+let interpret_lang_and_extensions ~(lang : Lang.Instance.t)
+      ~explicit_extensions ~project_file =
+  match
+    String.Map.of_list
+      (List.map explicit_extensions ~f:(fun (e : Extension.instance) ->
+           (Syntax.name (Extension.syntax e.extension), e.loc)))
+  with
+  | Error (name, _, loc) ->
+     Errors.fail loc "Extension %S specified for the second time." name
+  | Ok map ->
+     let implicit_extensions =
+       Extension.automatic ~project_file
+         ~f:(fun name -> not (String.Map.mem map name))
+     in
+     let extensions =
+       List.map ~f:(fun e -> (e, true)) explicit_extensions @
+       List.map ~f:(fun e -> (e, false)) implicit_extensions
+     in
+     let acc = Univ_map.singleton (Syntax.key lang.syntax) lang.version in
+     let parsing_context =
+       List.fold_left extensions ~init:acc
+         ~f:(fun acc ((ext : Extension.instance), _) ->
+           Univ_map.add acc (Syntax.key (Extension.syntax ext.extension))
+             ext.version)
+     in
+     let extension_args, extension_stanzas =
+       List.fold_left
+         extensions
+         ~init:(Univ_map.empty, [])
+         ~f:(fun (args_acc, stanzas_acc)
+              ((instance : Extension.instance), is_explicit) ->
+              let extension = instance.extension in
+              let Extension.Extension e = extension in
+              let args =
+                let%map (arg, stanzas) =
+                  Dune_lang.Decoder.set_many parsing_context e.stanzas
+                in
+                let new_args_acc =
+                  if is_explicit then
+                    Univ_map.add args_acc e.key arg
+                  else
+                    args_acc
+                in
+                (new_args_acc, stanzas)
+              in
+              let (new_args_acc, stanzas) = instance.parse_args args in
+              (new_args_acc, stanzas::stanzas_acc))
+     in
+     let stanzas = List.concat (lang.data :: extension_stanzas) in
+     let stanza_parser =
+       Dune_lang.Decoder.(set_many parsing_context (sum stanzas))
+     in
+     (parsing_context, stanza_parser, extension_args)
 
 let key =
   Univ_map.Key.create ~name:"dune-project"
-    (fun { name; root; version; project_file; kind
-         ; stanza_parser = _; packages = _ ; extension_args = _ } ->
+    (fun { name; root; version; project_file
+         ; stanza_parser = _; packages = _ ; extension_args = _
+         ; parsing_context ; implicit_transitive_deps } ->
       Sexp.Encoder.record
         [ "name", Name.to_sexp name
         ; "root", Path.Local.to_sexp root
         ; "version", Sexp.Encoder.(option string) version
         ; "project_file", Project_file.to_sexp project_file
-        ; "kind", Kind.to_sexp kind
+        ; "parsing_context", Univ_map.to_sexp parsing_context
+        ; "implicit_transitive_deps", Sexp.Encoder.bool implicit_transitive_deps
         ])
 
 let set t = Dune_lang.Decoder.set key t
@@ -341,17 +448,27 @@ let get_local_path p =
   | Local    p -> p
 
 let anonymous = lazy (
-  let lang = Lang.get_exn "dune" in
-  let parsing_context = make_parsing_context ~lang ~extensions:[] in
-  { kind          = Dune
-  ; name          = Name.anonymous_root
+  let lang = get_dune_lang () in
+  let name = Name.anonymous_root in
+  let project_file =
+    { Project_file.
+      file = Path.relative Path.root filename
+    ; exists = false
+    ; project_name = name
+    }
+  in
+  let parsing_context, stanza_parser, extension_args =
+    interpret_lang_and_extensions ~lang ~explicit_extensions:[] ~project_file
+  in
+  { name          = name
   ; packages      = Package.Name.Map.empty
   ; root          = get_local_path Path.root
   ; version       = None
-  ; stanza_parser =
-      Dune_lang.Decoder.(set_many parsing_context (sum lang.data))
-  ; project_file  = { file = Path.relative Path.root filename; exists = false }
-  ; extension_args = Univ_map.empty
+  ; implicit_transitive_deps = false
+  ; stanza_parser
+  ; project_file
+  ; extension_args
+  ; parsing_context
   })
 
 let default_name ~dir ~packages =
@@ -370,7 +487,7 @@ let default_name ~dir ~packages =
     match Name.named name with
     | Some x -> x
     | None ->
-      Errors.fail (Loc.in_file (Path.to_string (Package.opam_file pkg)))
+      Errors.fail (Loc.in_file (Package.opam_file pkg))
         "%S is not a valid opam package name."
         name
 
@@ -394,73 +511,60 @@ let parse ~dir ~lang ~packages ~file =
           (* We don't parse the arguments quite yet as we want to set
              the version of extensions before parsing them. *)
           Extension.instantiate ~loc ~parse_args name ver)
+     and implicit_transitive_deps =
+       field_o_b "implicit_transitive_deps"
+         ~check:(Syntax.since Stanza.syntax (1, 7))
      and () = Versioned_file.no_more_lang
      in
-     match
-       String.Map.of_list
-         (List.map explicit_extensions ~f:(fun (e : Extension.instance) ->
-            (Syntax.name (Extension.syntax e.extension), e.loc)))
-     with
-     | Error (name, _, loc) ->
-       Errors.fail loc "Extension %S specified for the second time." name
-     | Ok map ->
-       let project_file : Project_file.t = { file; exists = true } in
-       let implicit_extensions =
-         Extension.automatic ~project_file
-           ~f:(fun name -> not (String.Map.mem map name))
-       in
-       let extensions =
-         List.map ~f:(fun e -> (e, true)) explicit_extensions @
-         List.map ~f:(fun e -> (e, false)) implicit_extensions
-       in
-       let parsing_context = make_parsing_context ~lang ~extensions in
-       let extension_args, extension_stanzas =
-         List.fold_left
-           extensions
-           ~init:(Univ_map.empty, [])
-           ~f:(fun (args_acc, stanzas_acc) ((instance : Extension.instance), is_explicit) ->
-             let extension = instance.extension in
-             let Extension.Extension e = extension in
-             let args =
-               let%map (arg, stanzas) = Dune_lang.Decoder.set_many parsing_context e.stanzas in
-               let new_args_acc =
-                 if is_explicit then
-                   Univ_map.add args_acc e.key arg
-                 else
-                   args_acc
-               in
-               (new_args_acc, stanzas)
-             in
-             let (new_args_acc, stanzas) = instance.parse_args args in
-             (new_args_acc, stanzas::stanzas_acc))
-       in
-       let stanzas = List.concat (lang.data :: extension_stanzas) in
-       { kind = Dune
-       ; name
-       ; root = get_local_path dir
-       ; version
-       ; packages
-       ; stanza_parser = Dune_lang.Decoder.(set_many parsing_context (sum stanzas))
-       ; project_file
-       ; extension_args
-       })
+     let project_file : Project_file.t =
+       { file
+       ; exists = true
+       ; project_name = name
+       }
+     in
+     let parsing_context, stanza_parser, extension_args =
+       interpret_lang_and_extensions ~lang ~explicit_extensions ~project_file
+     in
+     let implicit_transitive_deps =
+       Option.value implicit_transitive_deps ~default:true
+     in
+     { name
+     ; root = get_local_path dir
+     ; version
+     ; packages
+     ; stanza_parser
+     ; project_file
+     ; extension_args
+     ; parsing_context
+     ; implicit_transitive_deps
+     })
 
 let load_dune_project ~dir packages =
   let file = Path.relative dir filename in
   load file ~f:(fun lang -> parse ~dir ~lang ~packages ~file)
 
 let make_jbuilder_project ~dir packages =
-  let lang = Lang.get_exn "dune" in
-  let parsing_context = make_parsing_context ~lang ~extensions:[] in
-  { kind = Jbuilder
-  ; name = default_name ~dir ~packages
+  let lang = get_dune_lang () in
+  let name = default_name ~dir ~packages in
+  let project_file =
+    { Project_file.
+      file = Path.relative dir filename
+    ; exists = false
+    ; project_name = name
+    }
+  in
+  let parsing_context, stanza_parser, extension_args =
+    interpret_lang_and_extensions ~lang ~explicit_extensions:[] ~project_file
+  in
+  { name
   ; root = get_local_path dir
   ; version = None
   ; packages
-  ; stanza_parser =
-      Dune_lang.Decoder.(set_many parsing_context (sum lang.data))
-  ; project_file = { file = Path.relative dir filename; exists = false }
-  ; extension_args = Univ_map.empty
+  ; stanza_parser
+  ; project_file
+  ; extension_args
+  ; parsing_context
+  ; implicit_transitive_deps = true
   }
 
 let read_name file =
@@ -498,3 +602,6 @@ let load ~dir ~files =
     Some (make_jbuilder_project ~dir packages)
   else
     None
+
+let set_parsing_context t parser =
+  Dune_lang.Decoder.set_many t.parsing_context parser

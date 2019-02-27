@@ -178,7 +178,7 @@ let get_name ~files ?name () =
   if package_names = [] then
     die "@{<error>Error@}: no <package>.opam files found.";
   let name =
-    match Which_program.t with
+    match Wp.t with
     | Dune -> begin
         assert (Option.is_none name);
         if not (List.mem ~set:files Dune_project.filename) then
@@ -229,7 +229,7 @@ let get_name ~files ?name () =
 let subst_git ?name () =
   let rev = "HEAD" in
   let git =
-    match Bin.which "git" with
+    match Bin.which ~path:(Env.path Env.initial) "git" with
     | Some x -> x
     | None -> Utils.program_not_found "git" ~loc:None
   in

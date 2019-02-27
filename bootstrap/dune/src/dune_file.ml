@@ -50,21 +50,6 @@ let relative_file =
     else
       of_sexp_errorf loc "relative filename expected")
 
-let c_name, cxx_name =
-  let make what ext =
-    plain_string (fun ~loc s ->
-      if match s with
-        | "" | "." | ".."  -> true
-        | _ -> false then
-        of_sexp_errorf loc
-          "%S is not a valid %s name."
-          s what what ext
-      else
-        (loc, s))
-  in
-  (make "C"   "c",
-   make "C++" "cpp")
-
 (* Parse and resolve "package" fields *)
 module Pkg = struct
   let listing packages =
@@ -156,9 +141,7 @@ module Pps_and_flags = struct
       | List _ -> list string >>| fun l -> Right l
 
     let split l =
-      let pps, flags =
-        List.partition_map l ~f:(fun x -> x)
-      in
+      let pps, flags = List.partition_map l ~f:Fn.id in
       (pps, List.concat flags)
 
     let decode = list item >>| split
@@ -539,15 +522,14 @@ module Lib_deps = struct
   let of_pps pps =
     List.map pps ~f:(fun pp -> Lib_dep.of_lib_name (Loc.none, pp))
 
-
   let info t ~kind =
     List.concat_map t ~f:(function
-       | Lib_dep.Direct (_, s) -> [(s, kind)]
-       | Select { choices; _ } ->
-         List.concat_map choices ~f:(fun c ->
-           Lib_name.Set.to_list c.Lib_dep.required
-           |> List.map ~f:(fun d -> (d, Lib_deps_info.Kind.Optional))))
-     |> Lib_name.Map.of_list_reduce ~f:Lib_deps_info.Kind.merge
+      | Lib_dep.Direct (_, s) -> [(s, kind)]
+      | Select { choices; _ } ->
+        List.concat_map choices ~f:(fun c ->
+          Lib_name.Set.to_list c.Lib_dep.required
+          |> List.map ~f:(fun d -> (d, Lib_deps_info.Kind.Optional))))
+    |> Lib_name.Map.of_list_reduce ~f:Lib_deps_info.Kind.merge
 end
 
 let modules_field name = Ordered_set_lang.field name
@@ -556,36 +538,43 @@ module Auto_format = struct
   let syntax =
     Syntax.create ~name:"fmt"
       ~desc:"integration with automatic formatters"
-      [ (1, 0) ]
+      [ (1, 1) ]
 
   type language =
     | Ocaml
     | Reason
+    | Dune
 
   let language_to_sexp = function
     | Ocaml -> Sexp.Atom "ocaml"
     | Reason -> Sexp.Atom "reason"
+    | Dune -> Sexp.Atom "dune"
 
   let language =
     sum
       [ ("ocaml", return Ocaml)
       ; ("reason", return Reason)
+      ; ("dune",
+         let%map () = Syntax.since syntax (1, 1) in
+         Dune)
       ]
 
   type enabled_for =
-    | Default
+    | Default of Syntax.Version.t
     | Only of language list
 
   let enabled_for_field =
-    let%map r = field_o "enabled_for" (repeat language) in
+    let%map r = field_o "enabled_for" (repeat language)
+    and version = Syntax.get_exn syntax
+    in
     match r with
     | Some l -> Only l
-    | None -> Default
+    | None -> Default version
 
   let enabled_for_to_sexp =
     function
-      | Default -> Sexp.Atom "default"
-      | Only l -> List [Atom "only"; List (List.map ~f:language_to_sexp l)]
+    | Default v -> Sexp.List [Atom "default"; Syntax.Version.to_sexp v]
+    | Only l -> List [Atom "only"; List (List.map ~f:language_to_sexp l)]
 
   type t =
     { loc : Loc.t
@@ -605,6 +594,25 @@ module Auto_format = struct
 
   let key =
     Dune_project.Extension.register syntax dparse_args to_sexp
+
+  let enabled_languages config =
+    match config.enabled_for with
+    | Default ver ->
+      let in_1_0 =
+        [Ocaml; Reason]
+      in
+      let extra =
+        match Syntax.Version.compare ver (1, 1) with
+        | Lt -> []
+        | Eq | Gt -> [Dune]
+      in
+      in_1_0 @ extra
+    | Only l -> l
+
+  let includes config language =
+    List.mem language ~set:(enabled_languages config)
+
+  let loc t = t.loc
 end
 
 module Buildable = struct
@@ -694,49 +702,6 @@ module Public_lib = struct
           | Error _ as e -> e)
 end
 
-module Sub_system_info = struct
-  type t = ..
-  type sub_system = t = ..
-
-  module type S = sig
-    type t
-    type sub_system += T of t
-    val name   : Sub_system_name.t
-    val loc    : t -> Loc.t
-    val syntax : Syntax.t
-    val parse  : t Dune_lang.Decoder.t
-  end
-
-  let all = Sub_system_name.Table.create ~default_value:None
-
-  (* For parsing config files in the workspace *)
-  let record_parser = ref return
-
-  module Register(M : S) : sig end = struct
-    open M
-
-    let () =
-      match Sub_system_name.Table.get all name with
-      | Some _ ->
-        Exn.code_error "Sub_system_info.register: already registered"
-          [ "name", Sexp.Encoder.string (Sub_system_name.to_string name) ];
-      | None ->
-        Sub_system_name.Table.set all ~key:name ~data:(Some (module M : S));
-        let p = !record_parser in
-        let name_s = Sub_system_name.to_string name in
-        record_parser := (fun acc ->
-          field_o name_s parse >>= function
-          | None   -> p acc
-          | Some x ->
-            let acc = Sub_system_name.Map.add acc name (T x) in
-            p acc)
-  end
-
-  let record_parser () = !record_parser Sub_system_name.Map.empty
-
-  let get name = Option.value_exn (Sub_system_name.Table.get all name)
-end
-
 module Mode_conf = struct
   module T = struct
     type t =
@@ -781,62 +746,17 @@ module Mode_conf = struct
 end
 
 module Library = struct
-  module Kind = struct
-    type t =
-      | Normal
-      | Ppx_deriver
-      | Ppx_rewriter
-
-    let decode =
-      enum
-        [ "normal"       , Normal
-        ; "ppx_deriver"  , Ppx_deriver
-        ; "ppx_rewriter" , Ppx_rewriter
-        ]
-  end
-
-  module Variants = struct
-    let syntax =
-      let syntax =
-        Syntax.create ~name:"in_development_do_not_use_variants"
-          ~desc:"the experimental variants feature"
-          [ (0, 1) ]
-      in
-      Dune_project.Extension.register_simple ~experimental:true
-        syntax (Dune_lang.Decoder.return []);
-      syntax
-  end
-
-  module Wrapped = struct
-    type t =
-      | Simple of bool
-      | Yes_with_transition of string
-
-    let decode =
-      sum
-        [ "true", return (Simple true)
-        ; "false", return (Simple false)
-        ; "transition",
-          Syntax.since Stanza.syntax (1, 2) >>= fun () ->
-          string >>| fun x -> Yes_with_transition x
-        ]
-
-    let field = field_o "wrapped" (located decode)
-
-    let to_bool = function
-      | Simple b -> b
-      | Yes_with_transition _ -> true
-
-    let value = function
-      | None -> Simple true
-      | Some (_loc, w) -> w
+  module Inherited = struct
+    type 'a t =
+      | This of 'a
+      | From of (Loc.t * Lib_name.t)
   end
 
   module Stdlib = struct
     type t =
       { modules_before_stdlib : Module.Name.Set.t
       ; exit_module : Module.Name.t option
-      ; internal_modules : Re.re
+      ; internal_modules : Glob.t
       }
 
     let syntax =
@@ -849,14 +769,6 @@ module Library = struct
         syntax (Dune_lang.Decoder.return []);
       syntax
 
-    let glob =
-      plain_string (fun ~loc str ->
-        match Glob_lexer.parse_string str with
-        | Ok re ->
-          Re.compile re
-        | Error (_pos, msg) ->
-          Errors.fail loc "invalid glob: %s" msg)
-
     let decode =
       fields
         (let%map modules_before_stdlib =
@@ -864,12 +776,34 @@ module Library = struct
          and exit_module =
            field_o "exit_module" module_name
          and internal_modules =
-           field "internal_modules" glob ~default:(Re.compile Re.empty)
+           field "internal_modules" Glob.decode ~default:Glob.empty
          in
          { modules_before_stdlib = Module.Name.Set.of_list modules_before_stdlib
          ; exit_module
          ; internal_modules
          })
+  end
+
+  module Wrapped = struct
+    include Wrapped
+
+    let value = function
+      | Inherited.From _ -> None
+      | This s -> Some (to_bool s)
+
+    let default = Simple true
+
+    let make ~wrapped ~implements : t Inherited.t =
+      match wrapped, implements with
+      | None, None -> This default
+      | None, Some w -> From w
+      | Some (_loc, w), None -> This w
+      | Some (loc, _), Some _ ->
+        of_sexp_error loc
+          "Wrapped cannot be set for implementations. \
+           It is inherited from the virtual library."
+
+    let field = field_o "wrapped" (located decode)
   end
 
   type t =
@@ -879,16 +813,16 @@ module Library = struct
     ; install_c_headers        : string list
     ; ppx_runtime_libraries    : (Loc.t * Lib_name.t) list
     ; modes                    : Mode_conf.Set.t
-    ; kind                     : Kind.t
+    ; kind                     : Lib_kind.t
     ; c_flags                  : Ordered_set_lang.Unexpanded.t
-    ; c_names                  : (Loc.t * string) list
+    ; c_names                  : Ordered_set_lang.t option
     ; cxx_flags                : Ordered_set_lang.Unexpanded.t
-    ; cxx_names                : (Loc.t * string) list
+    ; cxx_names                : Ordered_set_lang.t option
     ; library_flags            : Ordered_set_lang.Unexpanded.t
     ; c_library_flags          : Ordered_set_lang.Unexpanded.t
     ; self_build_stubs_archive : string option
     ; virtual_deps             : (Loc.t * Lib_name.t) list
-    ; wrapped                  : Wrapped.t
+    ; wrapped                  : Wrapped.t Inherited.t
     ; optional                 : bool
     ; buildable                : Buildable.t
     ; dynlink                  : Dynlink_supported.t
@@ -915,20 +849,21 @@ module Library = struct
          field "ppx_runtime_libraries" (list (located Lib_name.decode)) ~default:[]
        and c_flags = field_oslu "c_flags"
        and cxx_flags = field_oslu "cxx_flags"
-       and c_names = field "c_names" (list c_name) ~default:[]
-       and cxx_names = field "cxx_names" (list cxx_name) ~default:[]
+       and c_names = field_o "c_names" Ordered_set_lang.decode
+       and cxx_names = field_o "cxx_names" Ordered_set_lang.decode
        and library_flags = field_oslu "library_flags"
        and c_library_flags = field_oslu "c_library_flags"
        and virtual_deps =
          field "virtual_deps" (list (located Lib_name.decode)) ~default:[]
        and modes = field "modes" Mode_conf.Set.decode ~default:Mode_conf.Set.default
-       and kind = field "kind" Kind.decode ~default:Kind.Normal
+       and kind = field "kind" Lib_kind.decode ~default:Lib_kind.Normal
        and wrapped = Wrapped.field
        and optional = field_b "optional"
        and self_build_stubs_archive =
          located (field "self_build_stubs_archive" (option string) ~default:None)
        and no_dynlink = field_b "no_dynlink"
        and no_keep_locs = field_b "no_keep_locs"
+                            ~check:(Syntax.deprecated_in Stanza.syntax (1, 7))
        and sub_systems =
          return () >>= fun () ->
          Sub_system_info.record_parser ()
@@ -936,11 +871,11 @@ module Library = struct
        and dune_version = Syntax.get_exn Stanza.syntax
        and virtual_modules =
          field_o "virtual_modules" (
-           Syntax.since Variants.syntax (0, 1)
+           Syntax.since Stanza.syntax (1, 7)
            >>= fun () -> Ordered_set_lang.decode)
        and implements =
          field_o "implements" (
-           Syntax.since Variants.syntax (0, 1)
+           Syntax.since Stanza.syntax (1, 7)
            >>= fun () -> located Lib_name.decode)
        and private_modules =
          field_o "private_modules" (
@@ -949,11 +884,12 @@ module Library = struct
        and stdlib =
          field_o "stdlib" (Syntax.since Stdlib.syntax (0, 1) >>> Stdlib.decode)
        in
+       let wrapped = Wrapped.make ~wrapped ~implements in
        let name =
          let open Syntax.Version.Infix in
          match name, public with
          | Some (loc, res), _ ->
-           let wrapped = Wrapped.to_bool (Wrapped.value wrapped) in
+           let wrapped = Wrapped.value wrapped in
            (loc, Lib_name.Local.validate (loc, res) ~wrapped)
          | None, Some { name = (loc, name) ; _ }  ->
            if dune_version >= (1, 1) then
@@ -981,26 +917,17 @@ module Library = struct
        |> Option.iter ~f:(fun (virtual_modules, (_, impl)) ->
          of_sexp_errorf
            (Ordered_set_lang.loc virtual_modules
-           |> Option.value_exn)
+            |> Option.value_exn)
            "A library cannot be both virtual and implement %s"
            (Lib_name.to_string impl));
-       begin match virtual_modules, wrapped, implements with
-       | Some _, Some (loc, Wrapped.Simple false), _ ->
-         of_sexp_error loc "A virtual library must be wrapped"
-       | _, Some (loc, _), Some _ ->
-         of_sexp_error loc
-           "Wrapped cannot be set for implementations. \
-            It is inherited from the virtual library."
-       | _, _, _ -> ()
-       end;
        let self_build_stubs_archive =
          let loc, self_build_stubs_archive = self_build_stubs_archive in
          let err =
            match c_names, cxx_names, self_build_stubs_archive with
            | _, _, None -> None
-           | (_ :: _), _, Some _ -> Some "c_names"
-           | _, (_ :: _), Some _ -> Some "cxx_names"
-           | [], [], _ -> None
+           | Some _, _, Some _ -> Some "c_names"
+           | _, Some _, Some _ -> Some "cxx_names"
+           | None, None, _ -> None
          in
          match err with
          | None ->
@@ -1025,7 +952,7 @@ module Library = struct
        ; c_library_flags
        ; self_build_stubs_archive
        ; virtual_deps
-       ; wrapped = Wrapped.value wrapped
+       ; wrapped
        ; optional
        ; buildable
        ; dynlink = Dynlink_supported.of_bool (not no_dynlink)
@@ -1041,8 +968,8 @@ module Library = struct
 
   let has_stubs t =
     match t.c_names, t.cxx_names, t.self_build_stubs_archive with
-    | [], [], None -> false
-    | _            -> true
+    | None, None, None -> false
+    | _                -> true
 
   let stubs_name t =
     let name =
@@ -1071,55 +998,46 @@ module Library = struct
   let is_virtual t = Option.is_some t.virtual_modules
   let is_impl t = Option.is_some t.implements
 
+  let obj_dir ~dir t =
+    Obj_dir.make_local ~dir
+      ~has_private_modules:(t.private_modules <> None)
+      (snd t.name)
+
   module Main_module_name = struct
-    type t =
-      | This of Module.Name.t option
-      | Inherited_from of (Loc.t * Lib_name.t)
+    type t = Module.Name.t option Inherited.t
   end
 
   let main_module_name t : Main_module_name.t =
-    match t.implements, Wrapped.to_bool t.wrapped with
-    | Some x, true -> Inherited_from x
-    | Some _, false -> assert false
-    | None, false -> This None
-    | None, true -> This (Some (Module.Name.of_local_lib_name (snd t.name)))
+    match t.implements, t.wrapped with
+    | Some x, From _ -> From x
+    | Some _, This _ (* cannot specify for wrapped for implements *)
+    | None, From _ -> assert false (* cannot inherit for normal libs *)
+    | None, This (Simple false) -> This None
+    | None, This (Simple true | Yes_with_transition _) ->
+      This (Some (Module.Name.of_local_lib_name (snd t.name)))
 
   let special_compiler_module t (m : Module.t) =
     match t.stdlib with
     | None -> false
     | Some stdlib ->
       let name = Module.name m in
-      Re.execp stdlib.internal_modules (Module.Name.to_string name) ||
+      Glob.test stdlib.internal_modules (Module.Name.to_string name) ||
       match stdlib.exit_module with
       | None -> false
       | Some n -> n = name
 end
 
 module Install_conf = struct
-  type file =
-    { src : string
-    ; dst : string option
-    }
-
-  let file =
-    peek_exn >>= function
-    | Atom (_, A src) -> junk >>| fun () -> { src; dst = None }
-    | List (_, [Atom (_, A src); Atom (_, A "as"); Atom (_, A dst)]) ->
-      junk >>> return { src; dst = Some dst }
-    | sexp ->
-      of_sexp_error (Dune_lang.Ast.loc sexp)
-        "invalid format, <name> or (<name> as <install-as>) expected"
-
-  type t =
+  type 'file t =
     { section : Install.Section.t
-    ; files   : file list
+    ; files   : 'file File_bindings.t
     ; package : Package.t
     }
 
   let decode =
     record
       (let%map section = field "section" Install.Section.decode
-       and files = field "files" (list file)
+       and files = field "files" File_bindings.Unexpanded.decode
        and package = Pkg.field "install"
        in
        { section
@@ -1129,6 +1047,181 @@ module Install_conf = struct
 end
 
 module Executables = struct
+  module Names : sig
+    type t
+
+    val names : t -> (Loc.t * string) list
+
+    val has_public_name : t -> bool
+
+    val make
+      :  multi:bool
+      -> stanza:string
+      -> allow_omit_names_version:Syntax.Version.t
+      -> (t, fields) Dune_lang.Decoder.parser
+
+    val install_conf
+      : t
+      -> ext:string
+      -> (String_with_vars.t Install_conf.t, string) Result.t option
+
+    val loc_of_package_field : t -> Loc.t
+  end = struct
+    type t =
+      { names : (Loc.t * string) list
+      ; public_names : (Loc.t * string option) list option
+      ; package : (Loc.t * Package.Name.t) option
+      ; stanza : string
+      ; project : Dune_project.t
+      ; loc : Loc.t
+      ; multi : bool
+      ; file_kind : Dune_lang.syntax
+      }
+
+    let names t = t.names
+
+    let loc_of_package_field t =
+      match t.package with
+      | None -> t.loc
+      | Some (loc, _) -> loc
+
+    let public_name =
+      located string >>| fun (loc, s) ->
+      (loc
+      , match s with
+      | "-" -> None
+      | s   -> Some s)
+
+    let multi_fields =
+      map_validate
+        (let%map names = field_o "names" (list (located string))
+         and pub_names = field_o "public_names" (list public_name) in
+         (names, pub_names))
+        ~f:(fun (names, public_names) ->
+          match names, public_names with
+          | Some names, Some public_names ->
+            if List.length public_names = List.length names then
+              Ok (Some names, Some public_names)
+            else
+              Error "The list of public names must be of the same \
+                     length as the list of names"
+          | names, public_names ->
+            Ok (names, public_names))
+
+    let single_fields =
+      let%map name = field_o "name" (located string)
+      and public_name = field_o "public_name" (located string)
+      in
+      ( Option.map name ~f:List.singleton
+      , Option.map public_name ~f:(fun (loc, s) -> [loc, Some s])
+      )
+
+    let pluralize s ~multi =
+      if multi then
+        s ^ "s"
+      else
+        s
+
+    let make ~multi ~stanza ~allow_omit_names_version =
+      let%map names =
+        if multi then
+          multi_fields
+        else
+          single_fields
+      and loc = loc
+      and dune_syntax = Syntax.get_exn Stanza.syntax
+      and file_kind = Stanza.file_kind ()
+      and package =
+        field_o "package" (let%map loc = loc
+                           and s = Package.Name.decode in
+                           (loc, s))
+      and project = Dune_project.get_exn ()
+      in
+      let (names, public_names) = names in
+      let stanza = pluralize stanza ~multi in
+      let names =
+        let open Syntax.Version.Infix in
+        match names, public_names with
+        | Some names, _ -> names
+        | None, Some public_names ->
+          if dune_syntax >= allow_omit_names_version then
+            List.map public_names ~f:(fun (loc, p) ->
+              match p with
+              | None ->
+                of_sexp_error loc "This executable must have a name field"
+              | Some s -> (loc, s))
+          else
+            of_sexp_errorf loc
+              "%s field may not be omitted before dune version %s"
+              (pluralize ~multi "name")
+              (Syntax.Version.to_string allow_omit_names_version)
+        | None, None ->
+          if dune_syntax >= allow_omit_names_version then
+            of_sexp_errorf loc "either the %s or the %s field must be present"
+              (pluralize ~multi "name")
+              (pluralize ~multi "public_name")
+          else
+            of_sexp_errorf loc "field %s is missing"
+              (pluralize ~multi "name")
+      in
+      { names
+      ; public_names
+      ; package
+      ; project
+      ; stanza
+      ; loc
+      ; multi
+      ; file_kind
+      }
+
+    let has_public_name t =
+      (* user could omit public names by avoiding the field or writing - *)
+      match t.public_names with
+      | None -> false
+      | Some pns -> List.exists ~f:(fun (_, n) -> Option.is_some n) pns
+
+    let package t =
+      match t.package with
+      | None -> (t.loc, Pkg.default t.project t.stanza)
+      | Some (loc, name) -> (loc, Pkg.resolve t.project name)
+
+    let install_conf t ~ext =
+      let files =
+        let public_names =
+          match t.public_names with
+          | None -> List.map t.names ~f:(Fn.const (Loc.none, None))
+          | Some pns -> pns
+        in
+        List.map2 t.names public_names
+          ~f:(fun (locn, name) (locp, pub) ->
+            Option.map pub ~f:(fun pub ->
+              { File_bindings.
+                src = String_with_vars.make_text locn (name ^ ext)
+              ; dst = Some (String_with_vars.make_text locp pub)
+              }))
+        |> List.filter_opt
+      in
+      begin match files, t.package with
+      | [], None -> None
+      | [], Some (loc, _) ->
+        let func =
+          match t.file_kind with
+          | Jbuild -> Errors.warn
+          | Dune   -> Errors.fail
+        in
+        func loc
+          "This field is useless without a (%s ...) field."
+          (pluralize "public_name" ~multi:t.multi);
+        None
+      | files, _ ->
+        Some (
+          let open Result.O in
+          let (_loc, package) = package t in
+          package >>| fun package ->
+          { Install_conf. section = Bin; files; package }
+        )
+      end
+  end
 
   module Link_mode = struct
     module T = struct
@@ -1245,12 +1338,6 @@ module Executables = struct
     ; buildable  : Buildable.t
     }
 
-  let pluralize s ~multi =
-    if multi then
-      s ^ "s"
-    else
-      s
-
   let common =
     let%map buildable = Buildable.decode
     and (_ : bool) = field "link_executables" ~default:true
@@ -1258,62 +1345,27 @@ module Executables = struct
     and link_deps = field "link_deps" (list Dep_conf.decode) ~default:[]
     and link_flags = field_oslu "link_flags"
     and modes = field "modes" Link_mode.Set.decode ~default:Link_mode.Set.default
-    and () = map_validate
-               (field "inline_tests" (repeat junk >>| fun _ -> true) ~default:false)
-               ~f:(function
-                 | false -> Ok ()
-                 | true  ->
-                   Error
-                     "Inline tests are only allowed in libraries.\n\
-                      See https://github.com/ocaml/dune/issues/745 for more details.")
-    and package = field_o "package" (let%map loc = loc
-                                     and s = string in
-                                     (loc, s))
-    and project = Dune_project.get_exn ()
-    and file_kind = Stanza.file_kind ()
-    and dune_syntax = Syntax.get_exn Stanza.syntax
-    and loc = loc
+    and () = map_validate (
+      field "inline_tests" (repeat junk >>| fun _ -> true) ~default:false)
+      ~f:(function
+        | false -> Ok ()
+        | true  ->
+          Error
+            "Inline tests are only allowed in libraries.\n\
+             See https://github.com/ocaml/dune/issues/745 for more details.")
     in
-    fun names public_names ~multi ->
-      let names =
-        let open Syntax.Version.Infix in
-        match names, public_names with
-        | Some names, _ -> names
-        | None, Some public_names ->
-          if dune_syntax >= (1, 1) then
-            List.map public_names ~f:(fun (loc, p) ->
-              match p with
-              | None ->
-                of_sexp_error loc "This executable must have a name field"
-              | Some s -> (loc, s))
-          else
-            of_sexp_errorf loc
-              "%s field may not be omitted before dune version 1.1"
-              (pluralize ~multi "name")
-        | None, None ->
-          if dune_syntax >= (1, 1) then
-            of_sexp_errorf loc "either the %s or the %s field must be present"
-              (pluralize ~multi "name")
-              (pluralize ~multi "public_name")
-          else
-            of_sexp_errorf loc "field %s is missing"
-              (pluralize ~multi "name")
-      in
+    fun names ~multi ->
+      let has_public_name = Names.has_public_name names in
+      let private_names = Names.names names in
       let t =
-        { names
+        { names = private_names
         ; link_flags
         ; link_deps
         ; modes
         ; buildable
         }
       in
-      let has_public_name =
-        (* user could omit public names by avoiding the field or writing - *)
-        match public_names with
-        | None -> false
-        | Some pns -> List.exists ~f:(fun (_, n) -> Option.is_some n) pns
-      in
-      let to_install =
+      let install_conf =
         match Link_mode.Set.best_install_mode t.modes with
         | None when has_public_name ->
           let mode_to_string mode =
@@ -1326,95 +1378,34 @@ module Executables = struct
              %s"
             (if multi then "these executables" else "this executable")
             (String.concat ~sep:"\n" mode_strings)
-        | None -> []
+        | None -> None
         | Some mode ->
           let ext =
             match mode.mode with
             | Native | Best -> ".exe"
             | Byte -> ".bc"
           in
-          let public_names =
-            match public_names with
-            | None -> List.map names ~f:(fun _ -> (Loc.none, None))
-            | Some pns -> pns
-          in
-          List.map2 names public_names
-            ~f:(fun (_, name) (_, pub) ->
-              Option.map pub ~f:(fun pub ->
-                { Install_conf.
-                  src = name ^ ext
-                ; dst = Some pub
-                }))
-          |> List.filter_opt
+          Names.install_conf names ~ext
       in
-      match to_install with
-      | [] -> begin
-          match package with
-          | None -> (t, None)
-          | Some (loc, _) ->
-            let func =
-              match file_kind with
-              | Jbuild -> Errors.warn
-              | Dune   -> Errors.fail
-            in
-            func loc
-              "This field is useless without a (public_name%s ...) field."
-              (if multi then "s" else "");
-            (t, None)
-        end
-      | files ->
-        let package =
-          match
-            match package with
-            | None ->
-              let stanza =
-                pluralize ~multi "executable"
-              in
-              (buildable.loc, Pkg.default project stanza)
-            | Some (loc, name) ->
-              (loc, Pkg.resolve project (Package.Name.of_string name))
-          with
-          | (_, Ok x) -> x
-          | (loc, Error msg) ->
-            of_sexp_errorf loc "%s" msg
-        in
-        (t, Some { Install_conf. section = Bin; files; package })
+      match install_conf with
+      | None -> (t, None)
+      | Some (Error msg) ->
+        let loc = Names.loc_of_package_field names in
+        of_sexp_errorf loc "%s" msg
+      | Some (Ok install_conf) ->
+        (t, Some install_conf)
 
-  let public_name =
-    located string >>| fun (loc, s) ->
-    (loc
-    , match s with
-    | "-" -> None
-    | s   -> Some s)
-
-  let multi =
-    record
-      (let%map names, public_names =
-         map_validate
-           (let%map names = field_o "names" (list (located string))
-            and pub_names = field_o "public_names" (list public_name) in
-            (names, pub_names))
-           ~f:(fun (names, public_names) ->
-             match names, public_names with
-             | Some names, Some public_names ->
-               if List.length public_names = List.length names then
-                 Ok (Some names, Some public_names)
-               else
-                 Error "The list of public names must be of the same \
-                        length as the list of names"
-             | names, public_names -> Ok (names, public_names))
-       and f = common in
-       f names public_names ~multi:true)
-
-  let single =
-    record
-      (let%map name = field_o "name" (located string)
-       and public_name = field_o "public_name" (located string)
-       and f = common in
-       f (Option.map name ~f:List.singleton)
-         (Option.map public_name ~f:(fun (loc, s) ->
-            [loc, Some s]))
-         ~multi:false)
+  let (single, multi) =
+    let stanza = "executable" in
+    let make multi =
+      record
+        (let%map names =
+           Names.make ~multi ~stanza ~allow_omit_names_version:(1, 1)
+         and f = common
+         in
+         f names ~multi)
+    in
+    (make false, make true)
 end
 
 module Rule = struct
@@ -1523,9 +1514,9 @@ module Rule = struct
       map_validate
         (let%map fallback =
            field_b
-           ~check:(Syntax.renamed_in Stanza.syntax (1, 0)
-                     ~to_:"(mode fallback)")
-           "fallback"
+             ~check:(Syntax.renamed_in Stanza.syntax (1, 0)
+                       ~to_:"(mode fallback)")
+             "fallback"
          and mode = field_o "mode" Mode.decode
          in
          (fallback, mode))
@@ -1586,10 +1577,10 @@ module Rule = struct
     | List (_, Atom (_, _) :: _) ->
       enter (
         repeat string >>| fun modules ->
-             { modules
-             ; mode  = Standard
-             ; enabled_if = Blang.true_
-             }
+        { modules
+        ; mode  = Standard
+        ; enabled_if = Blang.true_
+        }
       )
     | _ ->
       record
@@ -1822,6 +1813,28 @@ module Tests = struct
   let single = gen_parse (field "name" (located string) >>| List.singleton)
 end
 
+module Toplevel = struct
+  type t =
+    { name : string
+    ; libraries : (Loc.t * Lib_name.t) list
+    ; loc : Loc.t
+    }
+
+  let decode =
+    let open Stanza.Decoder in
+    record (
+      let%map loc = loc
+      and name = field "name" string
+      and libraries =
+        field "libraries" (list (located Lib_name.decode)) ~default:[]
+      in
+      { name
+      ; libraries
+      ; loc
+      }
+    )
+end
+
 module Copy_files = struct
   type t = { add_line_directive : bool
            ; glob : String_with_vars.t
@@ -1864,12 +1877,13 @@ type Stanza.t +=
   | Library         of Library.t
   | Executables     of Executables.t
   | Rule            of Rule.t
-  | Install         of Install_conf.t
+  | Install         of String_with_vars.t Install_conf.t
   | Alias           of Alias_conf.t
   | Copy_files      of Copy_files.t
   | Documentation   of Documentation.t
   | Tests           of Tests.t
   | Include_subdirs of Loc.t * Include_subdirs.t
+  | Toplevel        of Toplevel.t
 
 module Stanzas = struct
   type t = Stanza.t list
@@ -1946,6 +1960,10 @@ module Stanzas = struct
        and t = Include_subdirs.decode
        and loc = loc in
        [Include_subdirs (loc, t)])
+    ; "toplevel",
+      (let%map () = Syntax.since Stanza.syntax (1, 7)
+       and t = Toplevel.decode in
+       [Toplevel t])
     ]
 
   let jbuild_parser =
@@ -1986,7 +2004,7 @@ module Stanzas = struct
   let parse ~file ~kind (project : Dune_project.t) sexps =
     let (stanza_parser, lexer) =
       let (parser, lexer) =
-        match (kind : File_tree.Dune_file.Kind.t) with
+        match (kind : Dune_lang.Syntax.t) with
         | Jbuild -> (jbuild_parser, Dune_lang.Lexer.jbuild_token)
         | Dune   -> (Dune_project.stanza_parser project, Dune_lang.Lexer.token)
       in
@@ -2023,3 +2041,12 @@ module Stanzas = struct
       Errors.fail e.loc "The 'env' stanza cannot appear more than once"
     | _ -> stanzas
 end
+
+let stanza_package = function
+  | Library { public = Some { package; _ }; _ }
+  | Alias { package = Some package ;  _ }
+  | Install { package; _ }
+  | Documentation { package; _ }
+  | Tests { package = Some package; _} ->
+    Some package
+  | _ -> None

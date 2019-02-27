@@ -18,6 +18,15 @@
  (files   dune-clean.1))
 
 (rule
+ (with-stdout-to dune-compute.1
+  (run dune compute --help=groff)))
+
+(install
+ (section man)
+ (package dune)
+ (files   dune-compute.1))
+
+(rule
  (with-stdout-to dune-exec.1
   (run dune exec --help=groff)))
 
@@ -34,6 +43,15 @@
  (section man)
  (package dune)
  (files   dune-external-lib-deps.1))
+
+(rule
+ (with-stdout-to dune-format-dune-file.1
+  (run dune format-dune-file --help=groff)))
+
+(install
+ (section man)
+ (package dune)
+ (files   dune-format-dune-file.1))
 
 (rule
  (with-stdout-to dune-help.1
@@ -117,13 +135,13 @@
  (files   dune-uninstall.1))
 
 (rule
- (with-stdout-to dune-unstable-fmt.1
-  (run dune unstable-fmt --help=groff)))
+ (with-stdout-to dune-upgrade.1
+  (run dune upgrade --help=groff)))
 
 (install
  (section man)
  (package dune)
- (files   dune-unstable-fmt.1))
+ (files   dune-upgrade.1))
 
 (rule
  (with-stdout-to dune-utop.1

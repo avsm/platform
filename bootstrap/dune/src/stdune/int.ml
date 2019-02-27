@@ -15,6 +15,10 @@ include T
 module Set = Set.Make(T)
 module Map = Map.Make(T)
 
+let equal (a : t) b = a = b
+
+let hash (t : t) = t
+
 let of_string_exn s =
   match int_of_string s with
   | exception Failure _ ->
@@ -24,3 +28,5 @@ let of_string_exn s =
 let to_string i = string_of_int i
 
 module Infix = Comparable.Operators(T)
+
+let of_string s = Option.try_with (fun () -> int_of_string s)

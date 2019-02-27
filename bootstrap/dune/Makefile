@@ -1,7 +1,7 @@
 PREFIX_ARG := $(if $(PREFIX),--prefix $(PREFIX),)
 LIBDIR_ARG := $(if $(LIBDIR),--libdir $(LIBDIR),)
 INSTALL_ARGS := $(PREFIX_ARG) $(LIBDIR_ARG)
-BIN := ./_build/default/bin/main_dune.exe
+BIN := ./_boot/default/bin/main_dune.exe
 
 -include Makefile.dev
 
@@ -15,10 +15,10 @@ boot.exe: bootstrap.ml
 	ocaml bootstrap.ml
 
 install:
-	$(BIN) install $(INSTALL_ARGS) dune
+	$(BIN) install $(INSTALL_ARGS) dune --build-dir _boot
 
 uninstall:
-	$(BIN) uninstall $(INSTALL_ARGS) dune
+	$(BIN) uninstall $(INSTALL_ARGS) dune --build-dir _boot
 
 reinstall: uninstall reinstall
 
@@ -31,6 +31,9 @@ test-js:
 test-all:
 	$(BIN) build @runtest @runtest-js
 
+check:
+	$(BIN) build @check
+
 promote:
 	$(BIN) promote
 
@@ -40,8 +43,9 @@ all-supported-ocaml-versions:
 	$(BIN) build @install @runtest --workspace dune-workspace.dev --root .
 
 clean:
-	$(BIN) clean
 	rm -f ./boot.exe $(wildcard ./bootstrap.cmi ./bootstrap.cmo ./bootstrap.exe)
+	$(BIN) clean || true
+	rm -rf _boot
 
 distclean: clean
 	rm -f src/setup.ml
@@ -68,7 +72,7 @@ dune: $(BIN)
 	$(BIN) $(RUN_ARGS)
 
 .PHONY: default install uninstall reinstall clean test doc
-.PHONY: promote accept-corrections opam-release dune
+.PHONY: promote accept-corrections opam-release dune check
 
 opam-release:
 	dune-release distrib --skip-build --skip-lint --skip-tests

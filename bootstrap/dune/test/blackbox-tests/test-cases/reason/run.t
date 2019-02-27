@@ -10,6 +10,7 @@
     "_build/install/default/lib/rlib/bar.re" {"bar.re"}
     "_build/install/default/lib/rlib/cppome.re" {"cppome.re"}
     "_build/install/default/lib/rlib/cppome.rei" {"cppome.rei"}
+    "_build/install/default/lib/rlib/dune-package" {"dune-package"}
     "_build/install/default/lib/rlib/foo.ml" {"foo.ml"}
     "_build/install/default/lib/rlib/foo.rei" {"foo.rei"}
     "_build/install/default/lib/rlib/hello.re" {"hello.re"}
@@ -24,7 +25,6 @@
     "_build/install/default/lib/rlib/rlib.cmx" {"rlib.cmx"}
     "_build/install/default/lib/rlib/rlib.cmxa" {"rlib.cmxa"}
     "_build/install/default/lib/rlib/rlib.cmxs" {"rlib.cmxs"}
-    "_build/install/default/lib/rlib/rlib.dune" {"rlib.dune"}
     "_build/install/default/lib/rlib/rlib.ml" {"rlib.ml"}
     "_build/install/default/lib/rlib/rlib__Bar.cmi" {"rlib__Bar.cmi"}
     "_build/install/default/lib/rlib/rlib__Bar.cmt" {"rlib__Bar.cmt"}
@@ -50,3 +50,7 @@
   bin: [
     "_build/install/default/bin/refmt" {"refmt"}
   ]
+
+virtual libraries in reason
+  $ PATH="_build/install/default/bin:$PATH" dune build --root vlib-impl @all
+  Entering directory 'vlib-impl'

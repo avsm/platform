@@ -14,6 +14,7 @@ module Encoder = struct
   type 'a t = 'a -> sexp
 
   let unit () = List []
+  let char c = Atom (String.make 1 c)
   let string s = Atom s
   let int i = Atom (string_of_int i)
   let float f = Atom (string_of_float f)
@@ -30,6 +31,10 @@ module Encoder = struct
     List (List.map l ~f:(fun (n, v) -> List [Atom n; v]))
 
   let unknown _ = Atom "<unknown>"
+
+  let constr name = function
+    | [] -> Atom name
+    | args -> List (Atom name :: args)
 end
 
 let rec to_string = function

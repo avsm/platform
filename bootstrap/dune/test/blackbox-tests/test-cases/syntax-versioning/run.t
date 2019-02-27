@@ -1,3 +1,5 @@
+  $ echo '(lang dune 1.0)' > dune-project
+
   $ echo '(jbuild_version 1)' > dune
   $ dune build
   File "dune", line 1, characters 0-18:
@@ -9,6 +11,9 @@
 
   $ echo '(jbuild_version 1)' > jbuild
   $ dune build
+  File "jbuild", line 1, characters 0-0:
+  Warning: jbuild files are deprecated, please convert this file to a dune file instead.
+  Note: You can use "dune upgrade" to convert your project to dune.
   $ rm -f jbuild
 
   $ echo '(executable (name x) (link_executables false))' > dune
@@ -31,4 +36,17 @@
     (deps (:x <dep>) ...)
      ... %{x} ...
   [1]
+  $ rm -f dune
+
+  $ echo '(lang dune 1.7)' > dune-project
+  $ cat > dune <<EOF
+  > (library
+  >  (name foo)
+  >  (no_keep_locs))
+  > EOF
+  $ dune build
+  File "dune", line 3, characters 1-15:
+  3 |  (no_keep_locs))
+       ^^^^^^^^^^^^^^
+  Warning: 'no_keep_locs' was deprecated in version 1.7 of the dune language
   $ rm -f dune

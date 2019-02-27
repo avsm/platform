@@ -21,6 +21,8 @@ module Name = struct
 
   let decode = Dune_lang.Decoder.(map string ~f:of_string)
 
+  let encode t = Dune_lang.Encoder.(string (to_string t))
+
   module Infix = Comparable.Operators(T)
 end
 
@@ -30,6 +32,13 @@ type t =
   ; path                   : Path.t
   ; version_from_opam_file : string option
   }
+
+let pp fmt { name; path; version_from_opam_file } =
+  Fmt.record fmt
+    [ "name", Fmt.const Name.pp name
+    ; "path", Fmt.const Path.pp path
+    ; "version_from_opam_file", Fmt.const (Fmt.optional Format.pp_print_string) version_from_opam_file
+    ]
 
 let opam_file t = Path.relative t.path (Name.opam_fn t.name)
 

@@ -2,8 +2,9 @@ open! Stdune
 
 module Atom = Atom
 module Template = Template
+module Syntax = Syntax
 
-type syntax = Atom.syntax = Jbuild | Dune
+type syntax = Syntax.t = Jbuild | Dune
 
 type t =
   | Atom of Atom.t
@@ -77,7 +78,7 @@ let pp_print_quoted_string ppf s =
     Format.pp_print_string ppf (Escape.quoted ~syntax s)
 
 let rec pp_split_strings ppf = function
-  | Atom s -> Format.pp_print_string ppf (Atom.print s Atom.Dune)
+  | Atom s -> Format.pp_print_string ppf (Atom.print s Syntax.Dune)
   | Quoted_string s -> pp_print_quoted_string ppf s
   | List [] ->
     Format.pp_print_string ppf "()"
@@ -170,6 +171,85 @@ let rec add_loc t ~loc : Ast.t =
   | List l -> List (loc, List.map l ~f:(add_loc ~loc))
   | Template t -> Template { t with loc }
 
+module Cst = struct
+  module Comment = Lexer_shared.Token.Comment
+
+  type t =
+    | Atom of Loc.t * Atom.t
+    | Quoted_string of Loc.t * string
+    | Template of Template.t
+    | List of Loc.t * t list
+    | Comment of Loc.t * Comment.t
+
+  let loc (Atom (loc, _) | Quoted_string (loc, _) | List (loc, _)
+          | Template { loc ; _ } | Comment (loc, _)) = loc
+
+  let fetch_legacy_comments t ~file_contents =
+    let rec loop t =
+      match t with
+      | Template _ | Quoted_string _ | Atom _ | Comment (_, Lines _) -> t
+      | List (loc, l) -> List (loc, List.map l ~f:loop)
+      | Comment (loc, Legacy) ->
+        let start = loc.start.pos_cnum in
+        let stop = loc.stop.pos_cnum in
+        let s =
+          if file_contents.[start] = '#' && file_contents.[start+1] = '|' then
+            String.sub file_contents ~pos:(start + 2) ~len:(stop - start - 4)
+          else
+            String.sub file_contents ~pos:start ~len:(stop - start)
+        in
+        Comment (loc, Lines (String.split s ~on:'\n'))
+    in
+    loop t
+
+  let rec abstract : t -> Ast.t option = function
+    | Atom (loc, atom) -> Some (Atom (loc, atom))
+    | Quoted_string (loc, s) -> Some (Quoted_string (loc, s))
+    | Template t -> Some (Template t)
+    | List (loc, l) -> Some (List (loc, List.filter_map ~f:abstract l))
+    | Comment _ -> None
+
+  let rec concrete : Ast.t -> t = function
+    | Atom (loc, atom) -> Atom (loc, atom)
+    | Quoted_string (loc, s) -> Quoted_string (loc, s)
+    | Template t -> Template t
+    | List (loc, l) -> List (loc, List.map ~f:concrete l)
+
+  let extract_comments =
+    let rec loop acc = function
+      | Atom _ | Quoted_string _ | Template _ -> acc
+      | List (_, l) -> List.fold_left l ~init:acc ~f:loop
+      | Comment (loc, comment) -> (loc, comment) :: acc
+    in
+    List.fold_left ~init:[] ~f:loop
+
+  let tokenize ts =
+    let tokens = ref [] in
+    let emit loc (token : Lexer.Token.t) =
+      tokens := (loc, token) :: !tokens
+    in
+    let rec iter = function
+      | Atom (loc, s) ->
+        emit loc (Atom s)
+      | Quoted_string (loc, s) ->
+        emit loc (Quoted_string s)
+      | Template ({ loc; _ } as template) ->
+        emit loc (Template template)
+      | Comment (loc, comment) ->
+        emit loc (Comment comment)
+      | List (loc, l) ->
+        emit { loc with
+               stop = { loc.start with pos_cnum = loc.start.pos_cnum + 1 } }
+          Lparen;
+        List.iter l ~f:iter;
+        emit { loc with
+               start = { loc.stop with pos_cnum = loc.stop.pos_cnum - 1 } }
+          Rparen
+    in
+    List.iter ts ~f:iter;
+    List.rev !tokens
+end
+
 module Parse_error = struct
   include Lexer.Error
 
@@ -207,29 +287,55 @@ module Parser = struct
         | Many -> sexps
         | Many_as_one ->
           match sexps with
-          | [] -> List (Loc.in_file lexbuf.lex_curr_p.pos_fname, [])
+          | [] -> List (Loc.in_file
+                          (Path.of_string lexbuf.lex_curr_p.pos_fname), [])
           | x :: l ->
             let last = List.fold_left l ~init:x ~f:(fun _ x -> x) in
             let loc = { (Ast.loc x) with stop = (Ast.loc last).stop } in
             List (loc, x :: l)
   end
 
-  let rec loop depth lexer lexbuf acc =
-    match (lexer lexbuf : Lexer.Token.t) with
+  (* To avoid writing two parsers, one for the Cst and one for the
+     Ast, we write only one that work for both.
+
+     The natural thing to do would be to have parser that produce
+     [Cst.t] value and drop comment for the [Ast.t] one. However the
+     most used parser is the one producing Ast one, so it is the one
+     we want to go fast. As a result, we encode comment as special
+     [Ast.t] values and decode them for the [Cst.t] parser.
+
+     We could also do clever things with GADTs, but it will add type
+     variables everywhere which is annoying.  *)
+  let rec cst_of_encoded_ast (x : Ast.t) : Cst.t =
+    match x with
+    | Template t -> Template t
+    | Quoted_string (loc, s) -> Quoted_string (loc, s)
+    | List (loc, l) -> List (loc, List.map l ~f:cst_of_encoded_ast)
+    | Atom (loc, (A s as atom)) ->
+      match s.[0] with
+      | '\000' ->
+        Comment (loc, Lines (String.drop s 1 |> String.split ~on:'\n'))
+      | '\001' ->
+        Comment (loc, Legacy)
+      | _ ->
+        Atom (loc, atom)
+
+  let rec loop with_comments depth lexer lexbuf acc =
+    match (lexer ~with_comments lexbuf : Lexer.Token.t) with
     | Atom a ->
       let loc = Loc.of_lexbuf lexbuf in
-      loop depth lexer lexbuf (Ast.Atom (loc, a) :: acc)
+      loop with_comments depth lexer lexbuf (Ast.Atom (loc, a) :: acc)
     | Quoted_string s ->
       let loc = Loc.of_lexbuf lexbuf in
-      loop depth lexer lexbuf (Quoted_string (loc, s) :: acc)
+      loop with_comments depth lexer lexbuf (Quoted_string (loc, s) :: acc)
     | Template t ->
       let loc = Loc.of_lexbuf lexbuf in
-      loop depth lexer lexbuf (Template { t with loc } :: acc)
+      loop with_comments depth lexer lexbuf (Template { t with loc } :: acc)
     | Lparen ->
       let start = Lexing.lexeme_start_p lexbuf in
-      let sexps = loop (depth + 1) lexer lexbuf [] in
+      let sexps = loop with_comments (depth + 1) lexer lexbuf [] in
       let stop = Lexing.lexeme_end_p lexbuf in
-      loop depth lexer lexbuf (List ({ start; stop }, sexps) :: acc)
+      loop with_comments depth lexer lexbuf (List ({ start; stop }, sexps) :: acc)
     | Rparen ->
       if depth = 0 then
         error (Loc.of_lexbuf lexbuf)
@@ -238,8 +344,12 @@ module Parser = struct
     | Sexp_comment ->
       let sexps =
         let loc = Loc.of_lexbuf lexbuf in
-        match loop depth lexer lexbuf [] with
-        | _ :: sexps -> sexps
+        match loop with_comments depth lexer lexbuf [] with
+        | commented :: sexps ->
+          if not with_comments then
+            sexps
+          else
+            Atom (Ast.loc commented, Atom.of_string "\001") :: sexps
         | [] -> error loc "s-expression missing after #;"
       in
       List.rev_append acc sexps
@@ -248,13 +358,67 @@ module Parser = struct
         error (Loc.of_lexbuf lexbuf)
           "unclosed parenthesis at end of input";
       List.rev acc
+    | Comment comment ->
+      if not with_comments then
+        loop false depth lexer lexbuf acc
+      else begin
+        let loc = Loc.of_lexbuf lexbuf in
+        let encoded =
+          match comment with
+          | Lines lines -> "\000" ^ String.concat lines ~sep:"\n"
+          | Legacy -> "\001"
+        in
+        loop with_comments depth lexer lexbuf
+          (Atom (loc, Atom.of_string encoded) :: acc)
+      end
 
   let parse ~mode ?(lexer=Lexer.token) lexbuf =
-    loop 0 lexer lexbuf []
+    loop false 0 lexer lexbuf []
     |> Mode.make_result mode lexbuf
+
+  let parse_cst ?(lexer=Lexer.token) lexbuf =
+    loop true 0 lexer lexbuf []
+    |> List.map ~f:cst_of_encoded_ast
 end
 
-let parse_string ~fname ~mode ?lexer str =
+let insert_comments csts comments =
+  (* To insert the comments, we tokenize the csts, reconciliate the
+     token streams and parse the result again. This is not the fastest
+     implementation, but at least it is simple. *)
+  let compare (a, _) (b, _) =
+    Int.compare a.Loc.start.pos_cnum b.Loc.start.pos_cnum
+  in
+  let rec reconciliate acc tokens1 tokens2 =
+    match tokens1, tokens2 with
+    | [], l  | l, [] -> List.rev_append acc l
+    | tok1 :: rest1, tok2 :: rest2 ->
+      match compare tok1 tok2 with
+      | Eq
+      | Lt -> reconciliate (tok1 :: acc) rest1 tokens2
+      | Gt -> reconciliate (tok2 :: acc) tokens1 rest2
+  in
+  let tokens =
+    reconciliate []
+      (Cst.tokenize csts)
+      (List.sort comments ~compare
+       |> List.map ~f:(fun (loc, comment) ->
+         (loc, Lexer.Token.Comment comment)))
+  in
+  let tokens = ref tokens in
+  let lexer ~with_comments:_ (lb : Lexing.lexbuf) =
+    match !tokens with
+    | [] ->
+      lb.lex_curr_p <- lb.lex_start_p;
+      Lexer.Token.Eof
+    | ({ start; stop }, tok) :: rest ->
+      tokens := rest;
+      lb.lex_start_p <- start;
+      lb.lex_curr_p <- stop;
+      tok
+  in
+  Parser.parse_cst (Lexing.from_string "") ~lexer
+
+let lexbuf_from_string ~fname str =
   let lb = Lexing.from_string str in
   lb.lex_curr_p <-
     { pos_fname = fname
@@ -262,13 +426,22 @@ let parse_string ~fname ~mode ?lexer str =
     ; pos_bol   = 0
     ; pos_cnum  = 0
     };
+  lb
+
+let parse_string ~fname ~mode ?lexer str =
+  let lb = lexbuf_from_string ~fname str in
   Parser.parse ~mode ?lexer lb
+
+let parse_cst_string ~fname ?lexer str =
+  let lb = lexbuf_from_string ~fname str in
+  Parser.parse_cst ?lexer lb
 
 type dune_lang = t
 
 module Encoder = struct
   type nonrec 'a t = 'a -> t
   let unit () = List []
+  let char c = atom_or_quoted_string (String.make 1 c)
   let string = atom_or_quoted_string
   let int n = Atom (Atom.of_int n)
   let float f = Atom (Atom.of_float f)
@@ -277,27 +450,54 @@ module Encoder = struct
   let triple fa fb fc (a, b, c) = List [fa a; fb b; fc c]
   let list f l = List (List.map l ~f)
   let array f a = list f (Array.to_list a)
+  let sexp x = x
   let option f = function
     | None -> List []
     | Some x -> List [f x]
   let record l =
     List (List.map l ~f:(fun (n, v) -> List [Atom(Atom.of_string n); v]))
 
-  type field = string * dune_lang option
+  type field =
+    | Absent
+    | Normal of string * dune_lang
+    | Inlined_list of string * dune_lang list
 
   let field name f ?(equal=(=)) ?default v =
     match default with
-    | None -> (name, Some (f v))
+    | None -> Normal (name, f v)
     | Some d ->
       if equal d v then
-        (name, None)
+        Absent
       else
-        (name, Some (f v))
-  let field_o name f v = (name, Option.map ~f v)
+        Normal (name, f v)
+  let field_o name f v =
+    match v with
+    | None -> Absent
+    | Some v -> Normal (name, f v)
+
+  let field_b name v =
+    if v then
+      Inlined_list (name, [])
+    else
+      Absent
+
+  let field_l name f l =
+    match l with
+    | [] -> Absent
+    | _ -> Inlined_list (name, List.map l ~f)
+
+  let field_i name f x =
+    match f x with
+    | [] -> Absent
+    | l -> Inlined_list (name, l)
 
   let record_fields (l : field list) =
-    List (List.filter_map l ~f:(fun (k, v) ->
-      Option.map v ~f:(fun v -> List[Atom (Atom.of_string k); v])))
+    List.filter_map l ~f:(function
+      | Absent -> None
+      | Normal (name, v) ->
+        Some (List [Atom (Atom.of_string name); v])
+      | Inlined_list (name, l) ->
+        Some (List (Atom (Atom.of_string name) :: l)))
 
   let unknown _ = unsafe_atom_of_string "<unknown>"
 end
@@ -324,28 +524,56 @@ module Decoder = struct
     Printf.ksprintf (fun msg ->
       of_sexp_error loc ?hint ("No variables allowed " ^ msg)) fmt
 
-  type unparsed_field =
-    { values : Ast.t list
-    ; entry  : Ast.t
-    ; prev   : unparsed_field option (* Previous occurrence of this field *)
-    }
-
   module Name = struct
-    type t = string
-    let compare a b =
-      let alen = String.length a and blen = String.length b in
-      match Int.compare alen blen with
-      | Eq -> String.compare a b
-      | ne -> ne
+    module T = struct
+      type t = string
+      let compare a b =
+        let alen = String.length a and blen = String.length b in
+        match Int.compare alen blen with
+        | Eq -> String.compare a b
+        | ne -> ne
+    end
+    include T
+    module Map = Map.Make(T)
   end
 
-  module Name_map = Map.Make(Name)
+  module Fields = struct
+    module Unparsed = struct
+      type t =
+        { values : Ast.t list
+        ; entry  : Ast.t
+        ; prev   : t option (* Previous occurrence of this field *)
+        }
+    end
+    type t =
+      { unparsed : Unparsed.t Name.Map.t
+      ; known    : string list
+      }
 
+    let consume name state =
+      { unparsed = Name.Map.remove state.unparsed name
+      ; known    = name :: state.known
+      }
+
+    let add_known name state =
+      { state with known = name :: state.known }
+
+    let unparsed_ast { unparsed ; _ } =
+      let rec loop acc = function
+        | [] -> acc
+        | x :: xs ->
+          begin match x.Unparsed.prev with
+          | None -> loop (x.entry :: acc) xs
+          | Some p -> loop (x.entry :: acc) (p :: xs)
+          end
+      in
+      loop [] (Name.Map.values unparsed)
+      |> List.sort ~compare:(fun a b ->
+        Int.compare (Ast.loc a).start.pos_cnum (Ast.loc b).start.pos_cnum)
+  end
+
+  type fields = Fields.t
   type values = Ast.t list
-  type fields =
-    { unparsed : unparsed_field Name_map.t
-    ; known    : string list
-    }
 
   (* Arguments are:
 
@@ -355,12 +583,12 @@ module Decoder = struct
   *)
   type 'kind context =
     | Values : Loc.t * string option * Univ_map.t -> values context
-    | Fields : Loc.t * string option * Univ_map.t -> fields context
+    | Fields : Loc.t * string option * Univ_map.t -> Fields.t context
 
   type ('a, 'kind) parser =  'kind context -> 'kind -> 'a * 'kind
 
   type 'a t             = ('a, values) parser
-  type 'a fields_parser = ('a, fields) parser
+  type 'a fields_parser = ('a, Fields.t) parser
 
   let return x _ctx state = (x, state)
   let (>>=) t f ctx state =
@@ -411,7 +639,7 @@ module Decoder = struct
   let at_eos : type k. k context -> k -> bool = fun ctx state ->
     match ctx with
     | Values _ -> state = []
-    | Fields _ -> Name_map.is_empty state.unparsed
+    | Fields _ -> Name.Map.is_empty state.unparsed
 
   let eos ctx state = (at_eos ctx state, state)
 
@@ -445,7 +673,7 @@ module Decoder = struct
               of_sexp_errorf (Ast.loc sexp) "Too many argument for %s" s
         end
       | Fields _ -> begin
-          match Name_map.choose state.unparsed with
+          match Name.Map.choose state.unparsed with
           | None -> v
           | Some (name, { entry; _ }) ->
             let name_loc =
@@ -505,7 +733,7 @@ module Decoder = struct
   let junk_everything : type k. (unit, k) parser = fun ctx state ->
     match ctx with
     | Values _ -> ((), [])
-    | Fields _ -> ((), { state with unparsed = Name_map.empty })
+    | Fields _ -> ((), { state with unparsed = Name.Map.empty })
 
   let keyword kwd =
     next (function
@@ -597,15 +825,15 @@ module Decoder = struct
         end
       | Fields _ ->
         let parsed =
-          Name_map.merge state1.unparsed state2.unparsed
+          Name.Map.merge state1.unparsed state2.unparsed
             ~f:(fun _key before after ->
               match before, after with
               | Some _, None -> before
               | _ -> None)
         in
         match
-          Name_map.values parsed
-          |> List.map ~f:(fun f -> Ast.loc f.entry)
+          Name.Map.values parsed
+          |> List.map ~f:(fun f -> Ast.loc f.Fields.Unparsed.entry)
           |> List.sort ~compare:(fun a b ->
             Int.compare a.Loc.start.pos_cnum b.start.pos_cnum)
         with
@@ -620,7 +848,7 @@ module Decoder = struct
     let x, state2 = t ctx state1 in
     ((loc_between_states ctx state1 state2, x), state2)
 
-  let raw = next (fun x -> x)
+  let raw = next Fn.id
 
   let unit =
     next
@@ -639,6 +867,13 @@ module Decoder = struct
         | Ok x -> x)
 
   let string = plain_string (fun ~loc:_ x -> x)
+
+  let char = plain_string (fun ~loc x ->
+    if String.length x = 1 then
+      x.[0]
+    else
+      of_sexp_errorf loc "character expected")
+
   let int =
     basic "Integer" (fun s ->
       match int_of_string s with
@@ -719,14 +954,6 @@ module Decoder = struct
 
   let bool = enum [ ("true", true); ("false", false) ]
 
-  let consume name state =
-    { unparsed = Name_map.remove state.unparsed name
-    ; known    = name :: state.known
-    }
-
-  let add_known name state =
-    { state with known = name :: state.known }
-
   let map_validate t ~f ctx state1 =
     let x, state2 = t ctx state1 in
     match f x with
@@ -747,7 +974,7 @@ module Decoder = struct
     | _ -> assert false
 
   let multiple_occurrences ?(on_dup=field_present_too_many_times) uc name last =
-    let rec collect acc x =
+    let rec collect acc (x : Fields.Unparsed.t) =
       let acc = x.entry :: acc in
       match x.prev with
       | None -> acc
@@ -756,8 +983,8 @@ module Decoder = struct
     on_dup uc name (collect [] last)
   [@@inline never]
 
-  let find_single ?on_dup uc state name =
-    let res = Name_map.find state.unparsed name in
+  let find_single ?on_dup uc (state : Fields.t) name =
+    let res = Name.Map.find state.unparsed name in
     (match res with
      | Some ({ prev = Some _; _ } as last) ->
        multiple_occurrences uc name last ?on_dup
@@ -769,10 +996,10 @@ module Decoder = struct
     | Some { values; entry; _ } ->
       let ctx = Values (Ast.loc entry, Some name, uc) in
       let x = result ctx (t ctx values) in
-      (x, consume name state)
+      (x, Fields.consume name state)
     | None ->
       match default with
-      | Some v -> (v, add_known name state)
+      | Some v -> (v, Fields.add_known name state)
       | None -> field_missing loc name
 
   let field_o name ?on_dup t (Fields (_, _, uc)) state =
@@ -780,9 +1007,9 @@ module Decoder = struct
     | Some { values; entry; _ } ->
       let ctx = Values (Ast.loc entry, Some name, uc) in
       let x = result ctx (t ctx values) in
-      (Some x, consume name state)
+      (Some x, Fields.consume name state)
     | None ->
-      (None, add_known name state)
+      (None, Fields.add_known name state)
 
   let field_b_gen field_gen ?check ?on_dup name =
     field_gen name ?on_dup
@@ -794,8 +1021,8 @@ module Decoder = struct
   let field_b = field_b_gen (field ~default:false)
   let field_o_b = field_b_gen field_o
 
-  let multi_field name t (Fields (_, _, uc)) state =
-    let rec loop acc field =
+  let multi_field name t (Fields (_, _, uc)) (state : Fields.t) =
+    let rec loop acc (field : Fields.Unparsed.t option) =
       match field with
       | None -> acc
       | Some { values; prev; entry } ->
@@ -803,20 +1030,21 @@ module Decoder = struct
         let x = result ctx (t ctx values) in
         loop (x :: acc) prev
     in
-    let res = loop [] (Name_map.find state.unparsed name) in
-    (res, consume name state)
+    let res = loop [] (Name.Map.find state.unparsed name) in
+    (res, Fields.consume name state)
 
   let fields t (Values (loc, cstr, uc)) sexps =
     let unparsed =
-      List.fold_left sexps ~init:Name_map.empty ~f:(fun acc sexp ->
+      List.fold_left sexps ~init:Name.Map.empty ~f:(fun acc sexp ->
         match sexp with
         | List (_, name_sexp :: values) -> begin
             match name_sexp with
             | Atom (_, A name) ->
-              Name_map.add acc name
-                { values
+              Name.Map.add acc name
+                { Fields.Unparsed.
+                  values
                 ; entry = sexp
-                ; prev  = Name_map.find acc name
+                ; prev  = Name.Map.find acc name
                 }
             | List (loc, _) | Quoted_string (loc, _) | Template { loc; _ } ->
               of_sexp_error loc "Atom expected"
@@ -826,8 +1054,16 @@ module Decoder = struct
             "S-expression of the form (<name> <values>...) expected")
     in
     let ctx = Fields (loc, cstr, uc) in
-    let x = result ctx (t ctx { unparsed; known = [] }) in
+    let x = result ctx (t ctx { Fields. unparsed; known = [] }) in
     (x, [])
+
+  let leftover_fields (Fields (_, _, _)) state =
+    ( Fields.unparsed_ast state
+    , { Fields.
+        known = state.known @ Name.Map.keys state.unparsed
+      ; unparsed = Name.Map.empty
+      }
+    )
 
   let record t = enter (fields t)
 

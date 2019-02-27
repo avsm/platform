@@ -12,6 +12,12 @@ let decode =
     ; "native" , Native
     ]
 
+let encode =
+  let open Dune_lang.Encoder in
+  function
+  | Byte -> string "byte"
+  | Native -> string "native"
+
 let pp fmt = function
   | Byte -> Format.pp_print_string fmt "byte"
   | Native -> Format.pp_print_string fmt "native"
@@ -40,6 +46,14 @@ module Dict = struct
     ; native : 'a
     }
 
+  let for_all { byte ; native } ~f = f byte && f native
+
+  let pp pp fmt { byte; native } =
+    Fmt.record fmt
+      [ "byte", Fmt.const pp byte
+      ; "native", Fmt.const pp native
+      ]
+
   let get t = function
     | Byte   -> t.byte
     | Native -> t.native
@@ -52,6 +66,11 @@ module Dict = struct
   let map2 a b ~f =
     { byte   = f a.byte   b.byte
     ; native = f a.native b.native
+    }
+
+  let map t ~f =
+    { byte = f t.byte
+    ; native = f t.native
     }
 
   let make_both x =
@@ -78,12 +97,36 @@ module Dict = struct
       ; native = List.mem Native ~set:l
       }
 
-    let decode = Dune_lang.Decoder.(map (list decode) ~f:of_list)
+    let encode t = List.map ~f:encode (to_list t)
 
     let is_empty t = not (t.byte || t.native)
 
     let iter t ~f =
       if t.byte   then f Byte;
       if t.native then f Native
+  end
+
+  module List = struct
+    type nonrec 'a t = 'a list t
+
+    let empty = { byte = [] ; native = [] }
+
+    let encode f { byte ; native } =
+      let open Dune_lang.Encoder in
+      record_fields
+        [ field_l "byte" f byte
+        ; field_l "native" f native
+        ]
+
+    let decode f =
+      let open Stanza.Decoder in
+      record (
+        let%map byte = field ~default:[] "byte" (list f)
+        and native = field ~default:[] "native" (list f)
+        in
+        { byte
+        ; native
+        }
+      )
   end
 end

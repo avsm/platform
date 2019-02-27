@@ -1,7 +1,7 @@
 open! Stdune
 open! Import
 
-module type Info = Dune_file.Sub_system_info.S
+module type Info = Sub_system_info.S
 
 module type S = sig
   module Info : Info
@@ -35,7 +35,7 @@ module type Backend = sig
 
   (** Dump the sub-system configuration. This is used to generate META
       files. *)
-  val encode : t -> Syntax.Version.t * Dune_lang.t
+  val encode : t -> Syntax.Version.t * Dune_lang.t list
 end
 
 module type Registered_backend = sig

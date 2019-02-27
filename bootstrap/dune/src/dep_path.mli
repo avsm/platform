@@ -7,6 +7,7 @@ module Entry : sig
     | Path of Path.t
     | Alias of Path.t
     | Library of Path.t * Lib_name.t
+    | Executables of (Loc.t * string) list
     | Preprocess of Lib_name.t list
     | Loc of Loc.t
 
@@ -29,3 +30,6 @@ val prepend_exn : exn -> Entry.t -> exn
 
 (** Extract a wrapped exception *)
 val unwrap_exn : exn -> exn * Entry.t list option
+
+(** Apply [f] to the underlying exception. *)
+val map : f:(exn -> exn) -> exn -> exn

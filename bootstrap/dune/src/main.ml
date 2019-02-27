@@ -4,17 +4,19 @@ open Fiber.O
 
 let () = Inline_tests.linkme
 
-type setup =
-  { build_system : Build_system.t
-  ; contexts     : Context.t list
-  ; scontexts    : Super_context.t String.Map.t
-  ; packages     : Package.t Package.Name.Map.t
-  ; file_tree    : File_tree.t
-  ; env          : Env.t
+type workspace =
+  { contexts : Context.t list
+  ; conf     : Dune_load.conf
+  ; env      : Env.t
   }
 
-let package_install_file { packages; _ } pkg =
-  match Package.Name.Map.find packages pkg with
+type build_system =
+  { workspace    : workspace
+  ; scontexts    : Super_context.t String.Map.t
+  }
+
+let package_install_file w pkg =
+  match Package.Name.Map.find w.conf.packages pkg with
   | None -> Error ()
   | Some p ->
     Ok (Path.relative p.path
@@ -29,11 +31,8 @@ let setup_env ~capture_outputs =
   in
   Env.add env ~var:"INSIDE_DUNE" ~value:"1"
 
-let setup ?(log=Log.no_log)
-      ?external_lib_deps_mode
+let scan_workspace ?(log=Log.no_log)
       ?workspace ?workspace_file
-      ?only_packages
-      ?extra_ignored_subtrees
       ?x
       ?ignore_promoted_rules
       ?(capture_outputs=true)
@@ -41,18 +40,8 @@ let setup ?(log=Log.no_log)
       () =
   let env = setup_env ~capture_outputs in
   let conf =
-    Dune_load.load ?extra_ignored_subtrees ?ignore_promoted_rules ()
+    Dune_load.load ?ignore_promoted_rules ()
   in
-  Option.iter only_packages ~f:(fun set ->
-    Package.Name.Set.iter set ~f:(fun pkg ->
-      if not (Package.Name.Map.mem conf.packages pkg) then
-        let pkg_name = Package.Name.to_string pkg in
-        die "@{<error>Error@}: I don't know about package %s \
-             (passed through --only-packages/--release)%s"
-          pkg_name
-          (hint pkg_name
-             (Package.Name.Map.keys conf.packages
-             |> List.map ~f:Package.Name.to_string))));
   let workspace =
     match workspace with
     | Some w -> w
@@ -77,6 +66,23 @@ let setup ?(log=Log.no_log)
   List.iter contexts ~f:(fun (ctx : Context.t) ->
     Log.infof log "@[<1>Dune context:@,%a@]@." Sexp.pp
       (Context.to_sexp ctx));
+  Fiber.return
+    { contexts
+    ; conf
+    ; env
+    }
+
+let init_build_system ?only_packages ?external_lib_deps_mode w =
+  Option.iter only_packages ~f:(fun set ->
+    Package.Name.Set.iter set ~f:(fun pkg ->
+      if not (Package.Name.Map.mem w.conf.packages pkg) then
+        let pkg_name = Package.Name.to_string pkg in
+        die "@{<error>Error@}: I don't know about package %s \
+             (passed through --only-packages/--release)%s"
+          pkg_name
+          (hint pkg_name
+             (Package.Name.Map.keys w.conf.packages
+              |> List.map ~f:Package.Name.to_string))));
   let rule_done  = ref 0 in
   let rule_total = ref 0 in
   let gen_status_line () =
@@ -90,57 +96,15 @@ let setup ?(log=Log.no_log)
     | Rule_started   -> incr rule_total
     | Rule_completed -> incr rule_done
   in
-  let build_system =
-    Build_system.create ~contexts ~file_tree:conf.file_tree ~hook
-  in
-  Gen_rules.gen conf
-    ~build_system
-    ~contexts
+  Build_system.reset ();
+  Build_system.init ~contexts:w.contexts ~file_tree:w.conf.file_tree ~hook;
+  Scheduler.set_status_line_generator gen_status_line;
+  Gen_rules.gen w.conf
+    ~contexts:w.contexts
     ?only_packages
     ?external_lib_deps_mode
-  >>= fun scontexts ->
-  Scheduler.set_status_line_generator gen_status_line
-  >>>
-  Fiber.return
-    { build_system
-    ; scontexts
-    ; contexts
-    ; packages = conf.packages
-    ; file_tree = conf.file_tree
-    ; env
-    }
-
-let find_context_exn t ~name =
-  match List.find t.contexts ~f:(fun c -> c.name = name) with
-  | Some ctx -> ctx
-  | None ->
-    die "@{<Error>Error@}: Context %S not found!@." name
-
-let external_lib_deps ?log ~packages () =
-  Scheduler.go ?log
-    (setup () ~external_lib_deps_mode:true
-     >>| fun setup ->
-     let context = find_context_exn setup ~name:"default" in
-     let install_files =
-       List.map packages ~f:(fun pkg ->
-         match package_install_file setup pkg with
-         | Ok path -> Path.append context.build_dir path
-         | Error () -> die "Unknown package %S" (Package.Name.to_string pkg))
-     in
-     let sctx = Option.value_exn (String.Map.find setup.scontexts "default") in
-     let internals = Super_context.internal_lib_names sctx in
-     Path.Map.map
-       (Build_system.all_lib_deps setup.build_system
-          ~request:(Build.paths install_files))
-       ~f:(Lib_name.Map.filteri ~f:(fun name _ ->
-         not (Lib_name.Set.mem internals name))))
-
-let ignored_during_bootstrap =
-  Path.Set.of_list
-    (List.map ~f:Path.in_source
-       [ "test"
-       ; "example"
-       ])
+  >>| fun scontexts ->
+  { workspace = w; scontexts }
 
 let auto_concurrency =
   let v = ref None in
@@ -165,11 +129,11 @@ let auto_concurrency =
          let rec loop = function
            | [] -> Fiber.return 1
            | (prog, args) :: rest ->
-             match Bin.which prog with
+             match Bin.which ~path:(Env.path Env.initial) prog with
              | None -> loop rest
              | Some prog ->
                Process.run_capture (Accept All) prog args ~env:Env.initial
-                 ~stderr_to:(File Config.dev_null)
+                 ~stderr_to:(Process.Output.file Config.dev_null)
                >>= function
                | Error _ -> loop rest
                | Ok s ->
@@ -187,17 +151,14 @@ let set_concurrency ?log (config : Config.t) =
   (match config.concurrency with
    | Fixed n -> Fiber.return n
    | Auto    -> auto_concurrency ?log ())
-  >>= fun n ->
-  if n >= 1 then
-    Scheduler.set_concurrency n
-  else
-    Fiber.return ()
+  >>| fun n ->
+  if n >= 1 then Scheduler.set_concurrency n
 
 (* Called by the script generated by ../build.ml *)
 let bootstrap () =
   Colors.setup_err_formatter_colors ();
   Path.set_root Path.External.initial_cwd;
-  Path.set_build_dir (Path.Kind.of_string "_build");
+  Path.set_build_dir (Path.Kind.of_string "_boot");
   let main () =
     let anon s = raise (Arg.Bad (Printf.sprintf "don't know what to do with %s\n" s)) in
     let subst () =
@@ -206,7 +167,7 @@ let bootstrap () =
         ; concurrency = Fixed 1
         }
       in
-      Scheduler.go ~config (Watermarks.subst ());
+      Scheduler.go ~config Watermarks.subst;
       exit 0
     in
     let display = ref None in
@@ -255,16 +216,17 @@ let bootstrap () =
     in
     let log = Log.create ~display:config.display () in
     Scheduler.go ~log ~config
-      (set_concurrency config
-       >>= fun () ->
-       setup ~log ~workspace:(Workspace.default ?profile:!profile ())
-         ?profile:!profile
-         ~extra_ignored_subtrees:ignored_during_bootstrap
-         ()
-       >>= fun { build_system = bs; _ } ->
-       Build_system.do_build bs
-         ~request:(Build.path (
-           Path.relative Path.build_dir "default/dune.install")))
+      (fun () ->
+         set_concurrency config
+         >>= fun () ->
+         scan_workspace ~log ~workspace:(Workspace.default ?profile:!profile ())
+           ?profile:!profile
+           ()
+         >>= init_build_system
+         >>= fun _ ->
+         Build_system.do_build
+           ~request:(Build.path (
+             Path.relative Path.build_dir "default/dune.install")))
   in
   try
     main ()
@@ -273,8 +235,6 @@ let bootstrap () =
   | exn ->
     Report_error.report exn;
     exit 1
-
-let setup = setup ~extra_ignored_subtrees:Path.Set.empty
 
 let find_context_exn t ~name =
   match List.find t.contexts ~f:(fun c -> c.name = name) with

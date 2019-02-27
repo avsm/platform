@@ -1,9 +1,9 @@
-(ignored_subdirs (test-cases))
+(data_only_dirs test-cases)
 
 (executable
  (name cram)
  (modules cram)
- (libraries which_program_dune test_common dune configurator))
+ (libraries stdune wp_dune test_common dune configurator))
 
 (ocamllex cram)
 

@@ -30,6 +30,8 @@ module O : sig
   val (>>|) : 'a t -> ('a -> 'b) -> 'b t
 end
 
+val map : 'a t -> f:('a -> 'b) -> 'b t
+
 (** {1 Forking execution} *)
 
 module Future : sig
@@ -66,6 +68,8 @@ val nfork_map : 'a list -> f:('a -> 'b t) -> 'b Future.t list t
 val both : 'a t -> 'b t -> ('a * 'b) t
 val all : 'a t list -> 'a list t
 val all_unit : unit t list -> unit t
+val map_all : 'a list -> f:('a -> 'b t) -> 'b list t
+val map_all_unit : 'a list -> f:('a -> unit t) -> unit t
 
 (** {1 Forking + joining} *)
 
@@ -118,6 +122,26 @@ val parallel_map : 'a list -> f:('a -> 'b t) -> 'b list t
 *)
 val parallel_iter : 'a list -> f:('a -> unit t) -> unit t
 
+(** {1 Execute once fibers} *)
+
+module Once : sig
+  type 'a fiber = 'a t
+  type 'a t
+
+  val create : (unit -> 'a fiber) -> 'a t
+
+  (** [get t] returns the value of [t]. If [get] was never called
+      before on this [t], it is executed at this point, otherwise
+      returns a fiber that waits for the fiber from the first call to
+      [get t] to terminate. *)
+  val get : 'a t -> 'a fiber
+
+  (** [peek t] returns [Some v] if [get t] has already been called and
+      has yielded a value [v]. *)
+  val peek : 'a t -> 'a option
+  val peek_exn : 'a t -> 'a
+end with type 'a fiber := 'a t
+
 (** {1 Local storage} *)
 
 (** Variables local to a fiber *)
@@ -129,10 +153,10 @@ module Var : sig
   val create : unit -> 'a t
 
   (** [get var] is a fiber that reads the value of [var] *)
-  val get : 'a t -> 'a option fiber
+  val get : 'a t -> 'a option
 
   (** Same as [get] but raises if [var] is unset. *)
-  val get_exn : 'a t -> 'a fiber
+  val get_exn : 'a t -> 'a
 
   (** [set var value fiber] sets [var] to [value] during the execution
       of [fiber].
@@ -143,7 +167,7 @@ module Var : sig
         set v x (get_exn v >>| fun y -> x = y)
       ]}
  *)
-  val set : 'a t -> 'a -> 'b fiber -> 'b fiber
+  val set : 'a t -> 'a -> (unit -> 'b fiber) -> 'b fiber
 end with type 'a fiber := 'a t
 
 (** {1 Error handling} *)
@@ -161,9 +185,9 @@ val with_error_handler
   -> on_error:(exn -> unit)
   -> 'a t
 
-(** If [t] completes without raising, then [wait_errors t] is the same
-    as [t () >>| fun x -> Ok x]. However, if the execution of [t] is
-    aborted by an exception, then [wait_errors t] will complete and
+(** If [f ()] completes without raising, then [wait_errors f] is the same
+    as [f () >>| fun x -> Ok x]. However, if the execution of [f ()] is
+    aborted by an exception, then [wait_errors f] will complete and
     yield [Error ()].
 
     Note that [wait_errors] only completes after all sub-fibers have
@@ -172,19 +196,22 @@ val with_error_handler
 
     {[
       wait_errors
-        (fork_and_join
-           (fun () -> sleep 1 >>| fun () -> raise Exit)
-           (fun () -> sleep 3))
+        (fun () ->
+           fork_and_join
+             (fun () -> sleep 1 >>| fun () -> raise Exit)
+             (fun () -> sleep 3))
     ]}
 
     same for this code:
 
     {[
       wait_errors
-        (fork (fun () -> sleep 3) >>= fun _ -> raise Exit)
+        (fun () ->
+           fork (fun () -> sleep 3) >>= fun _ ->
+           raise Exit)
     ]}
 *)
-val wait_errors : 'a t -> ('a, unit) Result.t t
+val wait_errors : (unit -> 'a t) -> ('a, unit) Result.t t
 
 (** [fold_errors f ~init ~on_error] calls [on_error] for every
     exception raised during the execution of [f]. This include

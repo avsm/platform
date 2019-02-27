@@ -22,7 +22,13 @@ val library_object_directory
   -> Lib_name.Local.t
   -> Path.t
 
-val library_private_obj_dir : obj_dir:Path.t -> Path.t
+(** cmx, .a *)
+val library_native_dir     : obj_dir:Path.t -> Path.t
+
+(** cmo, cmi, cmt, cmti *)
+val library_byte_dir       : obj_dir:Path.t -> Path.t
+val library_public_cmi_dir : obj_dir:Path.t -> Path.t
+val library_private_dir    : obj_dir:Path.t -> Path.t
 
 (** Return the directory where the object files for the given
     executable should be stored. *)
@@ -58,6 +64,10 @@ val install_file
 (** Produce a line directive *)
 val line_directive : filename:string -> line_number:int -> string
 
+(** [local_bin dir] The directory which contains the local binaries viewed by
+    rules defined in [dir] *)
+val local_bin : Path.t -> Path.t
+
 module type Persistent_desc = sig
   type t
   val name : string
@@ -82,7 +92,6 @@ module Cached_digest : sig
   (** Same as {!file} but forces the digest to be recomputed *)
   val refresh : Path.t -> Digest.t
 
-  (** Dump/load the cache to/from the disk *)
-  val dump : unit -> unit
-  val load : unit -> unit
+  (** Invalidate cached timestamp *)
+  val invalidate_cached_timestamps : unit -> unit
 end

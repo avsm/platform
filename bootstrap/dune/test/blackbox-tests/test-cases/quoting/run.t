@@ -13,7 +13,11 @@ The targets should only be interpreted as a single path when quoted
 
   $ dune build --root good s
   Entering directory 'good'
-  Error: Rule failed to generate the following targets:
+  File "dune", line 1, characters 0-72:
+  1 | (rule
+  2 |  (targets s t)
+  3 |  (action (with-stdout-to "%{targets}" (echo foo))))
+  Error: rule failed to generate the following targets:
   - s
   - t
   [1]
@@ -28,6 +32,7 @@ The targets should only be interpreted as a single path when quoted
   lines: foo bar baz
 
   $ dune build @quoted --root filename-space
+  Entering directory 'filename-space'
   File "dune", line 4, characters 17-18:
   4 |  (action (echo %{read:foo bar.txt})))
                        ^
@@ -35,6 +40,7 @@ The targets should only be interpreted as a single path when quoted
   [1]
 
   $ dune build @unquoted --root filename-space
+  Entering directory 'filename-space'
   File "dune", line 4, characters 17-18:
   4 |  (action (echo %{read:foo bar.txt})))
                        ^

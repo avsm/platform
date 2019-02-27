@@ -7,7 +7,7 @@ module Dune_file = struct
     { dir     : Path.t
     ; project : Dune_project.t
     ; stanzas : Stanzas.t
-    ; kind    : File_tree.Dune_file.Kind.t
+    ; kind    : Dune_lang.Syntax.t
     }
 
   let parse sexps ~dir ~file ~project ~kind ~ignore_promoted_rules =
@@ -32,7 +32,7 @@ module Dune_files = struct
     { dir     : Path.t
     ; file    : Path.t
     ; project : Dune_project.t
-    ; kind    : File_tree.Dune_file.Kind.t
+    ; kind    : Dune_lang.Syntax.t
     }
 
   type one =
@@ -71,7 +71,7 @@ module Dune_files = struct
               in
               { start; stop = { start with pos_cnum = String.length line } }
             in
-            (match (kind : File_tree.Dune_file.Kind.t) with
+            (match (kind : Dune_lang.Syntax.t) with
              | Jbuild -> ()
              | Dune ->
                Errors.fail loc
@@ -209,7 +209,7 @@ end
           (Path.to_string file);
       Fiber.return
         (Dune_lang.Io.load generated_dune_file ~mode:Many
-           ~lexer:(File_tree.Dune_file.Kind.lexer kind)
+           ~lexer:(Dune_lang.Lexer.of_syntax kind)
          |> Dune_file.parse ~dir ~file ~project ~kind ~ignore_promoted_rules))
     >>| fun dynamic ->
     static @ dynamic
@@ -238,8 +238,8 @@ let interpret ~dir ~project ~ignore_promoted_rules
   | Ocaml_script file ->
     Script { dir; project; file; kind = dune_file.kind }
 
-let load ?extra_ignored_subtrees ?(ignore_promoted_rules=false) () =
-  let ftree = File_tree.load Path.root ?extra_ignored_subtrees in
+let load ?(ignore_promoted_rules=false) () =
+  let ftree = File_tree.load Path.root in
   let projects =
     File_tree.fold ftree ~traverse_ignored_dirs:false ~init:[]
       ~f:(fun dir acc ->

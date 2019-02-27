@@ -97,19 +97,15 @@ module Auto_format : sig
   type language =
     | Ocaml
     | Reason
+    | Dune
 
-  type enabled_for =
-    | Default
-    | Only of language list
-
-  type t =
-    { loc : Loc.t
-    ; enabled_for : enabled_for
-    }
-
-  val syntax : Syntax.t
+  type t
 
   val key : t Dune_project.Extension.t
+
+  val loc : t -> Loc.t
+
+  val includes : t -> language -> bool
 end
 
 module Buildable : sig
@@ -143,36 +139,6 @@ module Public_lib : sig
   val name : t -> Lib_name.t
 end
 
-module Sub_system_info : sig
-  (** The type of all kind of sub-system information.
-      This type is what we get just after parsing a [jbuild] file. *)
-  type t = ..
-  type sub_system = t = ..
-
-  (** What the user must provide in order to define the parsing part
-      of a sub-system. *)
-  module type S = sig
-    type t
-    type sub_system += T of t
-
-    (** Name of the sub-system *)
-    val name : Sub_system_name.t
-
-    (** Location of the parameters in the jbuild/dune file. *)
-    val loc : t -> Loc.t
-
-    (** Syntax for jbuild/dune files *)
-    val syntax : Syntax.t
-
-    (** Parse parameters written by the user in jbuid/dune files *)
-    val parse : t Dune_lang.Decoder.t
-  end
-
-  module Register(M : S) : sig end
-
-  val get : Sub_system_name.t -> (module S)
-end
-
 module Mode_conf : sig
   type t =
     | Byte
@@ -195,19 +161,10 @@ module Mode_conf : sig
 end
 
 module Library : sig
-  module Kind : sig
-    type t =
-      | Normal
-      | Ppx_deriver
-      | Ppx_rewriter
-  end
-
-  module Wrapped : sig
-    type t =
-      | Simple of bool
-      | Yes_with_transition of string
-
-    val to_bool : t -> bool
+  module Inherited : sig
+    type 'a t =
+      | This of 'a
+      | From of (Loc.t * Lib_name.t)
   end
 
   module Stdlib : sig
@@ -222,7 +179,7 @@ module Library : sig
       ; exit_module : Module.Name.t option
       (** Modules that's implicitely added by the compiler at the
           end when linking an executable *)
-      ; internal_modules : Re.re
+      ; internal_modules : Glob.t
       (** Module names that are hardcoded in the compiler and so
           cannot be wrapped *)
       }
@@ -235,16 +192,16 @@ module Library : sig
     ; install_c_headers        : string list
     ; ppx_runtime_libraries    : (Loc.t * Lib_name.t) list
     ; modes                    : Mode_conf.Set.t
-    ; kind                     : Kind.t
+    ; kind                     : Lib_kind.t
     ; c_flags                  : Ordered_set_lang.Unexpanded.t
-    ; c_names                  : (Loc.t * string) list
+    ; c_names                  : Ordered_set_lang.t option
     ; cxx_flags                : Ordered_set_lang.Unexpanded.t
-    ; cxx_names                : (Loc.t * string) list
+    ; cxx_names                : Ordered_set_lang.t option
     ; library_flags            : Ordered_set_lang.Unexpanded.t
     ; c_library_flags          : Ordered_set_lang.Unexpanded.t
     ; self_build_stubs_archive : string option
     ; virtual_deps             : (Loc.t * Lib_name.t) list
-    ; wrapped                  : Wrapped.t
+    ; wrapped                  : Wrapped.t Inherited.t
     ; optional                 : bool
     ; buildable                : Buildable.t
     ; dynlink                  : Dynlink_supported.t
@@ -267,12 +224,12 @@ module Library : sig
   val best_name : t -> Lib_name.t
   val is_virtual : t -> bool
   val is_impl : t -> bool
+  val obj_dir : dir:Path.t -> t -> Obj_dir.t
 
   module Main_module_name : sig
-    type t =
-      | This of Module.Name.t option
-      | Inherited_from of (Loc.t * Lib_name.t)
+    type t = Module.Name.t option Inherited.t
   end
+
   val main_module_name : t -> Main_module_name.t
 
   (** Returns [true] is a special module, i.e. one whose compilation
@@ -283,14 +240,9 @@ module Library : sig
 end
 
 module Install_conf : sig
-  type file =
-    { src : string
-    ; dst : string option
-    }
-
-  type t =
+  type 'file t =
     { section : Install.Section.t
-    ; files   : file list
+    ; files   : 'file File_bindings.t
     ; package : Package.t
     }
 end
@@ -416,6 +368,14 @@ module Tests : sig
     }
 end
 
+module Toplevel : sig
+  type t =
+    { name : string
+    ; libraries : (Loc.t * Lib_name.t) list
+    ; loc : Loc.t
+    }
+end
+
 module Include_subdirs : sig
   type t = No | Unqualified
 end
@@ -424,12 +384,15 @@ type Stanza.t +=
   | Library         of Library.t
   | Executables     of Executables.t
   | Rule            of Rule.t
-  | Install         of Install_conf.t
+  | Install         of String_with_vars.t Install_conf.t
   | Alias           of Alias_conf.t
   | Copy_files      of Copy_files.t
   | Documentation   of Documentation.t
   | Tests           of Tests.t
   | Include_subdirs of Loc.t * Include_subdirs.t
+  | Toplevel        of Toplevel.t
+
+val stanza_package : Stanza.t -> Package.t option
 
 module Stanzas : sig
   type t = Stanza.t list
@@ -438,7 +401,7 @@ module Stanzas : sig
 
   val parse
     :  file:Path.t
-    -> kind:File_tree.Dune_file.Kind.t
+    -> kind:Dune_lang.Syntax.t
     -> Dune_project.t
     -> Dune_lang.Ast.t list
     -> t

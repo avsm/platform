@@ -1,6 +1,9 @@
-type 'a t = 'a list
-
 include module type of struct include ListLabels end
+
+(* ocaml/ocaml#1892 "Allow shadowing of items coming from an include"
+   helps making this work in 4.08, as OCaml now includes a `List.t`
+   type. *)
+type 'a t = 'a list
 
 val is_empty : _ t -> bool
 
@@ -34,6 +37,7 @@ val find_exn : 'a t -> f:('a -> bool     ) -> 'a
 val find_map : 'a t -> f:('a -> 'b option) -> 'b option
 
 val last : 'a t -> 'a option
+val destruct_last : 'a t -> ('a list * 'a) option
 
 val        sort : 'a t -> compare:('a -> 'a -> Ordering.t) -> 'a t
 val stable_sort : 'a t -> compare:('a -> 'a -> Ordering.t) -> 'a t
@@ -47,3 +51,5 @@ val singleton : 'a -> 'a t
 val nth : 'a t -> int -> 'a option
 
 val physically_equal : 'a t -> 'a t -> bool
+
+val init : int -> f:(int -> 'a) -> 'a list

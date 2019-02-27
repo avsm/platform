@@ -31,6 +31,8 @@ module Expansion : sig
   type t =
     | Var   of Var.t
     | Macro of Macro.t * string
+
+  val to_sexp : t -> Sexp.t
 end
 
 module Map : sig
@@ -56,4 +58,6 @@ module Map : sig
   type stamp
 
   val to_stamp : t -> stamp
+
+  val pp_debug : t Fmt.t
 end

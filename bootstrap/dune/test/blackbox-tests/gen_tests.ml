@@ -134,7 +134,9 @@ let exclusions =
   ; make "private-public-overlap" ~external_deps:true
   ; make "reason" ~external_deps:true
   ; make "menhir"~external_deps:true
-  ; make "utop"~external_deps:true
+  ; make "utop" ~external_deps:true
+  ; make "utop-default" ~external_deps:true ~skip_ocaml:"<4.05.0"
+  ; make "toplevel-stanza" ~skip_ocaml:"<4.05.0"
   ; make "configurator" ~skip_platforms:[Win]
   ; make "github764" ~skip_platforms:[Win]
   ; make "gen-opam-install-file" ~external_deps:true
@@ -143,6 +145,7 @@ let exclusions =
   (* The next test is disabled as it relies on configured opam
      swtiches and it's hard to get that working properly *)
   ; make "envs-and-contexts" ~external_deps:true ~enabled:false
+  ; make "wrapped-transition" ~skip_ocaml:"<4.06.0"
   ]
 
 let all_tests = lazy (

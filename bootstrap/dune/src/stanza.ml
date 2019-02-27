@@ -9,7 +9,7 @@ end
 let syntax =
   Syntax.create ~name:"dune" ~desc:"the dune language"
     [ (0, 0) (* Jbuild syntax *)
-    ; (1, 5)
+    ; (1, 7)
     ]
 
 module File_kind = struct
@@ -34,7 +34,7 @@ module Decoder = struct
       (function
         | Parens_no_longer_necessary (loc, exn) ->
           let hint =
-            "dune files require less parentheses than jbuild files.\n\
+            "dune files require fewer parentheses than jbuild files.\n\
              If you just converted this file from a jbuild file, try removing these parentheses."
           in
           Option.map (Report_error.find_printer exn)

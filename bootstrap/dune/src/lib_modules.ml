@@ -2,48 +2,52 @@ open Stdune
 
 type t =
   { modules          : Module.Name_map.t
-  ; virtual_modules  : Module.Name_map.t
   ; alias_module     : Module.t option
   ; main_module_name : Module.Name.t option
   ; wrapped_compat   : Module.Name_map.t
   ; implements       : bool
+  ; wrapped          : Wrapped.t
   }
 
-let virtual_modules t = t.virtual_modules
+let virtual_modules t = Module.Name.Map.filter ~f:Module.is_virtual t.modules
 let alias_module t = t.alias_module
 let wrapped_compat t = t.wrapped_compat
 let modules t = t.modules
 let main_module_name t = t.main_module_name
+let wrapped t = t.wrapped
+let is_wrapped t = Wrapped.to_bool (wrapped t)
 
-let make_unwrapped ~modules ~virtual_modules ~main_module_name =
-  assert (Module.Name.Map.is_empty virtual_modules);
+let make_unwrapped ~modules ~main_module_name =
   assert (main_module_name = None);
   { modules
   ; alias_module = None
   ; main_module_name = None
   ; wrapped_compat = Module.Name.Map.empty
-  ; virtual_modules = Module.Name.Map.empty
   ; implements = false
+  ; wrapped = Simple false
   }
 
-let make_alias_module ~dir ~lib ~main_module_name ~modules =
-  let implements = Dune_file.Library.is_impl lib in
+let make_alias_module ~obj_dir ~implements ~lib_name ~stdlib
+      ~main_module_name ~modules =
+  let dir = Obj_dir.dir obj_dir in
   let alias_prefix =
     String.uncapitalize (Module.Name.to_string main_module_name) in
   if implements then
     let alias_prefix =
       sprintf "%s__%s__" alias_prefix
-        (Lib_name.Local.to_string (snd lib.name)) in
+        (Lib_name.Local.to_string lib_name) in
     let name = Module.Name.of_string alias_prefix in
     Some
       (Module.make name
          ~visibility:Public
+         ~kind:Impl
          ~impl:(Module.File.make OCaml
                   (Path.relative dir (sprintf "%s.ml-gen" alias_prefix)))
-         ~obj_name:alias_prefix)
+         ~obj_name:alias_prefix
+         ~obj_dir)
   else if Module.Name.Map.cardinal modules = 1 &&
           Module.Name.Map.mem modules main_module_name ||
-          Option.is_some lib.stdlib then
+          stdlib then
     None
   else if Module.Name.Map.mem modules main_module_name then
     (* This module needs an implementation for non-dune
@@ -53,16 +57,27 @@ let make_alias_module ~dir ~lib ~main_module_name ~modules =
     Some
       (Module.make (Module.Name.add_suffix main_module_name "__")
          ~visibility:Public
+         ~kind:Impl
          ~impl:(Module.File.make OCaml
                   (Path.relative dir (sprintf "%s__.ml-gen" alias_prefix)))
-         ~obj_name:(alias_prefix ^ "__"))
+         ~obj_name:(alias_prefix ^ "__")
+         ~obj_dir)
   else
     Some
       (Module.make main_module_name
          ~visibility:Public
+         ~kind:Impl
          ~impl:(Module.File.make OCaml
                   (Path.relative dir (alias_prefix ^ ".ml-gen")))
-         ~obj_name:alias_prefix)
+         ~obj_name:alias_prefix
+         ~obj_dir)
+
+let make_alias_module_of_lib ~obj_dir ~lib ~main_module_name ~modules =
+  make_alias_module ~obj_dir ~main_module_name
+    ~modules
+    ~implements:(Dune_file.Library.is_impl lib)
+    ~lib_name:(snd lib.name)
+    ~stdlib:(Option.is_some lib.stdlib)
 
 let wrap_modules ~modules ~lib ~main_module_name =
   let open Module.Name.Infix in
@@ -95,10 +110,14 @@ let wrap_modules ~modules ~lib ~main_module_name =
     else
       Module.with_wrapper m ~main_module_name:(prefix m))
 
-let make_wrapped ~(lib : Dune_file.Library.t) ~dir ~transition ~modules
-      ~virtual_modules ~main_module_name =
+let make_wrapped ~(lib : Dune_file.Library.t) ~obj_dir ~wrapped ~modules
+      ~main_module_name =
   let (modules, wrapped_compat) =
-    if transition then
+    match (wrapped : Wrapped.t) with
+    | Simple false -> assert false
+    | Simple true ->
+      (wrap_modules ~modules ~main_module_name ~lib, Module.Name.Map.empty)
+    | Yes_with_transition _ ->
       ( wrap_modules ~modules ~main_module_name ~lib
       , Module.Name.Map.remove modules main_module_name
         |> Module.Name.Map.filter_map ~f:(fun m ->
@@ -107,55 +126,29 @@ let make_wrapped ~(lib : Dune_file.Library.t) ~dir ~transition ~modules
           else
             None)
       )
-    else
-      (wrap_modules ~modules ~main_module_name ~lib, Module.Name.Map.empty)
   in
-  let alias_module = make_alias_module ~main_module_name ~dir ~lib ~modules
+  let alias_module =
+    make_alias_module_of_lib ~main_module_name ~obj_dir ~lib ~modules
   in
   { modules
   ; alias_module
   ; main_module_name = Some main_module_name
   ; wrapped_compat
-  ; virtual_modules
   ; implements = Dune_file.Library.is_impl lib
+  ; wrapped
   }
 
-
-let make (lib : Dune_file.Library.t) ~dir (modules : Module.Name_map.t)
-      ~virtual_modules ~main_module_name =
-  match lib.wrapped, main_module_name with
+let make (lib : Dune_file.Library.t) ~obj_dir (modules : Module.Name_map.t)
+      ~main_module_name ~(wrapped : Wrapped.t) =
+  match wrapped, main_module_name with
   | Simple false, _ ->
-    make_unwrapped ~modules ~virtual_modules ~main_module_name
+    make_unwrapped ~modules ~main_module_name
   | (Yes_with_transition _ | Simple true), None ->
     assert false
   | wrapped, Some main_module_name ->
-    let transition =
-      match wrapped with
-      | Simple true -> false
-      | Yes_with_transition _ -> true
-      | Simple false -> assert false
-    in
-    make_wrapped ~transition ~modules ~virtual_modules ~dir ~main_module_name
-      ~lib
+    make_wrapped ~wrapped ~modules ~obj_dir ~main_module_name ~lib
 
-module Alias_module = struct
-  type t =
-    { main_module_name : Module.Name.t
-    ; alias_module : Module.t
-    }
-end
-
-let alias t =
-  match t.alias_module, t.main_module_name with
-  | None, None -> None
-  | None, Some _ -> None
-  | Some _, None -> assert false
-  | Some alias_module, Some main_module_name ->
-    Some
-      { Alias_module.
-        main_module_name
-      ; alias_module
-      }
+let needs_alias_module t = Option.is_some t.alias_module
 
 let installable_modules t =
   let modules =
@@ -166,6 +159,13 @@ let installable_modules t =
   match t.alias_module with
   | None -> modules
   | Some alias -> alias :: modules
+
+let version_installed t ~install_dir:(dir) =
+  let obj_dir = Obj_dir.make_external ~dir in
+  let set = Module.set_obj_dir ~obj_dir in
+  { t with alias_module = Option.map ~f:set t.alias_module
+         ; modules = Module.Name.Map.map ~f:set t.modules;
+  }
 
 let lib_interface_module t =
   if t.implements then
@@ -206,3 +206,51 @@ let have_artifacts t =
   match t.alias_module with
   | None -> base
   | Some alias_module -> Module.Name_map.add base alias_module
+
+let encode
+      { modules
+      ; alias_module
+      ; main_module_name
+      ; wrapped_compat = _
+      ; implements = _
+      ; wrapped
+      } =
+  let open Dune_lang.Encoder in
+  record_fields
+    [ field_l "alias_module" sexp
+        (match alias_module with
+         | None -> []
+         | Some m -> Module.encode m)
+    ; field_o "main_module_name" Module.Name.encode main_module_name
+    ; field_l "modules" (fun x -> Dune_lang.List (Module.encode x))
+        (Module.Name.Map.values modules)
+    ; field "wrapped" Wrapped.encode wrapped
+    ]
+
+let decode ~implements ~dir =
+  let open Stanza.Decoder in
+  fields (
+    let%map alias_module = field_o "alias_module" (Module.decode ~dir)
+    and main_module_name = field_o "main_module_name" Module.Name.decode
+    and modules =
+      field ~default:[] "modules" (list (enter (Module.decode ~dir)))
+    and wrapped = field "wrapped" Wrapped.decode
+    in
+    let modules =
+      modules
+      |> List.map ~f:(fun m -> (Module.name m, m))
+      |> Module.Name.Map.of_list_exn
+    in
+    { modules
+    ; alias_module
+    ; implements
+    ; wrapped_compat = Module.Name.Map.empty
+    ; main_module_name
+    ; wrapped
+    }
+  )
+
+let for_alias t =
+  match t.main_module_name with
+  | None -> t.modules
+  | Some m -> Module.Name.Map.remove t.modules m

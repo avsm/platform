@@ -182,7 +182,8 @@ Additionally, they can contains the following stanzas.
 name
 ----
 
-Sets the name of the project:
+Sets the name of the project. This is used by :ref:`dune subst <dune-subst>`
+and error messages.
 
 .. code:: scheme
 
@@ -282,4 +283,4 @@ jbuild-ignore (deprecated)
 ==========================
 
 ``jbuild-ignore`` files are deprecated and replaced by
-:ref:`dune-ignored_subdirs` stanzas in ``dune`` files.
+:ref:`dune-subdirs` stanzas in ``dune`` files.

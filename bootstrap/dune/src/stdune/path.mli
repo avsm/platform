@@ -1,9 +1,15 @@
 (** In the current workspace (anything under the current project root) *)
 module Local : sig
   type t
+  val root : t
+
   val to_sexp : t -> Sexp.t
   val equal : t -> t -> bool
   val to_string : t -> string
+  val pp : Format.formatter -> t -> unit
+  module L : sig
+    val relative : ?error_loc:Loc0.t -> t -> string list -> t
+  end
 end
 
 (** In the outside world *)
@@ -15,6 +21,10 @@ module External : sig
   val initial_cwd : t
 
   val cwd : unit -> t
+
+  val relative : t -> string -> t
+
+  val mkdir_p : t -> unit
 end
 
 module Kind : sig
@@ -34,6 +44,8 @@ val compare : t -> t -> Ordering.t
 
 val equal : t -> t -> bool
 
+val hash : t -> int
+
 module Set : sig
   include Set.S with type elt = t
   val to_sexp : t Sexp.Encoder.t
@@ -43,7 +55,7 @@ end
 module Map : Map.S with type key = t
 module Table : Hashtbl.S with type key = t
 
-val of_string : ?error_loc:Loc.t -> string -> t
+val of_string : ?error_loc:Loc0.t -> string -> t
 val to_string : t -> string
 
 (** [to_string_maybe_quoted t] is [maybe_quoted (to_string t)] *)
@@ -56,7 +68,7 @@ val is_root : t -> bool
 
 val is_managed : t -> bool
 
-val relative : ?error_loc:Loc.t -> t -> string -> t
+val relative : ?error_loc:Loc0.t -> t -> string -> t
 
 (** Create an external path. If the argument is relative, assume it is relative
     to the initial directory dune was launched in. *)
@@ -148,6 +160,7 @@ val extension : t -> string
 val split_extension : t -> t * string
 
 val pp : Format.formatter -> t -> unit
+val pp_in_source : Format.formatter -> t -> unit
 val pp_debug : Format.formatter -> t -> unit
 
 val build_dir_exists : unit -> bool
@@ -163,7 +176,7 @@ val in_source : string -> t
 
 val of_local : Local.t -> t
 
-(** Set the workspace root. Can onyl be called once and the path must be
+(** Set the workspace root. Can only be called once and the path must be
     absolute *)
 val set_root : External.t -> unit
 

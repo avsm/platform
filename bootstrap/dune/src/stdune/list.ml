@@ -1,6 +1,8 @@
+include ListLabels
+
 type 'a t = 'a list
 
-include ListLabels
+let map ~f t = rev (rev_map ~f t)
 
 let is_empty = function
   | [] -> true
@@ -95,6 +97,14 @@ let rec last = function
   | [x] -> Some x
   | _::xs -> last xs
 
+let destruct_last =
+  let rec loop acc = function
+    | [] -> None
+    | [x] -> Some (rev acc, x)
+    | x :: xs -> loop (x :: acc) xs
+  in
+  fun xs -> loop [] xs
+
 let sort t ~compare =
   sort t ~cmp:(fun a b -> Ordering.to_int (compare a b))
 
@@ -125,3 +135,12 @@ let rec nth t i =
   | _ :: xs, i -> nth xs (i - 1)
 
 let physically_equal = Pervasives.(==)
+
+let init =
+  let rec loop acc i n f =
+    if i = n then
+      rev acc
+    else
+      loop (f i :: acc) (i + 1) n f
+  in
+  fun n ~f -> loop [] 0 n f

@@ -56,6 +56,7 @@ type t =
   ; ocamlopt                : Path.t option
   ; ocamldep                : Path.t
   ; ocamlmklib              : Path.t
+  ; ocamlobjinfo            : Path.t option
   ; env                     : Env.t
   ; findlib                 : Findlib.t
   ; findlib_toolchain       : string option
@@ -130,7 +131,7 @@ let to_sexp t =
 
 let compare a b = compare a.name b.name
 
-let opam = lazy (Bin.which "opam")
+let opam = lazy (Bin.which ~path:(Env.path Env.initial) "opam")
 
 let opam_config_var ~env ~cache var =
   match Hashtbl.find cache var with
@@ -328,7 +329,7 @@ let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~targets
              %s"
           (Path.to_string ocamlc) msg
       | Error (Makefile_config file, msg) ->
-        Errors.fail (Loc.in_file (Path.to_string file)) "%s" msg
+        Errors.fail (Loc.in_file file) "%s" msg
     in
     Fiber.fork_and_join
       findlib_paths
@@ -427,9 +428,10 @@ let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~targets
           | Some p -> p
           | None -> prog_not_found_in_path "ocaml")
       ; ocamlc
-      ; ocamlopt   = get_ocaml_tool     "ocamlopt"
-      ; ocamldep   = get_ocaml_tool_exn "ocamldep"
-      ; ocamlmklib = get_ocaml_tool_exn "ocamlmklib"
+      ; ocamlopt     = get_ocaml_tool     "ocamlopt"
+      ; ocamldep     = get_ocaml_tool_exn "ocamldep"
+      ; ocamlmklib   = get_ocaml_tool_exn "ocamlmklib"
+      ; ocamlobjinfo = which "ocamlobjinfo"
 
       ; env
       ; findlib = Findlib.create ~stdlib_dir ~paths:findlib_paths ~version
@@ -505,15 +507,16 @@ let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~targets
       let name = sprintf "%s.%s" name findlib_toolchain in
       create_one ~implicit:false ~name ~host:(Some native) ~merlin:false
         ~findlib_toolchain:(Some findlib_toolchain)
-      >>| fun x -> Some x)
+      >>| Option.some)
   >>| fun others ->
-  native :: List.filter_map others ~f:(fun x -> x)
+  native :: List.filter_opt others
 
 let opam_config_var t var =
   opam_config_var ~env:t.env ~cache:t.opam_var_cache var
 
 let default ~merlin ~env_nodes ~env ~targets =
-  create ~kind:Default ~path:Bin.path ~env ~env_nodes ~name:"default"
+  let path = Env.path Env.initial in
+  create ~kind:Default ~path ~env ~env_nodes ~name:"default"
     ~merlin ~targets
 
 let opam_version =
@@ -577,7 +580,7 @@ let create_for_opam ~root ~env ~env_nodes ~targets ~profile
   in
   let path =
     match Env.Map.find vars "PATH" with
-    | None   -> Bin.path
+    | None   -> Env.path Env.initial
     | Some s -> Bin.parse_path s
   in
   let env = Env.extend env ~vars in
@@ -648,3 +651,5 @@ let cc_g (ctx : t) =
     []
 
 let name t = t.name
+
+let has_native t = Option.is_some t.ocamlopt

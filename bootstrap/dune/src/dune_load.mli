@@ -5,7 +5,7 @@ module Dune_file : sig
     { dir     : Path.t
     ; project : Dune_project.t
     ; stanzas : Dune_file.Stanzas.t
-    ; kind    : File_tree.Dune_file.Kind.t
+    ; kind    : Dune_lang.Syntax.t
     }
 end
 
@@ -26,7 +26,6 @@ type conf = private
   }
 
 val load
-  :  ?extra_ignored_subtrees:Path.Set.t
-  -> ?ignore_promoted_rules:bool
+  :  ?ignore_promoted_rules:bool
   -> unit
   -> conf

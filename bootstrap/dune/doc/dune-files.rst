@@ -32,6 +32,8 @@ jbuild_version
 Deprecated. This stanza is no longer used and will be removed in the
 future.
 
+.. _library:
+
 library
 -------
 
@@ -40,10 +42,9 @@ format of library stanzas is as follows:
 
 .. code:: scheme
 
-    library
-      (name <library-name>
-       <optional-fields>
-      )
+    (library
+     (name <library-name>)
+     <optional-fields>)
 
 ``<library-name>`` is the real name of the library. It determines the
 names of the archive files generated for the library as well as the
@@ -199,8 +200,9 @@ to use the :ref:`include_subdirs` stanza.
 - ``(allow_overlapping_dependencies)`` allows external dependencies to
   overlap with libraries that are present in the workspace
 
-- ``(no_keep_locs)`` undocumented, it is a necessary hack until this
-  is implemented: https://github.com/ocaml/dune/issues/921
+- ``(no_keep_locs)`` does nothing. It used to be a necessary hack when
+  we were waiting for proper support for virtual libraries. Do not use
+  in new code, it will be deleted in dune 2.0
 
 Note that when binding C libraries, dune doesn't provide special support for
 tools such as ``pkg-config``, however it integrates easily with configurator_ by
@@ -217,9 +219,8 @@ format of executable stanzas is as follows:
 .. code:: scheme
 
     (executable
-      (name <name>)
-      <optional-fields>
-    )
+     (name <name>)
+     <optional-fields>)
 
 ``<name>`` is a module name that contains the main entry point of the
 executable. There can be additional modules in the current directory, you only
@@ -314,7 +315,7 @@ compilation is not available.
 
 ``<binary-kind>`` is one of:
 
-= ``c`` for producing OCaml bytecode embedded in a C file
+- ``c`` for producing OCaml bytecode embedded in a C file
 - ``exe`` for normal executables
 - ``object`` for producing static object files that can be manually
   linked into C applications
@@ -370,7 +371,7 @@ on Unix ``%{ext_obj}`` is usually ``.o`` and ``%{ext_dll}`` is usually
 is ``.dll``.
 
 Note that when ``(byte exe)`` is specified but neither ``(best exe)``
-nor ``(native exe)`` are specified, Jbuilkd still knows how to build
+nor ``(native exe)`` are specified, Jbuild still knows how to build
 an executable with the extension ``.exe``. In such case, the ``.exe``
 version is the same as the ``.bc`` one except that it is linked with
 the ``-custom`` option of the compiler. You should always use the
@@ -405,9 +406,9 @@ The syntax is as follows:
 .. code:: scheme
 
     (rule
-      (targets <filenames>)
-      (action  <action>)
-      <optional-fields>)
+     (targets <filenames>)
+     (action  <action>)
+     <optional-fields>)
 
 ``<filenames>`` is a list of file names. Note that currently dune only
 support user rules with targets in the current directory.
@@ -514,18 +515,18 @@ ocamllex
 .. code:: scheme
 
     (rule
-      (targets <name>.ml)
-      (deps    <name>.mll)
-      (action  (chdir %{workspace_root}
-                (run %{bin:ocamllex} -q -o %{targets} %{deps}))))
+     (targets <name>.ml)
+     (deps    <name>.mll)
+     (action  (chdir %{workspace_root}
+               (run %{bin:ocamllex} -q -o %{targets} %{deps}))))
 
 To use a different rule mode, use the long form:
 
 .. code:: scheme
 
     (ocamllex
-      (modules <names>)
-      (mode    <mode>))
+     (modules <names>)
+     (mode    <mode>))
 
 ocamlyacc
 ---------
@@ -535,18 +536,18 @@ ocamlyacc
 .. code:: scheme
 
     (rule
-      (targets <name>.ml <name>.mli)
-      (deps    <name>.mly)
-      (action  (chdir %{workspace_root}
-                (run %{bin:ocamlyacc} %{deps}))))
+     (targets <name>.ml <name>.mli)
+     (deps    <name>.mly)
+     (action  (chdir %{workspace_root}
+               (run %{bin:ocamlyacc} %{deps}))))
 
 To use a different rule mode, use the long form:
 
 .. code:: scheme
 
     (ocamlyacc
-      (modules <names>)
-      (mode    <mode>))
+     (modules <names>)
+     (mode    <mode>))
 
 menhir
 ------
@@ -569,7 +570,7 @@ The syntax is as follows:
     (alias
      (name    <alias-name>)
      (deps    <deps-conf list>)
-      <optional-fields>)
+     <optional-fields>)
 
 ``<name>`` is an alias name such as ``runtest``.
 
@@ -609,6 +610,8 @@ from the opam file using a ``build-test`` field, then all your ``runtest`` alias
 stanzas should have a ``(package ...)`` field in order to partition the set of
 tests.
 
+.. _install:
+
 install
 -------
 
@@ -624,9 +627,9 @@ The syntax is as follows:
 .. code:: scheme
 
     (install
-      (section <section>)
-       (files   <filenames>)
-       <optional-fields>)
+     (section <section>)
+     (files   <filenames>)
+     <optional-fields>)
 
 ``<section>`` is the installation section, as described in the opam
 manual. The following sections are available:
@@ -791,27 +794,89 @@ directory. You can use ``_`` to match any build profile.
 Fields supported in ``<settings>`` are:
 
 - any OCaml flags field, see `OCaml flags`_ for more details.
+
 - ``(env-vars (<var1> <val1>) .. (<varN> <valN>))``. This will add the
   corresponding variables to the environment in which the build commands are
   executed, and under which ``dune exec`` runs. At the moment, this mechanism is
   only supported in ``dune-workspace`` files.
 
+- ``(binaries <filepath> (<filepath> as <name>))``. This will make the binary at
+  ``<filepath>`` as ``<name>``. If the ``<name>`` isn't provided, then it will
+  be inferred from the basename of ``<filepath>`` by dropping the ``.exe``
+  suffix if it exists.
+
+.. _dune-subdirs:
+
+dirs (since 1.6)
+-------------------
+
+The ``dirs`` stanza allows to tell specify the sub-directories dune will
+include in a build. The syntax is based on dune's predicate language and allows
+the user the following operations:
+
+- The special value ``:standard`` which refers to the default set of used
+  directories. These are the directories that don't start with ``.`` or ``_``.
+
+- Set operations. Differences are expressed with backslash: ``* \ bar``, unions
+  are done by listing multiple items.
+
+- Sets can be defined using globs.
+
+Examples:
+
+.. code:: scheme
+
+   (dirs *) ;; include all directories
+   (dirs :standard \ ocaml) ;; include all directories except ocaml
+   (dirs :standard \ test* foo*) ;; exclude all directories that start with test or foo
+
+A directory that is not included by this stanza will not be eagerly scanned by
+Dune. Any ``dune`` or other special files in it won't be interpreted either and
+will be treated as raw data. It is however possible to depend on files inside
+ignored sub-directories.
+
+.. _dune-data_only_dirs:
+
+data_only_dirs (since 1.6)
+--------------------------
+
+Dune allows the user to treat directories as *data only*. Dune files in these
+directories will not be evaluated for their rules, but the contents of these
+directories will still be usable as dependencies for other rules.
+
+The syntax is the same as for the ``dirs`` stanza except that ``:standard``
+is by default empty.
+
+Example:
+
+.. code:: scheme
+
+   ;; dune files in fixtures_* dirs are ignored
+   (data_only_dirs fixtures_*)
+
 .. _dune-ignored_subdirs:
 
-ignored_subdirs
----------------
+ignored_subdirs (deprecated in 1.6)
+-----------------------------------
 
-The ``ignored_subdirs`` stanza allows to tell Dune to ignore one or
-more sub-directories. The syntax is as follow:
+One may also specify *data only* directories using the ``ignored_subdirs``
+stanza. The meaning is the same as ``data_only_dirs`` but the syntax isn't as
+flexible and only accepts a list of directory names. It is advised to switch to
+the new ``data_only_dirs`` stanza.
+
+Example:
 
 .. code:: scheme
 
      (ignored_subdirs (<sub-dir1> <sub-dir2> ...))
 
-A directory that is ignored will not be eagerly scanned by Dune. Any
-``dune`` or other special files in it won't be interpreted either and
-will be treated as raw data. It is however possible to depend on files
-inside ignored sub-directories.
+All of the specified ``<sub-dirn>`` will be ignored by dune. Note that users
+should rely on the ``dirs`` stanza along with the appropriate set operations
+instead of this stanza. For example:
+
+.. code:: scheme
+
+  (dirs :standard \ <sub-dir1> <sub-dir2> ...)
 
 .. _include_subdirs:
 
@@ -851,6 +916,26 @@ where ``<x>`` is not ``no`` to contain one of the following stanzas:
 - ``library``
 - ``executable(s)``
 - ``test(s)``
+
+toplevel
+--------
+
+The ``toplevel`` stanza allows one to define custom toplevels. Custom toplevels
+automatically load a set of specified libraries and are runnable like normal
+executables. Example:
+
+.. code:: scheme
+
+   (toplevel
+    (name tt)
+    (libraries str))
+
+This will create a toplevel with the ``str`` library loaded. We may build and
+run this toplevel with:
+
+.. code:: shell
+
+   $ dune exec ./tt.exe
 
 Common items
 ============
@@ -1104,9 +1189,9 @@ Select forms are specified as follows:
 .. code:: scheme
 
     (select <target-filename> from
-      (<literals> -> <filename>)
-      (<literals> -> <filename>)
-       ...)
+     (<literals> -> <filename>)
+     (<literals> -> <filename>)
+     ...)
 
 ``<literals>`` are lists of literals, where each literal is one of:
 
@@ -1148,7 +1233,7 @@ analysis and compilation phases. However, some specific code
 generators or preprocessors require feedback from the compilation
 phase. As a result they must be applied in stages as follows:
 
-- first stage of code geneneration
+- first stage of code generation
 - dependency analysis
 - second step of code generation in parallel with compilation
 
@@ -1215,9 +1300,9 @@ module-by-module basis by using the following syntax:
  .. code:: scheme
 
     (preprocess (per_module
-                   (<spec1> (<module-list1>))
-                   (<spec2> (<module-list2>))
-                   ...))
+                 (<spec1> <module-list1>)
+                 (<spec2> <module-list2>)
+                 ...))
 
 Where ``<spec1>``, ``<spec2>``, ... are preprocessing specifications
 and ``<module-list1>``, ``<module-list2>``, ... are list of module
@@ -1228,8 +1313,8 @@ For instance:
  .. code:: scheme
 
     (preprocess (per_module
-                   (((action (run ./pp.sh X=1 %{input-file})) (foo bar)))
-                   (((action (run ./pp.sh X=2 %{input-file})) (baz)))))
+                 (((action (run ./pp.sh X=1 %{input-file})) foo bar))
+                 (((action (run ./pp.sh X=2 %{input-file})) baz))))
 
 .. _deps-field:
 
@@ -1265,7 +1350,7 @@ syntax:
 - ``(package <pkg>)`` depend on all files installed by ``<package>``, as well
   as on the transitive package dependencies of ``<package>``. This can be used
   to test a command against the files that will be installed
-- ``(env <var>)``: depend on the value of the environment variable ``<var>``.
+- ``(env_var <var>)``: depend on the value of the environment variable ``<var>``.
   If this variable becomes set, becomes unset, or changes value, the target
   will be rebuilt.
 
@@ -1295,7 +1380,7 @@ example of an imaginary bundle command:
 
 Note that such named dependency list can also include unnamed
 dependencies (like ``index.html`` in the example above). Also, such
-user defined names wil shadow built in variables. So
+user defined names will shadow built in variables. So
 ``(:workspace_root x)`` will shadow the built in ``%{workspace_root}``
 variable.
 

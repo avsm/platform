@@ -31,18 +31,32 @@ val set_dir : t -> dir:Path.t -> t
 
 val set_scope : t -> scope:Scope.t -> t
 
+val set_artifacts
+  :  t
+  -> artifacts:Artifacts.t
+  -> artifacts_host:Artifacts.t
+  -> t
+
 val add_bindings : t -> bindings:Pform.Map.t -> t
 
 val extend_env : t -> env:Env.t -> t
-
-type var_expander =
-  (Value.t list, Pform.Expansion.t) result option String_with_vars.expander
 
 val expand
   :  t
   -> mode:'a String_with_vars.Mode.t
   -> template:String_with_vars.t
   -> 'a
+
+val expand_path : t -> String_with_vars.t -> Path.t
+
+val expand_str : t -> String_with_vars.t -> string
+
+val artifacts_host : t -> Artifacts.t
+
+module Option : sig
+  val expand_path : t -> String_with_vars.t -> Path.t option
+  val expand_str : t -> String_with_vars.t -> string option
+end
 
 module Resolved_forms : sig
   type t
@@ -62,17 +76,26 @@ module Resolved_forms : sig
   val empty : unit -> t
 end
 
-type targets =
-  | Static of Path.t list
-  | Infer
-  | Alias
+module Targets : sig
+  type t =
+    | Static of Path.t list
+    | Infer
+    | Forbidden of string (** context *)
+end
 
 val with_record_deps
   :  t
   -> Resolved_forms.t
   -> read_package:(Package.t -> (unit, string option) Build.t)
   -> dep_kind:Lib_deps_info.Kind.t
-  -> targets_written_by_user:targets
+  -> targets_written_by_user:Targets.t
+  -> map_exe:(Path.t -> Path.t)
+  -> t
+
+val with_record_no_ddeps
+  :  t
+  -> Resolved_forms.t
+  -> dep_kind:Lib_deps_info.Kind.t
   -> map_exe:(Path.t -> Path.t)
   -> t
 
@@ -83,3 +106,11 @@ val add_ddeps_and_bindings
   -> t
 
 val expand_var_exn : t -> Value.t list option String_with_vars.expander
+
+val expand_and_eval_set
+  :  t
+  -> Ordered_set_lang.Unexpanded.t
+  -> standard:(unit, string list) Build.t
+  -> (unit, string list) Build.t
+
+val eval_blang : t -> Blang.t -> bool

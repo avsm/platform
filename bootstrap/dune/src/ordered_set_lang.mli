@@ -78,6 +78,9 @@ module Unexpanded : sig
   type t
 
   include Dune_lang.Conv with type t := t
+  val encode : t -> Dune_lang.t list
+  val encode_and_upgrade : t -> Dune_lang.t list
+
   val standard : t
 
   val of_strings : pos:string * int * int * int -> string list -> t

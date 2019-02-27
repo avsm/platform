@@ -1,8 +1,10 @@
 {
 open StdLabels
 
-type kind = Ignore | Expect
+type kind = Ignore | Expect | Error
 }
+
+let newline = eof | '\r'? '\n'
 
 rule code txt start = parse
   | "[%%ignore]\n" {
@@ -18,6 +20,13 @@ rule code txt start = parse
     let s = String.sub txt ~pos ~len in
     Lexing.new_line lexbuf;
     (Expect, start, s) :: expectation txt lexbuf
+  }
+  | "[%%error{|\n" {
+    let pos = start.Lexing.pos_cnum in
+    let len = Lexing.lexeme_start lexbuf - pos in
+    let s = String.sub txt ~pos ~len in
+    Lexing.new_line lexbuf;
+    (Error, start, s) :: expectation txt lexbuf
   }
   | [^'\n']*'\n' {
     Lexing.new_line lexbuf;
@@ -37,7 +46,7 @@ rule code txt start = parse
   }
 
 and expectation txt = parse
-  | "|}]\n" {
+  | "|}]" newline {
       Lexing.new_line lexbuf;
       code txt lexbuf.lex_curr_p lexbuf
     }
@@ -87,10 +96,12 @@ let main () =
 
     Toploop.initialize_toplevel_env ();
     List.iter
-      [ "src/dune_lang/.dune_lang.objs"
-      ; "src/stdune/.stdune.objs"
-      ; "src/fiber/.fiber.objs"
-      ; "src/.dune.objs"
+      [ "src/dune_lang/.dune_lang.objs/byte"
+      ; "src/stdune/.stdune.objs/byte"
+      ; "src/fiber/.fiber.objs/byte"
+      ; "src/dag/.dag.objs/byte"
+      ; "src/memo/.memo.objs/byte"
+      ; "src/.dune.objs/byte"
       ]
       ~f:Topdirs.dir_directory;
 
@@ -101,6 +112,7 @@ let main () =
       begin match kind with
       | Ignore -> Format.fprintf ppf "%s[%%%%ignore]@." s
       | Expect -> Format.fprintf ppf "%s[%%%%expect{|@." s
+      | Error -> Format.fprintf ppf "%s[%%%%error{|@." s
       end;
       let lexbuf = Lexing.from_string s in
       lexbuf.lex_curr_p <- pos;
@@ -109,16 +121,21 @@ let main () =
         try
           let ppf =
             match kind with
-            | Expect -> ppf
+            | Expect | Error -> ppf
             | Ignore -> null_ppf
           in
           ignore (Toploop.execute_phrase true ppf phr : bool)
         with exn ->
+          let ppf =
+            match kind with
+            | Error -> ppf
+            | Ignore | Expect -> Format.err_formatter
+          in
           Location.report_exception ppf exn
       );
       begin match kind with
       | Ignore -> ()
-      | Expect -> Format.fprintf ppf "@?|}]@."
+      | Expect | Error -> Format.fprintf ppf "@?|}]@."
       end);
     Buffer.contents buf)
 

@@ -11,13 +11,14 @@ val dummy : t
 val make
   :  Super_context.t
   -> dir:Path.t
+  -> expander:Expander.t
   -> dep_kind:Lib_deps_info.Kind.t
   -> lint:Dune_file.Preprocess_map.t
   -> preprocess:Dune_file.Preprocess_map.t
   -> preprocessor_deps:(unit, Path.t list) Build.t
   -> lib_name:Lib_name.Local.t option
   -> scope:Scope.t
-  -> dir_kind:File_tree.Dune_file.Kind.t
+  -> dir_kind:Dune_lang.Syntax.t
   -> t
 
 (** Setup the preprocessing rules for the following modules and
@@ -41,7 +42,7 @@ val pp_module_as
 val get_ppx_driver
   :  Super_context.t
   -> scope:Scope.t
-  -> dir_kind:File_tree.Dune_file.Kind.t
+  -> dir_kind:Dune_lang.Syntax.t
   -> (Loc.t * Lib_name.t) list
   -> Path.t Or_exn.t
 

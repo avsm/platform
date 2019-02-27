@@ -8,7 +8,7 @@ let system_shell_exn =
     else
       ("sh", "-c", "")
   in
-  let bin = lazy (Bin.which cmd) in
+  let bin = lazy (Bin.which ~path:(Env.path Env.initial) cmd) in
   fun ~needed_to ->
     match Lazy.force bin with
     | Some path -> (path, arg)
@@ -18,7 +18,7 @@ let system_shell_exn =
         cmd needed_to cmd os
 
 let bash_exn =
-  let bin = lazy (Bin.which "bash") in
+  let bin = lazy (Bin.which ~path:(Env.path Env.initial) "bash") in
   fun ~needed_to ->
     match Lazy.force bin with
     | Some path -> path
@@ -109,8 +109,17 @@ let describe_target fn =
 let library_object_directory ~dir name =
   Path.relative dir ("." ^ Lib_name.Local.to_string name ^ ".objs")
 
-let library_private_obj_dir ~obj_dir =
-  Path.relative obj_dir ".private"
+let library_native_dir ~obj_dir =
+  Path.relative obj_dir "native"
+
+let library_byte_dir ~obj_dir =
+  Path.relative obj_dir "byte"
+
+let library_public_cmi_dir ~obj_dir =
+  Path.relative obj_dir "public_cmi"
+
+let library_private_dir ~obj_dir =
+  Path.relative obj_dir "private"
 
 (* Use "eobjs" rather than "objs" to avoid a potential conflict with a
    library of the same name *)
@@ -153,6 +162,8 @@ let line_directive ~filename:fn ~line_number =
   in
   sprintf "#%s %d %S\n" directive line_number fn
 
+let local_bin p = Path.relative p ".bin"
+
 module type Persistent_desc = sig
   type t
   val name : string
@@ -193,42 +204,8 @@ module Cached_digest = struct
 
   type t =
     { mutable checked_key : int
-    ; mutable table       : (Path.t, file) Hashtbl.t
+    ; table               : (Path.t, file) Hashtbl.t
     }
-
-  let cache =
-    { checked_key = 0
-    ; table       = Hashtbl.create 1024
-    }
-
-  let refresh fn =
-    let digest = Digest.file (Path.to_string fn) in
-    Hashtbl.replace cache.table ~key:fn
-      ~data:{ digest
-            ; timestamp = (Unix.stat (Path.to_string fn)).st_mtime
-            ; timestamp_checked = cache.checked_key
-            };
-    digest
-
-  let file fn =
-    match Hashtbl.find cache.table fn with
-    | Some x ->
-      if x.timestamp_checked = cache.checked_key then
-        x.digest
-      else begin
-        let mtime = (Unix.stat (Path.to_string fn)).st_mtime in
-        if mtime <> x.timestamp then begin
-          let digest = Digest.file (Path.to_string fn) in
-          x.digest    <- digest;
-          x.timestamp <- mtime;
-        end;
-        x.timestamp_checked <- cache.checked_key;
-        x.digest
-      end
-    | None ->
-      refresh fn
-
-  let remove fn = Hashtbl.remove cache.table fn
 
   let db_file = Path.relative Path.build_dir ".digest-db"
 
@@ -238,13 +215,83 @@ module Cached_digest = struct
       let version = 1
     end)
 
-  let dump () =
-    if Path.build_dir_exists () then P.dump db_file cache
+  let needs_dumping = ref false
 
-  let load () =
+  let cache = lazy (
     match P.load db_file with
-    | None -> ()
-    | Some c ->
-      cache.checked_key <- c.checked_key + 1;
-      cache.table <- c.table
+    | None ->
+      { checked_key = 0
+      ; table = Hashtbl.create 1024
+      }
+    | Some cache ->
+      cache.checked_key <- cache.checked_key + 1;
+      cache)
+
+  let dump () =
+    if !needs_dumping && Path.build_dir_exists () then begin
+      needs_dumping := false;
+      P.dump db_file (Lazy.force cache)
+    end
+
+  let () = Hooks.End_of_build.always dump
+
+  let invalidate_cached_timestamps () =
+    if Lazy.is_val cache then begin
+      let cache = Lazy.force cache in
+      cache.checked_key <- cache.checked_key + 1
+    end
+
+  let dir_digest (stat : Unix.stats) =
+    Marshal.to_string
+      ( stat.st_size
+      , stat.st_perm
+      , stat.st_mtime
+      , stat.st_ctime
+      ) []
+    |> Digest.string
+
+  let path_stat_digest fn stat =
+    if stat.Unix.st_kind = Unix.S_DIR then
+      dir_digest stat
+    else
+      Digest.file fn
+
+  let refresh fn =
+    let cache = Lazy.force cache in
+    let path = Path.to_string fn in
+    let stat = Unix.stat path in
+    let digest = path_stat_digest fn stat in
+    needs_dumping := true;
+    Hashtbl.replace cache.table ~key:fn
+      ~data:{ digest
+            ; timestamp = stat.st_mtime
+            ; timestamp_checked = cache.checked_key
+      };
+    digest
+
+  let file fn =
+    let cache = Lazy.force cache in
+    match Hashtbl.find cache.table fn with
+    | Some x ->
+      if x.timestamp_checked = cache.checked_key then
+        x.digest
+      else begin
+        needs_dumping := true;
+        let stat = Unix.stat (Path.to_string fn) in
+        let mtime = stat.st_mtime in
+        if mtime <> x.timestamp then begin
+          let digest = path_stat_digest fn stat in
+          x.digest    <- digest;
+          x.timestamp <- mtime;
+        end;
+        x.timestamp_checked <- cache.checked_key;
+        x.digest
+      end
+    | None ->
+      refresh fn
+
+  let remove fn =
+    let cache = Lazy.force cache in
+    needs_dumping := true;
+    Hashtbl.remove cache.table fn
 end

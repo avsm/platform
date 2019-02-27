@@ -9,26 +9,6 @@ open! Stdune
 open Import
 open Dune_file
 
-(** A directory with a jbuild *)
-module Dir_with_dune : sig
-  type t =
-    { src_dir : Path.t
-    ; ctx_dir : Path.t (** [_build/context-name/src_dir] *)
-    ; stanzas : Stanzas.t
-    ; scope   : Scope.t
-    ; kind    : File_tree.Dune_file.Kind.t
-    }
-end
-
-module Installable : sig
-  type t =
-    { dir    : Path.t
-    ; scope  : Scope.t
-    ; stanza : Stanza.t
-    ; kind   : File_tree.Dune_file.Kind.t
-    }
-end
-
 type t
 
 val create
@@ -39,22 +19,20 @@ val create
   -> packages:Package.t Package.Name.Map.t
   -> stanzas:Dune_load.Dune_file.t list
   -> external_lib_deps_mode:bool
-  -> build_system:Build_system.t
   -> t
 
 val context   : t -> Context.t
-val stanzas   : t -> Dir_with_dune.t list
-val stanzas_in : t -> dir:Path.t -> Dir_with_dune.t option
+val stanzas   : t -> Stanzas.t Dir_with_dune.t list
+val stanzas_in : t -> dir:Path.t -> Stanzas.t Dir_with_dune.t option
 val packages  : t -> Package.t Package.Name.Map.t
 val libs_by_package : t -> (Package.t * Lib.Set.t) Package.Name.Map.t
 val file_tree : t -> File_tree.t
 val artifacts : t -> Artifacts.t
-val stanzas_to_consider_for_install : t -> Installable.t list
 val cxx_flags : t -> string list
 val build_dir : t -> Path.t
 val profile   : t -> string
 val host : t -> t
-val build_system : t -> Build_system.t
+val external_lib_deps_mode : t -> bool
 
 (** All public libraries of the workspace *)
 val public_libs : t -> Lib.DB.t
@@ -73,58 +51,15 @@ val ocaml_flags
   -> Buildable.t
   -> Ocaml_flags.t
 
+(** Binaries that are symlinked in the associated .bin directory of [dir]. This
+    associated directory is [Path.relative dir ".bin"] *)
+val local_binaries : t -> dir:Path.t -> string File_bindings.t
+
 (** Dump a directory environment in a readable form *)
 val dump_env : t -> dir:Path.t -> (unit, Dune_lang.t list) Build.t
 
 val find_scope_by_dir  : t -> Path.t              -> Scope.t
 val find_scope_by_name : t -> Dune_project.Name.t -> Scope.t
-
-val expand_vars
-  :  t
-  -> mode:'a String_with_vars.Mode.t
-  -> scope:Scope.t
-  -> dir:Path.t
-  -> ?bindings:Pform.Map.t
-  -> String_with_vars.t
-  -> 'a
-
-val expand_vars_string
-  :  t
-  -> scope:Scope.t
-  -> dir:Path.t
-  -> ?bindings:Pform.Map.t
-  -> String_with_vars.t
-  -> string
-
-val expand_vars_path
-  :  t
-  -> scope:Scope.t
-  -> dir:Path.t
-  -> ?bindings:Pform.Map.t
-  -> String_with_vars.t
-  -> Path.t
-
-val expand_and_eval_set
-  :  t
-  -> scope:Scope.t
-  -> dir:Path.t
-  -> ?bindings:Pform.Map.t
-  -> Ordered_set_lang.Unexpanded.t
-  -> standard:(unit, string list) Build.t
-  -> (unit, string list) Build.t
-
-val eval_blang
-  :  t
-  -> Blang.t
-  -> scope:Scope.t
-  -> dir:Path.t
-  -> bool
-
-val prefix_rules
-  :  t
-  -> (unit, unit) Build.t
-  -> f:(unit -> 'a)
-  -> 'a
 
 val add_rule
   :  t
@@ -150,12 +85,6 @@ val add_rules
   -> dir:Path.t
   -> (unit, Action.t) Build.t list
   -> unit
-val add_alias_deps
-  :  t
-  -> Build_system.Alias.t
-  -> ?dyn_deps:(unit, Path.Set.t) Build.t
-  -> Path.Set.t
-  -> unit
 val add_alias_action
   :  t
   -> Build_system.Alias.t
@@ -165,11 +94,6 @@ val add_alias_action
   -> stamp:_
   -> (unit, Action.t) Build.t
   -> unit
-
-(** See [Build_system for details] *)
-val eval_glob : t -> dir:Path.t -> Re.re -> string list
-val load_dir : t -> dir:Path.t -> unit
-val on_load_dir : t -> dir:Path.t -> f:(unit -> unit) -> unit
 
 val source_files : t -> src_path:Path.t -> String.Set.t
 
@@ -182,6 +106,7 @@ val source_files : t -> src_path:Path.t -> String.Set.t
 *)
 val resolve_program
   :  t
+  -> dir:Path.t
   -> ?hint:string
   -> loc:Loc.t option
   -> string
@@ -212,15 +137,13 @@ module Deps : sig
   (** Evaluates to the actual list of dependencies, ignoring aliases *)
   val interpret
     :  t
-    -> scope:Scope.t
-    -> dir:Path.t
+    -> expander:Expander.t
     -> Dep_conf.t list
     -> (unit, Path.t list) Build.t
 
   val interpret_named
     :  t
-    -> scope:Scope.t
-    -> dir:Path.t
+    -> expander:Expander.t
     -> Dep_conf.t Bindings.t
     -> (unit, Path.t Bindings.t) Build.t
 end
@@ -231,12 +154,10 @@ module Action : sig
   val run
     :  t
     -> loc:Loc.t
-    -> bindings:Pform.Map.t
-    -> dir:Path.t
+    -> expander:Expander.t
     -> dep_kind:Lib_deps_info.Kind.t
-    -> targets:Expander.targets
+    -> targets:Expander.Targets.t
     -> targets_dir:Path.t
-    -> scope:Scope.t
     -> Action_unexpanded.t
     -> (Path.t Bindings.t, Action.t) Build.t
 
@@ -254,3 +175,7 @@ module Scope_key : sig
 end
 
 val opaque : t -> bool
+
+val expander : t -> dir:Path.t -> Expander.t
+
+val dir_status_db : t -> Dir_status.DB.t

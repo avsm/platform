@@ -4,10 +4,10 @@ developed at [Jane Street][js] and is now maintained by Jane Street,
 community.
 
 Contributions to Dune are welcome and should be submitted via github
-pull requests. Dune is distributed under the MIT license and
-contributors are required to sign their work in order to certify that
-they have the right to submit it under this license. See the following
-section for more details.
+pull requests against the `master` branch. Dune is distributed under
+the MIT license and contributors are required to sign their work in
+order to certify that they have the right to submit it under this
+license. See the following section for more details.
 
 Signing contributions
 ---------------------
@@ -70,3 +70,9 @@ your commit automatically with `git commit -s`.
 
 [dco]: http://developercertificate.org/
 [ocl]: http://ocamllabs.io/
+
+Coding style
+------------
+
+- wrap lines at 80 characters,
+- use `[Ss]nake_case` over `[Pp]ascalCase`.

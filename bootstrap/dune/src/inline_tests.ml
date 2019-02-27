@@ -17,9 +17,10 @@ module Backend = struct
         ; flags            : Ordered_set_lang.Unexpanded.t
         ; generate_runner  : (Loc.t * Action_unexpanded.t) option
         ; extends          : (Loc.t * Lib_name.t) list
+        ; file_kind        : Stanza.File_kind.t
         }
 
-      type Dune_file.Sub_system_info.t += T of t
+      type Sub_system_info.t += T of t
 
       let loc t = t.loc
 
@@ -40,12 +41,14 @@ module Backend = struct
            and flags = Ordered_set_lang.Unexpanded.field "flags"
            and generate_runner = field_o "generate_runner" (located Action_dune_lang.decode)
            and extends = field "extends" (list (located Lib_name.decode)) ~default:[]
+           and file_kind = Stanza.file_kind ()
            in
            { loc
            ; runner_libraries
            ; flags
            ; generate_runner
            ; extends
+           ; file_kind
            })
     end
 
@@ -84,13 +87,13 @@ module Backend = struct
       let lib x = Lib_name.encode (Lib.name x) in
       let f x = Lib_name.encode (Lib.name x.lib) in
       ((1, 0),
-       record_fields
-         [ field "runner_libraries" (list lib)
-             (Result.ok_exn t.runner_libraries)
-         ; field "flags" Ordered_set_lang.Unexpanded.encode t.info.flags
-         ; field_o "generate_runner" Action_dune_lang.encode
+       record_fields @@
+         [ field_l "runner_libraries" lib (Result.ok_exn t.runner_libraries)
+         ; field_i "flags" Ordered_set_lang.Unexpanded.encode_and_upgrade
+             t.info.flags
+         ; field_o "generate_runner" Action_dune_lang.encode_and_upgrade
              (Option.map t.info.generate_runner ~f:snd)
-         ; field "extends" (list f) (Result.ok_exn t.extends) ~default:[]
+         ; field_l "extends" f (Result.ok_exn t.extends)
          ])
   end
   include M
@@ -112,7 +115,7 @@ include Sub_system.Register_end_point(
         ; libraries : (Loc.t * Lib_name.t) list
         }
 
-      type Dune_file.Sub_system_info.t += T of t
+      type Sub_system_info.t += T of t
 
       let empty loc =
         { loc
@@ -161,10 +164,14 @@ include Sub_system.Register_end_point(
 
       let loc = lib.buildable.loc in
 
-      let inline_test_dir =
-        Path.relative dir (sprintf ".%s.inline-tests"
-                             (Lib_name.Local.to_string (snd lib.name)))
+      let inline_test_name =
+        sprintf "%s.inline-tests" (Lib_name.Local.to_string (snd lib.name))
       in
+
+      let inline_test_dir = Path.relative dir ("." ^ inline_test_name) in
+
+      let obj_dir =
+        Obj_dir.make_exe ~dir:inline_test_dir ~name:inline_test_name in
 
       let name = "run" in
       let main_module_filename = name ^ ".ml" in
@@ -175,14 +182,18 @@ include Sub_system.Register_end_point(
              ~impl:{ path   = Path.relative inline_test_dir main_module_filename
                    ; syntax = OCaml
                    }
+             ~kind:Impl
              ~visibility:Public
-             ~obj_name:name)
+             ~obj_name:name
+             ~obj_dir)
       in
 
       let bindings =
         Pform.Map.singleton "library-name"
           (Values [String (Lib_name.Local.to_string (snd lib.name))])
       in
+
+      let expander = Super_context.expander sctx ~dir in
 
       let runner_libs =
         let open Result.O in
@@ -211,18 +222,17 @@ include Sub_system.Register_end_point(
             ; "intf-files", files Intf
             ]
         in
+        let expander = Expander.add_bindings expander ~bindings in
         Build.return Bindings.empty
         >>>
         Build.all
           (List.filter_map backends ~f:(fun (backend : Backend.t) ->
              Option.map backend.info.generate_runner ~f:(fun (loc, action) ->
                SC.Action.run sctx action ~loc
-                 ~bindings
-                 ~dir
+                 ~expander
                  ~dep_kind:Required
-                 ~targets:Alias
-                 ~targets_dir:dir
-                 ~scope)))
+                 ~targets:(Forbidden "inline test generators")
+                 ~targets_dir:dir)))
         >>^ (fun actions ->
           Action.with_stdout_to target
             (Action.progn actions))
@@ -232,11 +242,13 @@ include Sub_system.Register_end_point(
       let cctx =
         Compilation_context.create ()
           ~super_context:sctx
+          ~expander
           ~scope
-          ~dir:inline_test_dir
+          ~obj_dir
           ~modules
           ~opaque:false
-          ~requires:runner_libs
+          ~requires_compile:runner_libs
+          ~requires_link:(lazy runner_libs)
           ~flags:(Ocaml_flags.of_list ["-w"; "-24"]);
       in
       Exe.build_and_link cctx
@@ -249,13 +261,10 @@ include Sub_system.Register_end_point(
           List.map backends ~f:(fun backend ->
             backend.Backend.info.flags) @ [info.flags]
         in
-        Build.all (
-          List.map flags ~f:(fun flags ->
-            Super_context.expand_and_eval_set sctx flags
-              ~scope
-              ~dir
-              ~bindings
-              ~standard:(Build.return [])))
+        let expander = Expander.add_bindings expander ~bindings in
+        List.map flags ~f:(
+          Expander.expand_and_eval_set expander ~standard:(Build.return []))
+        |> Build.all
         >>^ List.concat
       in
 
@@ -267,7 +276,7 @@ include Sub_system.Register_end_point(
          let exe = Path.relative inline_test_dir (name ^ ".exe") in
          Build.path exe >>>
          Build.fanout
-           (Super_context.Deps.interpret sctx info.deps ~dir ~scope)
+           (Super_context.Deps.interpret sctx info.deps ~expander)
            flags
          >>^ fun (_deps, flags) ->
          A.chdir dir
@@ -275,13 +284,10 @@ include Sub_system.Register_end_point(
               (A.run (Ok exe) flags ::
                (Module.Name.Map.values source_modules
                 |> List.concat_map ~f:(fun m ->
-                  [ Module.file m Impl
-                  ; Module.file m Intf
-                  ])
-                |> List.filter_map ~f:(fun x -> x)
-                |> List.map ~f:(fun fn ->
-                  A.diff ~optional:true
-                    fn (Path.extend_basename fn ~suffix:".corrected"))))))
+                  Module.sources m
+                  |> List.map ~f:(fun fn ->
+                    A.diff ~optional:true
+                      fn (Path.extend_basename fn ~suffix:".corrected")))))))
   end)
 
 let linkme = ()

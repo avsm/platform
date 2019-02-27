@@ -13,7 +13,7 @@ module Name : sig
 
   include Interned.S with type t := t
 
-  val decode : t Dune_lang.Decoder.t
+  include Dune_lang.Conv with type t := t
 
   module Infix : Comparable.OPS with type t = t
 end
@@ -23,6 +23,8 @@ type t =
   ; path                   : Path.t
   ; version_from_opam_file : string option
   }
+
+val pp : Format.formatter -> t -> unit
 
 val opam_file : t -> Path.t
 

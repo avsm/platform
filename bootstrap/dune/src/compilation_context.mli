@@ -16,16 +16,16 @@ type t
 val create
   :  super_context         : Super_context.t
   -> scope                 : Scope.t
-  -> dir                   : Path.t
-  -> ?private_obj_dir      : Path.t
-  -> ?modules_of_vlib      : Module.Name_map.t
-  -> ?dir_kind             : File_tree.Dune_file.Kind.t
-  -> ?obj_dir              : Path.t
+  -> expander              : Expander.t
+  -> obj_dir               : Obj_dir.t
+  -> ?vimpl                : Vimpl.t
+  -> ?dir_kind             : Dune_lang.Syntax.t
   -> modules               : Module.t Module.Name.Map.t
   -> ?alias_module         : Module.t
   -> ?lib_interface_module : Module.t
   -> flags                 : Ocaml_flags.t
-  -> requires              : Lib.t list Or_exn.t
+  -> requires_compile      : Lib.t list Or_exn.t
+  -> requires_link         : Lib.t list Or_exn.t Lazy.t
   -> ?preprocessing        : Preprocessing.t
   -> ?no_keep_locs         : bool
   -> opaque                : bool
@@ -37,25 +37,25 @@ val create
 val for_alias_module : t -> t
 
 val super_context        : t -> Super_context.t
+val expander             : t -> Expander.t
 val context              : t -> Context.t
 val scope                : t -> Scope.t
 val dir                  : t -> Path.t
-val dir_kind             : t -> File_tree.Dune_file.Kind.t
-val obj_dir              : t -> Path.t
-val private_obj_dir      : t -> Path.t option
+val dir_kind             : t -> Dune_lang.Syntax.t
+val obj_dir              : t -> Obj_dir.t
 val modules              : t -> Module.t Module.Name.Map.t
 val alias_module         : t -> Module.t option
 val lib_interface_module : t -> Module.t option
 val flags                : t -> Ocaml_flags.t
-val requires             : t -> Lib.t list Or_exn.t
-val includes             : t -> string list Arg_spec.t Cm_kind.Dict.t
+val requires_link        : t -> Lib.t list Or_exn.t
+val requires_compile     : t -> Lib.t list Or_exn.t
+val includes             : t -> (string list, Arg_spec.dynamic) Arg_spec.t Cm_kind.Dict.t
 val preprocessing        : t -> Preprocessing.t
 val no_keep_locs         : t -> bool
 val opaque               : t -> bool
 val stdlib               : t -> Dune_file.Library.Stdlib.t option
 
-(** Modules of the virtual library. Non-empty only for implementations of
-    virtual libs *)
-val modules_of_vlib      : t -> Module.Name_map.t
+(** Information for implementation of virtual libraries. *)
+val vimpl                : t -> Vimpl.t option
 
 val for_wrapped_compat : t -> Module.t Module.Name.Map.t -> t

@@ -1,16 +1,6 @@
 open! Stdune
 open Import
 
-let map_fname = ref (fun x -> x)
-
-let map_pos (pos : Lexing.position) =
-  { pos with pos_fname = !map_fname pos.pos_fname }
-
-let map_loc (loc : Loc.t) : Loc.t =
-  { start = map_pos loc.start
-  ; stop  = map_pos loc.stop
-  }
-
 type printer =
   { loc       : Loc.t option
   ; pp        : Format.formatter -> unit
@@ -19,7 +9,6 @@ type printer =
   }
 
 let make_printer ?(backtrace=false) ?hint ?loc pp =
-  let loc = Option.map ~f:map_loc loc in
   { loc
   ; pp
   ; hint
@@ -107,10 +96,10 @@ let report_with_backtrace exn =
   | Some p -> p
   | None -> exn_printer exn
 
-let reported = ref String.Set.empty
+let reported = ref Digest.Set.empty
 
 let clear_cache () =
-  reported := String.Set.empty
+  reported := Digest.Set.empty
 
 let () = Hooks.End_of_build.always clear_cache
 
@@ -134,10 +123,10 @@ let report exn =
     let s = Buffer.contents err_buf in
     (* Hash to avoid keeping huge errors in memory *)
     let hash = Digest.string s in
-    if String.Set.mem !reported hash then
+    if Digest.Set.mem !reported hash then
       Buffer.clear err_buf
     else begin
-      reported := String.Set.add !reported hash;
+      reported := Digest.Set.add !reported hash;
       if p.backtrace || !Clflags.debug_backtraces then
         Format.fprintf ppf "Backtrace:\n%s"
           (Printexc.raw_backtrace_to_string backtrace);

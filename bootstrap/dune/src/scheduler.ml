@@ -105,6 +105,7 @@ end = struct
          && Signal.Set.is_empty !signals)
 
   let next () =
+    Stats.record ();
     Mutex.lock mutex;
     let rec loop () =
       while not (available ()) do Condition.wait cond mutex done;
@@ -187,6 +188,7 @@ end = struct
     lazy (
       let excludes = [ {|/_build|}
                      ; {|/_opam|}
+                     ; {|/_esy|}
                      ; {|/\..+|}
                      ; {|~$|}
                      ; {|/#[^#]*#$|}
@@ -194,7 +196,7 @@ end = struct
                      ]
       in
       let path = Path.to_string_maybe_quoted Path.root in
-      match Bin.which "inotifywait" with
+      match Bin.which ~path:(Env.path Env.initial) "inotifywait" with
       | Some inotifywait ->
         (* On Linux, use inotifywait. *)
         let excludes = String.concat ~sep:"|" excludes in
@@ -209,7 +211,7 @@ end = struct
         (* On all other platforms, try to use fswatch. fswatch's event
            filtering is not reliable (at least on Linux), so don't try to
            use it, instead act on all events. *)
-        (match Bin.which "fswatch" with
+        (match Bin.which ~path:(Env.path Env.initial) "fswatch" with
          | Some fswatch ->
            let excludes =
              List.concat_map excludes ~f:(fun x -> ["--exclude"; x])
@@ -563,16 +565,16 @@ let update_status_line t =
   end
 
 let set_status_line_generator f =
-  Fiber.Var.get_exn t_var >>| fun t ->
+  let t = Fiber.Var.get_exn t_var in
   t.gen_status_line <- f;
   update_status_line t
 
 let set_concurrency n =
-  Fiber.Var.get_exn t_var >>| fun t ->
+  let t = Fiber.Var.get_exn t_var in
   t.concurrency <- n
 
 let wait_for_available_job () =
-  Fiber.Var.get_exn t_var >>= fun t ->
+  let t = Fiber.Var.get_exn t_var in
   if Event.pending_jobs () < t.concurrency then
     Fiber.return t
   else begin
@@ -640,7 +642,7 @@ let prepare ?(log=Log.no_log) ?(config=Config.default)
   Signal_watcher.init ();
   Process_watcher.init ();
   let cwd = Sys.getcwd () in
-  if cwd <> initial_cwd then
+  if cwd <> initial_cwd && not !Clflags.no_print_directory then
     Printf.eprintf "Entering directory '%s'\n%!"
       (if Config.inside_dune then
          let descendant_simple p ~of_ =
@@ -679,10 +681,10 @@ let prepare ?(log=Log.no_log) ?(config=Config.default)
   Errors.printer := print t;
   t
 
-let run t fiber =
+let run t f =
   let fiber =
     Fiber.Var.set t_var t
-      (Fiber.with_error_handler fiber ~on_error:Report_error.report)
+      (fun () -> Fiber.with_error_handler f ~on_error:Report_error.report)
   in
   Fiber.run
     (Fiber.fork_and_join_unit
@@ -695,10 +697,10 @@ let kill_and_wait_for_all_processes () =
     ignore (Event.next () : Event.t)
   done
 
-let go ?log ?config ?gen_status_line fiber =
+let go ?log ?config ?gen_status_line f =
   let t = prepare ?log ?config ?gen_status_line () in
   try
-    run t (fun () -> fiber)
+    run t f
   with exn ->
     kill_and_wait_for_all_processes ();
     raise exn
@@ -706,7 +708,7 @@ let go ?log ?config ?gen_status_line fiber =
 type exit_or_continue = Exit | Continue
 type got_signal = Got_signal
 
-let poll ?log ?config ~once ~finally ~canceled () =
+let poll ?log ?config ~once ~finally () =
   let t = prepare ?log ?config () in
   let watcher = File_watcher.create () in
   let once () =
@@ -721,41 +723,34 @@ let poll ?log ?config ~once ~finally ~canceled () =
       got_signal t signal;
       Exit
   in
-  let wait msg =
+  let rec wait msg =
     let old_generator = t.gen_status_line in
     set_status_line_generator
       (fun () ->
          { message = Some (msg ^ ".\nWaiting for filesystem changes...")
          ; show_jobs = false
-         })
-    >>= fun () ->
+         });
     let res = block_waiting_for_changes () in
-    set_status_line_generator old_generator >>> Fiber.return res
-  in
-  let wait_success () = wait "Success" in
-  let wait_failure () = wait "Had errors" in
-  let rec main_loop () =
+    set_status_line_generator old_generator;
+    match res with
+    | Exit -> Fiber.return Got_signal
+    | Continue -> main_loop ()
+  and main_loop () =
     once ()
     >>= fun _ ->
     finally ();
-    wait_success ()
-    >>= function
-    | Exit -> Fiber.return Got_signal
-    | Continue -> main_loop ()
+    wait "Success"
   in
   let continue_on_error () =
     if not t.cur_build_canceled then begin
       finally ();
-      wait_failure ()
-      >>= fun _ ->
-      main_loop ()
+      wait "Had errors"
     end else begin
       set_status_line_generator
         (fun () ->
            { message = Some "Had errors.\nKilling current build..."
            ; show_jobs = false
-           })
-      >>= fun () ->
+           });
       Queue.clear t.waiting_for_available_job;
       Process_watcher.killall Sys.sigkill;
       let rec loop () =
@@ -773,7 +768,7 @@ let poll ?log ?config ~once ~finally ~canceled () =
       | Exit ->
         Fiber.return Got_signal
       | Continue ->
-        canceled ();
+        finally ();
         main_loop ()
     end
   in

@@ -33,7 +33,7 @@ module Parse = struct
 
   let generic ~inc ~elt =
     let open Stanza.Decoder in
-    let rec one (kind : Stanza.File_kind.t) =
+    let rec one (kind : Dune_lang.Syntax.t) =
       peek_exn >>= function
       | Atom (loc, A "\\") -> Errors.fail loc "unexpected \\"
       | (Atom (_, A "") | Quoted_string (_, _)) | Template _ ->
@@ -232,6 +232,11 @@ let standard =
   ; context = Univ_map.empty
   }
 
+let dune_kind t =
+  match Univ_map.find t.context (Syntax.key Stanza.syntax) with
+  | Some (0, _)-> Dune_lang.Syntax.Jbuild
+  | None | Some (_, _) -> Dune
+
 let field ?(default=standard) ?check name =
   let decode =
     match check with
@@ -256,6 +261,17 @@ module Unexpanded = struct
     ; context
     }
 
+  let map t ~f : t =
+    let rec map_ast : ast -> ast =
+      let open Ast in function
+      | Element sw -> Element (f sw)
+      | Include sw -> Include (f sw)
+      | Union xs -> Union (List.map ~f:map_ast xs)
+      | Diff (x, y) -> Diff (map_ast x, map_ast y)
+      | Standard as t -> t
+    in
+    { t with ast = map_ast t.ast }
+
   let encode t =
     let open Ast in
     let rec loop = function
@@ -268,7 +284,18 @@ module Unexpanded = struct
              ; String_with_vars.encode fn
              ]
     in
-    loop t.ast
+    match t.ast with
+    | Union l -> List.map l ~f:loop
+    | Diff (a, b) -> [loop a; Dune_lang.unsafe_atom_of_string "\\"; loop b]
+    | ast -> [loop ast]
+
+  let upgrade_to_dune t =
+    match dune_kind t with
+    | Dune -> t
+    | Jbuild -> map t ~f:(String_with_vars.upgrade_to_dune
+                            ~allow_first_dep_var:false)
+
+  let encode_and_upgrade t = encode (upgrade_to_dune t)
 
   let standard = standard
 
@@ -298,11 +325,7 @@ module Unexpanded = struct
       | Diff (l, r) ->
         loop (loop acc l) r
     in
-    let syntax =
-      match Univ_map.find t.context (Syntax.key Stanza.syntax) with
-      | Some (0, _)-> File_tree.Dune_file.Kind.Jbuild
-      | None | Some (_, _) -> Dune
-    in
+    let syntax = dune_kind t in
     (syntax, loop Path.Set.empty t.ast)
 
   let has_special_forms t =

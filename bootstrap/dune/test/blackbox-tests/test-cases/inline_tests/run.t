@@ -1,4 +1,4 @@
-  $ env -u OCAMLRUNPARAM jbuilder runtest simple
+  $ env -u OCAMLRUNPARAM dune runtest simple
            run alias simple/runtest (exit 2)
   (cd _build/default/simple && .foo_simple.inline-tests/run.exe)
   Fatal error: exception File "simple/.foo_simple.inline-tests/run.ml", line 1, characters 10-16: Assertion failed
@@ -25,24 +25,55 @@
   backend_mbc1
 
   $ dune runtest dune-file
-  (dune
-   2
-   ((inline_tests.backend
-     1.0
-     ((runner_libraries (str))
-      (flags
-       (inline-test-runner
-        %{library-name}
-        -source-tree-root
-        %{workspace_root}
-        -diff-cmd
-        -))
-      (generate_runner
-       (progn
-        (echo "let () = print_int 41")
-        (echo "\n")
-        (echo "let () = print_int 42")
-        (echo "\n")
-        (echo "let () = print_int 43;;")))))))
+  (lang dune 1.7)
+  (name foo)
+  (library
+   (name foo)
+   (kind normal)
+   (archives (byte foo.cma) (native foo.cmxa))
+   (plugins (byte foo.cma) (native foo.cmxs))
+   (foreign_archives (native foo$ext_lib))
+   (main_module_name Foo)
+   (modes byte native)
+   (modules
+    (alias_module (name Foo) (obj_name foo) (visibility public) (impl))
+    (main_module_name Foo)
+    (wrapped true))
+   (inline_tests.backend
+    (runner_libraries str)
+    (flags
+     inline-test-runner
+     %{library-name}
+     -source-tree-root
+     %{workspace_root}
+     -diff-cmd
+     -)
+    (generate_runner
+     (progn
+      (echo "let () = print_int 41")
+      (echo "\n")
+      (echo "let () = print_int 42")
+      (echo "\n")
+      (echo "let () = print_int 43;;")))))
            run alias dune-file/runtest
+  414243
+
+  $ dune build dune-file/foo.install && dune install foo --prefix install
+  Installing install/lib/foo/META
+  Installing install/lib/foo/dune-package
+  Installing install/lib/foo/foo$ext_lib
+  Installing install/lib/foo/foo.cma
+  Installing install/lib/foo/foo.cmi
+  Installing install/lib/foo/foo.cmt
+  Installing install/lib/foo/foo.cmx
+  Installing install/lib/foo/foo.cmxa
+  Installing install/lib/foo/foo.cmxs
+  Installing install/lib/foo/foo.ml
+  Installing install/lib/foo/opam
+
+Make sure we can read generated dune-package files:
+
+  $ export OCAMLPATH=$PWD/install/lib; dune runtest --root dune-file-user
+  Entering directory 'dune-file-user'
+           run alias runtest
   414243

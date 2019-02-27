@@ -4,7 +4,7 @@ open! Import
 include Sub_system_intf
 
 module Register_backend(M : Backend) = struct
-  include Dune_file.Sub_system_info.Register(M.Info)
+  include Sub_system_info.Register(M.Info)
   include Lib.Sub_system.Register(struct
       include M
       type Lib.Sub_system.t += T of t
@@ -13,8 +13,8 @@ module Register_backend(M : Backend) = struct
 
   let top_closure l ~deps =
     match
-      Top_closure.Int.top_closure l
-        ~key:(fun t -> Lib.unique_id (M.lib t))
+      Lib.L.top_closure l
+        ~key:M.lib
         ~deps:(fun t ->
           match deps t with
           | Ok l    -> l
@@ -30,7 +30,7 @@ module Register_backend(M : Backend) = struct
     Set.Make(struct
       type t = M.t
       let compare a b =
-        compare
+        Lib.Id.compare
           (Lib.unique_id (M.lib a))
           (Lib.unique_id (M.lib b))
     end)
@@ -123,7 +123,7 @@ type Lib.Sub_system.t +=
     Gen of (Library_compilation_context.t -> unit)
 
 module Register_end_point(M : End_point) = struct
-  include Dune_file.Sub_system_info.Register(M.Info)
+  include Sub_system_info.Register(M.Info)
 
   let gen info (c : Library_compilation_context.t) =
     let open Result.O in
@@ -152,7 +152,7 @@ module Register_end_point(M : End_point) = struct
     match fail with
     | None -> M.gen_rules c ~info ~backends
     | Some fail ->
-      Super_context.prefix_rules c.super_context (Build.fail fail)
+      Build_system.prefix_rules (Build.fail fail)
         ~f:(fun () -> M.gen_rules c ~info ~backends)
 
   include

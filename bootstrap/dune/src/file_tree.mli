@@ -4,12 +4,6 @@ open! Stdune
 open! Import
 
 module Dune_file : sig
-  module Kind : sig
-    type t = Dune_lang.syntax = Jbuild | Dune
-
-    val lexer : t -> Dune_lang.Lexer.t
-  end
-
   module Plain : sig
     (** [sexps] is mutable as we get rid of the S-expressions once
         they have been parsed, in order to release the memory as soon
@@ -21,14 +15,14 @@ module Dune_file : sig
   end
 
   module Contents : sig
-    type t =
+    type t = private
       | Plain of Plain.t
       | Ocaml_script of Path.t
   end
 
-  type t =
+  type t = private
     { contents : Contents.t
-    ; kind     : Kind.t
+    ; kind     : Dune_lang.Syntax.t
     }
 
   val path : t -> Path.t
@@ -63,12 +57,12 @@ module Dir : sig
 end
 
 (** A [t] value represent a view of the source tree. It is lazily
-    constructed by scanning the file system and interpreting [.dune-fs]
-    files, as well as [jbuild-ignore] files for backward
+    constructed by scanning the file system and interpreting a few
+    stanzas in [dune] files as well as [jbuild-ignore] files for backward
     compatibility. *)
 type t
 
-val load : ?extra_ignored_subtrees:Path.Set.t -> Path.t -> t
+val load : ?warn_when_seeing_jbuild_file:bool -> Path.t -> t
 
 (** Passing [~traverse_ignored_dirs:true] to this functions causes the
     whole source tree to be deeply scanned, including ignored
@@ -96,3 +90,6 @@ val dir_exists : t -> Path.t -> bool
 val file_exists : t -> Path.t -> string -> bool
 
 val files_recursively_in : t -> ?prefix_with:Path.t -> Path.t -> Path.Set.t
+
+(** Load a [jbuild-ignore] file *)
+val load_jbuild_ignore : Path.t -> String.Set.t

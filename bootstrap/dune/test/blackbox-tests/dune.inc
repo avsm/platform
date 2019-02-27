@@ -112,6 +112,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name default-targets)
+ (deps (package dune) (source_tree test-cases/default-targets))
+ (action
+  (chdir
+   test-cases/default-targets
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name dep-vars)
  (deps (package dune) (source_tree test-cases/dep-vars))
  (action
@@ -128,11 +136,35 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name deps-conf-vars)
+ (deps (package dune) (source_tree test-cases/deps-conf-vars))
+ (action
+  (chdir
+   test-cases/deps-conf-vars
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name dev-flag-1103)
  (deps (package dune) (source_tree test-cases/dev-flag-1103))
  (action
   (chdir
    test-cases/dev-flag-1103
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name dir-target-dep)
+ (deps (package dune) (source_tree test-cases/dir-target-dep))
+ (action
+  (chdir
+   test-cases/dir-target-dep
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name double-echo)
+ (deps (package dune) (source_tree test-cases/double-echo))
+ (action
+  (chdir
+   test-cases/double-echo
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -149,6 +181,14 @@
  (action
   (chdir
    test-cases/dune-jbuild-var-case
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name dune-package)
+ (deps (package dune) (source_tree test-cases/dune-package))
+ (action
+  (chdir
+   test-cases/dune-package
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -176,11 +216,35 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name duplicate-c-cxx)
+ (deps (package dune) (source_tree test-cases/duplicate-c-cxx))
+ (action
+  (chdir
+   test-cases/duplicate-c-cxx
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name duplicate-c-cxx-obj)
+ (deps (package dune) (source_tree test-cases/duplicate-c-cxx-obj))
+ (action
+  (chdir
+   test-cases/duplicate-c-cxx-obj
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name duplicate-target-no-loc)
  (deps (package dune) (source_tree test-cases/duplicate-target-no-loc))
  (action
   (chdir
    test-cases/duplicate-target-no-loc
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name embed-jbuild)
+ (deps (package dune) (source_tree test-cases/embed-jbuild))
+ (action
+  (chdir
+   test-cases/embed-jbuild
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -205,6 +269,14 @@
  (action
   (chdir
    test-cases/env-and-flags-include
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name env-bins)
+ (deps (package dune) (source_tree test-cases/env-bins))
+ (action
+  (chdir
+   test-cases/env-bins
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -272,6 +344,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name external-lib-deps)
+ (deps (package dune) (source_tree test-cases/external-lib-deps))
+ (action
+  (chdir
+   test-cases/external-lib-deps
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name extra-lang-line)
  (deps (package dune) (source_tree test-cases/extra-lang-line))
  (action
@@ -312,19 +392,19 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
- (name fmt)
- (deps (package dune) (source_tree test-cases/fmt))
- (action
-  (chdir
-   test-cases/fmt
-   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
-
-(alias
  (name force-test)
  (deps (package dune) (source_tree test-cases/force-test))
  (action
   (chdir
    test-cases/force-test
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name format-dune-file)
+ (deps (package dune) (source_tree test-cases/format-dune-file))
+ (action
+  (chdir
+   test-cases/format-dune-file
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -397,6 +477,54 @@
  (action
   (chdir
    test-cases/github1395
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github1529)
+ (deps (package dune) (source_tree test-cases/github1529))
+ (action
+  (chdir
+   test-cases/github1529
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github1549)
+ (deps (package dune) (source_tree test-cases/github1549))
+ (action
+  (chdir
+   test-cases/github1549
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github1560)
+ (deps (package dune) (source_tree test-cases/github1560))
+ (action
+  (chdir
+   test-cases/github1560
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github1616)
+ (deps (package dune) (source_tree test-cases/github1616))
+ (action
+  (chdir
+   test-cases/github1616
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github1811)
+ (deps (package dune) (source_tree test-cases/github1811))
+ (action
+  (chdir
+   test-cases/github1811
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github1856)
+ (deps (package dune) (source_tree test-cases/github1856))
+ (action
+  (chdir
+   test-cases/github1856
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -571,6 +699,22 @@
  (action
   (chdir
    test-cases/install-libdir
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name install-rule-order)
+ (deps (package dune) (source_tree test-cases/install-rule-order))
+ (action
+  (chdir
+   test-cases/install-rule-order
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name install-with-var)
+ (deps (package dune) (source_tree test-cases/install-with-var))
+ (action
+  (chdir
+   test-cases/install-with-var
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -791,6 +935,14 @@
     (diff? run.t run.t.corrected)))))
 
 (alias
+ (name old-dune-subsystem)
+ (deps (package dune) (source_tree test-cases/old-dune-subsystem))
+ (action
+  (chdir
+   test-cases/old-dune-subsystem
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name optional)
  (deps (package dune) (source_tree test-cases/optional))
  (action
@@ -824,6 +976,14 @@
  (action
   (chdir
    test-cases/path-variables
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name pkg-config-quoting)
+ (deps (package dune) (source_tree test-cases/pkg-config-quoting))
+ (action
+  (chdir
+   test-cases/pkg-config-quoting
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -1023,6 +1183,40 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name toplevel-stanza)
+ (deps (package dune) (source_tree test-cases/toplevel-stanza))
+ (action
+  (chdir
+   test-cases/toplevel-stanza
+   (progn
+    (run %{exe:cram.exe} -skip-versions <4.05.0 -test run.t)
+    (diff? run.t run.t.corrected)))))
+
+(alias
+ (name trace-file)
+ (deps (package dune) (source_tree test-cases/trace-file))
+ (action
+  (chdir
+   test-cases/trace-file
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name transitive-deps-mode)
+ (deps (package dune) (source_tree test-cases/transitive-deps-mode))
+ (action
+  (chdir
+   test-cases/transitive-deps-mode
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name upgrader)
+ (deps (package dune) (source_tree test-cases/upgrader))
+ (action
+  (chdir
+   test-cases/upgrader
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name use-meta)
  (deps (package dune) (source_tree test-cases/use-meta))
  (action
@@ -1044,7 +1238,9 @@
  (action
   (chdir
    test-cases/utop-default
-   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+   (progn
+    (run %{exe:cram.exe} -skip-versions <4.05.0 -test run.t)
+    (diff? run.t run.t.corrected)))))
 
 (alias
  (name variants)
@@ -1084,7 +1280,9 @@
  (action
   (chdir
    test-cases/wrapped-transition
-   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+   (progn
+    (run %{exe:cram.exe} -skip-versions <4.06.0 -test run.t)
+    (diff? run.t run.t.corrected)))))
 
 (alias
  (name runtest)
@@ -1103,18 +1301,27 @@
   (alias copy_files)
   (alias cross-compilation)
   (alias custom-build-dir)
+  (alias default-targets)
   (alias dep-vars)
   (alias depend-on-the-universe)
+  (alias deps-conf-vars)
   (alias dev-flag-1103)
+  (alias dir-target-dep)
+  (alias double-echo)
   (alias dune-build-dir-exec-1101)
   (alias dune-jbuild-var-case)
+  (alias dune-package)
   (alias dune-ppx-driver-system)
   (alias dune-project-edition)
   (alias dup-fields)
+  (alias duplicate-c-cxx)
+  (alias duplicate-c-cxx-obj)
   (alias duplicate-target-no-loc)
+  (alias embed-jbuild)
   (alias enabled_if)
   (alias env)
   (alias env-and-flags-include)
+  (alias env-bins)
   (alias env-dune-file)
   (alias env-tracking)
   (alias env-var-expansion)
@@ -1122,13 +1329,14 @@
   (alias exclude-missing-module)
   (alias exec-cmd)
   (alias exec-missing)
+  (alias external-lib-deps)
   (alias extra-lang-line)
   (alias fallback-dune)
   (alias findlib)
   (alias findlib-dynload)
   (alias findlib-error)
-  (alias fmt)
   (alias force-test)
+  (alias format-dune-file)
   (alias formatting)
   (alias gen-opam-install-file)
   (alias github1019)
@@ -1138,6 +1346,12 @@
   (alias github1342)
   (alias github1372)
   (alias github1395)
+  (alias github1529)
+  (alias github1549)
+  (alias github1560)
+  (alias github1616)
+  (alias github1811)
+  (alias github1856)
   (alias github20)
   (alias github24)
   (alias github25)
@@ -1159,6 +1373,8 @@
   (alias inline_tests)
   (alias install-dry-run)
   (alias install-libdir)
+  (alias install-rule-order)
+  (alias install-with-var)
   (alias installable-dup-private-libs)
   (alias intf-only)
   (alias lib-available)
@@ -1184,10 +1400,12 @@
   (alias ocamllex-jbuild)
   (alias odoc)
   (alias odoc-unique-mlds)
+  (alias old-dune-subsystem)
   (alias optional)
   (alias output-obj)
   (alias package-dep)
   (alias path-variables)
+  (alias pkg-config-quoting)
   (alias ppx-rewriter)
   (alias preprocess-with-action)
   (alias private-modules)
@@ -1212,6 +1430,10 @@
   (alias tests-stanza-action)
   (alias tests-stanza-action-syntax-version)
   (alias too-many-parens)
+  (alias toplevel-stanza)
+  (alias trace-file)
+  (alias transitive-deps-mode)
+  (alias upgrader)
   (alias use-meta)
   (alias utop)
   (alias utop-default)
@@ -1238,18 +1460,27 @@
   (alias copy_files)
   (alias cross-compilation)
   (alias custom-build-dir)
+  (alias default-targets)
   (alias dep-vars)
   (alias depend-on-the-universe)
+  (alias deps-conf-vars)
   (alias dev-flag-1103)
+  (alias dir-target-dep)
+  (alias double-echo)
   (alias dune-build-dir-exec-1101)
   (alias dune-jbuild-var-case)
+  (alias dune-package)
   (alias dune-ppx-driver-system)
   (alias dune-project-edition)
   (alias dup-fields)
+  (alias duplicate-c-cxx)
+  (alias duplicate-c-cxx-obj)
   (alias duplicate-target-no-loc)
+  (alias embed-jbuild)
   (alias enabled_if)
   (alias env)
   (alias env-and-flags-include)
+  (alias env-bins)
   (alias env-dune-file)
   (alias env-tracking)
   (alias env-var-expansion)
@@ -1257,12 +1488,13 @@
   (alias exclude-missing-module)
   (alias exec-cmd)
   (alias exec-missing)
+  (alias external-lib-deps)
   (alias extra-lang-line)
   (alias fallback-dune)
   (alias findlib)
   (alias findlib-error)
-  (alias fmt)
   (alias force-test)
+  (alias format-dune-file)
   (alias formatting)
   (alias github1019)
   (alias github1099)
@@ -1271,6 +1503,12 @@
   (alias github1342)
   (alias github1372)
   (alias github1395)
+  (alias github1529)
+  (alias github1549)
+  (alias github1560)
+  (alias github1616)
+  (alias github1811)
+  (alias github1856)
   (alias github20)
   (alias github24)
   (alias github25)
@@ -1290,6 +1528,8 @@
   (alias inline_tests)
   (alias install-dry-run)
   (alias install-libdir)
+  (alias install-rule-order)
+  (alias install-with-var)
   (alias installable-dup-private-libs)
   (alias intf-only)
   (alias lib-available)
@@ -1311,10 +1551,12 @@
   (alias ocaml-syntax)
   (alias ocamldep-multi-stanzas)
   (alias ocamllex-jbuild)
+  (alias old-dune-subsystem)
   (alias optional)
   (alias output-obj)
   (alias package-dep)
   (alias path-variables)
+  (alias pkg-config-quoting)
   (alias preprocess-with-action)
   (alias private-modules)
   (alias project-root)
@@ -1335,8 +1577,11 @@
   (alias tests-stanza-action)
   (alias tests-stanza-action-syntax-version)
   (alias too-many-parens)
+  (alias toplevel-stanza)
+  (alias trace-file)
+  (alias transitive-deps-mode)
+  (alias upgrader)
   (alias use-meta)
-  (alias utop-default)
   (alias variants)
   (alias windows-diff)
   (alias workspaces)

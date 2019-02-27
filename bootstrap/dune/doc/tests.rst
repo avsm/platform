@@ -57,7 +57,7 @@ follow:
           let%test _ = fact 5 = 120
 
 The file has to be preprocessed with the ppx_inline_test ppx rewriter,
-so for instance the ``jbuild`` file might look like this:
+so for instance the ``dune`` file might look like this:
 
 .. code:: scheme
 
@@ -86,7 +86,7 @@ instance, if we make the test fail by replacing ``120`` by ``0`` we get:
 
           FAILED 1 / 1 tests
 
-Note that in this case Jbuild knew how to build and run the tests
+Note that in this case Dune knew how to build and run the tests
 without any special configuration. This is because ppx_inline_test
 defines an inline tests backend and it is used by the library. Some
 other frameworks, such as qtest_ don't have any special library or ppx
@@ -98,7 +98,10 @@ field:
 
           (library
            (name foo)
-           (inline_tests (backend qtest)))
+           (inline_tests (backend qtest.lib)))
+           
+In the example above, the name `qtest.lib` comes from the `public_name` field
+in `qtest`'s own `dune` file.
 
 
 Inline expectation tests
@@ -263,10 +266,10 @@ action produces some OCaml code on its standard output. This code will
 constitute the test runner. The action can use the following
 additional variables:
 
-- ``${library-name}`` which is the name of the library being tested
-- ``${impl-files}`` which is the list of implementation files in the
+- ``%{library-name}`` which is the name of the library being tested
+- ``%{impl-files}`` which is the list of implementation files in the
   library, i.e. all the ``.ml`` and ``.re`` files
-- ``${intf-files}`` which is the list of interface files in the library,
+- ``%{intf-files}`` which is the list of interface files in the library,
   i.e. all the ``.mli`` and ``.rei`` files
 
 The ``runner_libraries`` field specifies what OCaml libraries the test
@@ -276,7 +279,7 @@ should probably put ``my_test_framework`` in the ``runner_libraries``
 field.
 
 If you test runner needs specific flags, you should pass them in the
-``flags`` field. You can use the ``${library-name}`` variable in this
+``flags`` field. You can use the ``%{library-name}`` variable in this
 field.
 
 Finally, a backend can be an extension of another backend. In this
@@ -319,10 +322,10 @@ Custom tests
 ============
 
 We said in `Running tests`_ that to run tests dune simply builds
-the ``runtest`` alias. As a result, to define cutsom tests, you simply
+the ``runtest`` alias. As a result, to define custom tests, you simply
 need to add an action to this alias in any directory. For instance if
 you have a binary ``tests.exe`` that you want to run as part of
-running your testsuite, simply add this to a jbuild file:
+running your testsuite, simply add this to a dune file:
 
 .. code:: scheme
 

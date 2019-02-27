@@ -16,6 +16,8 @@ module Version : sig
 
   val to_string : t -> string
 
+  val pp : t Fmt.t
+
   (** Whether the parser can read the data or not *)
   val can_read : parser_version:t -> data_version:t -> bool
 
@@ -39,6 +41,16 @@ module Error : sig
     -> _
 end
 
+module Warning : sig
+  val deprecated_in
+    :  Loc.t
+    -> t
+    -> ?repl:string
+    -> Version.t
+    -> what:string
+    -> unit
+end
+
 (** [create ~name ~desc supported_versions] defines a new
     syntax. [supported_version] is the list of the last minor version
     of each supported major version. [desc] is used to describe what
@@ -60,6 +72,10 @@ val greatest_supported_version : t -> Version.t
 (** Indicate the field/constructor being parsed was deleted in the
     given version *)
 val deleted_in : t -> Version.t -> (unit, _) Dune_lang.Decoder.parser
+
+(** Indicate the field/constructor being parsed was deprecated in the
+    given version *)
+val deprecated_in : t -> Version.t -> (unit, _) Dune_lang.Decoder.parser
 
 (** Indicate the field/constructor being parsed was renamed in the
     given version *)

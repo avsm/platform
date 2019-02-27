@@ -3,6 +3,8 @@ include module type of struct include StringLabels end with type t := t
 
 val equal : t -> t -> bool
 val compare : t -> t -> Ordering.t
+val hash : t -> int
+val to_sexp : t -> Sexp.t
 
 val break : t -> pos:int -> t * t
 
@@ -60,7 +62,17 @@ val enumerate_and : string list -> string
 (** Produces: "x, y or z" *)
 val enumerate_or  : string list -> string
 
-module Set : Set.S with type elt = t
+(** Produces: "One of x, y or z" *)
+val enumerate_one_of : t list -> t
+
+(** Find index of first character satisfying [f] *)
+val findi : string -> f:(char -> bool) -> int option
+
+module Set : sig
+  include Set.S with type elt = t
+
+  val pp : Format.formatter -> t -> unit
+end
 module Map : sig
   include Map.S with type key = t
 

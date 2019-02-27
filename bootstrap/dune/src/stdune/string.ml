@@ -21,6 +21,10 @@ module T = struct
   let hash (s : t) = Hashtbl.hash s
 end
 
+let equal : string -> string -> bool = (=)
+let hash = Hashtbl.hash
+let to_sexp = Sexp.Encoder.string
+
 let capitalize   = capitalize_ascii
 let uncapitalize = uncapitalize_ascii
 let uppercase    = uppercase_ascii
@@ -134,29 +138,7 @@ let split s ~on =
   in
   loop 0 0
 
-let split_lines s =
-  let rec loop ~last_is_cr ~acc i j =
-    if j = length s then (
-      let acc =
-        if j = i || (j = i + 1 && last_is_cr) then
-          acc
-        else
-          sub s ~pos:i ~len:(j - i) :: acc
-      in
-      List.rev acc
-    ) else
-      match s.[j] with
-      | '\r' -> loop ~last_is_cr:true ~acc i (j + 1)
-      | '\n' ->
-        let line =
-          let len = if last_is_cr then j - i - 1 else j - i in
-          sub s ~pos:i ~len
-        in
-        loop ~acc:(line :: acc) (j + 1) (j + 1) ~last_is_cr:false
-      | _ ->
-        loop ~acc i (j + 1) ~last_is_cr:false
-  in
-  loop ~acc:[] 0 0 ~last_is_cr:false
+include String_split
 
 let escape_double_quote s =
   let n = ref 0 in
@@ -183,7 +165,7 @@ let longest_map l ~f =
   List.fold_left l ~init:0 ~f:(fun acc x ->
     max acc (length (f x)))
 
-let longest l = longest_map l ~f:(fun x -> x)
+let longest l = longest_map l ~f:Fn.id
 
 let longest_prefix = function
   | [] -> ""
@@ -224,7 +206,14 @@ let maybe_quoted s =
   else
     Printf.sprintf {|"%s"|} escaped
 
-module Set = Set.Make(T)
+module Set = struct
+  include Set.Make(T)
+  let pp fmt t =
+    Format.fprintf fmt "Set (@[%a@])"
+      (Format.pp_print_list Format.pp_print_string
+         ~pp_sep:(fun fmt () -> Format.fprintf fmt "@ "))
+      (to_list t)
+end
 
 module Map = struct
   include Map.Make(T)
@@ -247,6 +236,9 @@ let enumerate_gen s =
 
 let enumerate_and = enumerate_gen "and"
 let enumerate_or  = enumerate_gen "or"
+let enumerate_one_of = function
+  | [x] -> x
+  | s -> "One of " ^ enumerate_or s
 
 let concat ~sep = function
   | [] -> ""
@@ -266,3 +258,14 @@ let split_n s n =
   ( sub s ~pos:0 ~len:n
   , sub s ~pos:n ~len:(len - n)
   )
+
+let findi =
+  let rec loop s len ~f i =
+    if i >= len then
+      None
+    else if f (String.unsafe_get s i) then
+      Some i
+    else
+      loop s len ~f (i + 1)
+  in
+  fun s ~f -> loop s (String.length s) ~f 0

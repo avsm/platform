@@ -1,20 +1,7 @@
 open! Stdune
-open! Import
+open Import
 
 module Dune_file = struct
-  module Kind = struct
-    type t = Dune_lang.syntax = Jbuild | Dune
-
-    let of_basename = function
-      | "dune"   -> Dune
-      | "jbuild" -> Jbuild
-      | _ -> assert false
-
-    let lexer = function
-      | Dune   -> Dune_lang.Lexer.token
-      | Jbuild -> Dune_lang.Lexer.jbuild_token
-  end
-
   module Plain = struct
     type t =
       { path          : Path.t
@@ -30,7 +17,7 @@ module Dune_file = struct
 
   type t =
     { contents : Contents.t
-    ; kind     : Kind.t
+    ; kind     : Dune_lang.Syntax.t
     }
 
   let path t =
@@ -38,50 +25,24 @@ module Dune_file = struct
     | Plain         x -> x.path
     | Ocaml_script  p -> p
 
-  let extract_ignored_subdirs =
-    let stanza =
-      let open Dune_lang.Decoder in
-      let sub_dir =
-        plain_string (fun ~loc dn ->
-          if Filename.dirname dn <> Filename.current_dir_name ||
-             match dn with
-             | "" | "." | ".." -> true
-             | _ -> false
-          then
-            of_sexp_errorf loc "Invalid sub-directory name %S" dn
-          else
-            dn)
-      in
-      sum
-        [ "ignored_subdirs", list sub_dir >>| String.Set.of_list
-        ]
-    in
-    fun sexps ->
-      let ignored_subdirs, sexps =
-        List.partition_map sexps ~f:(fun sexp ->
-          match (sexp : Dune_lang.Ast.t) with
-          | List (_, (Atom (_, A "ignored_subdirs") :: _)) ->
-            Left (Dune_lang.Decoder.parse stanza Univ_map.empty sexp)
-          | _ -> Right sexp)
-      in
-      let ignored_subdirs =
-        List.fold_left ignored_subdirs ~init:String.Set.empty ~f:String.Set.union
-      in
-      (ignored_subdirs, sexps)
-
-  let load file ~kind =
+  let load file ~project ~kind =
     Io.with_lexbuf_from_file file ~f:(fun lb ->
-      let contents, ignored_subdirs =
+      let contents, sub_dirs =
         if Dune_lexer.is_script lb then
-          (Contents.Ocaml_script file, String.Set.empty)
+          (Contents.Ocaml_script file, Sub_dirs.default)
         else
           let sexps =
-            Dune_lang.Parser.parse lb ~lexer:(Kind.lexer kind) ~mode:Many
+            Dune_lang.Parser.parse lb
+              ~lexer:(Dune_lang.Lexer.of_syntax kind) ~mode:Many
           in
-          let ignored_subdirs, sexps = extract_ignored_subdirs sexps in
-          (Plain { path = file; sexps }, ignored_subdirs)
+          let decoder =
+            Dune_project.set_parsing_context project Sub_dirs.decode in
+          let sub_dirs, sexps =
+            Dune_lang.Decoder.parse decoder
+              Univ_map.empty (Dune_lang.Ast.List (Loc.none, sexps)) in
+          (Plain { path = file; sexps }, sub_dirs)
       in
-      ({ contents; kind }, ignored_subdirs))
+      ({ contents; kind }, sub_dirs))
 end
 
 let load_jbuild_ignore path =
@@ -143,17 +104,9 @@ module Dir = struct
         fold t ~traverse_ignored_dirs ~init:acc ~f)
 end
 
-type t =
-  { root : Dir.t
-  ; dirs : (Path.t, Dir.t) Hashtbl.t
-  }
+type t = Dir.t
 
-let root t = t.root
-
-let ignore_file fn ~is_directory =
-  fn = "" || fn = "." ||
-  (is_directory && (fn.[0] = '.' || fn.[0] = '_')) ||
-  (fn.[0] = '.' && fn.[1] = '#')
+let root t = t
 
 module File = struct
   type t =
@@ -176,10 +129,15 @@ end
 
 module File_map = Map.Make(File)
 
-let load ?(extra_ignored_subtrees=Path.Set.empty) path =
-  let rec walk path ~dirs_visited ~project ~ignored : Dir.t =
+let is_temp_file fn =
+  String.is_prefix fn ~prefix:".#"
+  || String.is_suffix fn ~suffix:".swp"
+  || String.is_suffix fn ~suffix:"~"
+
+let load ?(warn_when_seeing_jbuild_file=true) path =
+  let rec walk path ~dirs_visited ~project ~data_only : Dir.t =
     let contents = lazy (
-      let files, sub_dirs =
+      let files, unfiltered_sub_dirs =
         Path.readdir_unsorted path
         |> List.filter_partition_map ~f:(fun fn ->
           let path = Path.relative path fn in
@@ -194,119 +152,127 @@ let load ?(extra_ignored_subtrees=Path.Set.empty) path =
               | _ ->
                 (false, File.dummy)
             in
-            if ignore_file fn ~is_directory then
-              Skip
-            else if is_directory then
+            if is_directory then
               Right (fn, path, file)
+            else if is_temp_file fn then
+              Skip
             else
               Left fn
           end)
       in
       let files = String.Set.of_list files in
-      let sub_dirs =
+      let unfiltered_sub_dirs =
         List.sort
           ~compare:(fun (a, _, _) (b, _, _) -> String.compare a b)
-          sub_dirs
+          unfiltered_sub_dirs
       in
-      let project, dune_file, ignored_subdirs =
-        if ignored then
-          (project, None, String.Set.empty)
+      let project, dune_file, sub_dirs =
+        if data_only then
+          (project, None, Sub_dirs.default)
         else
           let project =
             Option.value (Dune_project.load ~dir:path ~files) ~default:project
           in
-          let dune_file, ignored_subdirs =
+          let dune_file, sub_dirs =
             match List.filter ["dune"; "jbuild"] ~f:(String.Set.mem files) with
-            | [] -> (None, String.Set.empty)
+            | [] -> (None, Sub_dirs.default)
             | [fn] ->
+              let file = Path.relative path fn in
               if fn = "dune" then
-                Dune_project.ensure_project_file_exists project;
-              let dune_file, ignored_subdirs =
-                Dune_file.load (Path.relative path fn)
-                  ~kind:(Dune_file.Kind.of_basename fn)
+                ignore (Dune_project.ensure_project_file_exists project
+                        : Dune_project.created_or_already_exist)
+              else if warn_when_seeing_jbuild_file then
+                Errors.warn (Loc.in_file file)
+                  "jbuild files are deprecated, please convert this file to \
+                   a dune file instead.\n\
+                   Note: You can use \"dune upgrade\" to convert your \
+                   project to dune.";
+              let dune_file, sub_dirs =
+                Dune_file.load file
+                  ~project
+                  ~kind:(Option.value_exn (Dune_lang.Syntax.of_basename fn))
               in
-              (Some dune_file, ignored_subdirs)
+              (Some dune_file, sub_dirs)
             | _ ->
               die "Directory %s has both a 'dune' and 'jbuild' file.\n\
                    This is not allowed"
                 (Path.to_string_maybe_quoted path)
           in
-          let ignored_subdirs =
+          let sub_dirs =
             if String.Set.mem files "jbuild-ignore" then
-              String.Set.union ignored_subdirs
-                (load_jbuild_ignore (Path.relative path "jbuild-ignore"))
+              Sub_dirs.add_data_only_dirs sub_dirs
+                ~dirs:(load_jbuild_ignore (Path.relative path "jbuild-ignore"))
             else
-              ignored_subdirs
+              sub_dirs
           in
-          (project, dune_file, ignored_subdirs)
+          (project, dune_file, sub_dirs)
       in
       let sub_dirs =
-        List.fold_left sub_dirs ~init:String.Map.empty
+        Sub_dirs.eval sub_dirs
+          ~dirs:(List.map ~f:(fun (a, _, _) -> a) unfiltered_sub_dirs) in
+      let sub_dirs =
+        List.fold_left unfiltered_sub_dirs ~init:String.Map.empty
           ~f:(fun acc (fn, path, file) ->
-            let dirs_visited =
-              if Sys.win32 then
-                dirs_visited
+            let status =
+              if Bootstrap.data_only_path path then
+                Sub_dirs.Status.Ignored
               else
-                match File_map.find dirs_visited file with
-                | None -> File_map.add dirs_visited file path
-                | Some first_path ->
-                  die "Path %s has already been scanned. \
-                       Cannot scan it again through symlink %s"
-                    (Path.to_string_maybe_quoted first_path)
-                    (Path.to_string_maybe_quoted path)
+                Sub_dirs.status sub_dirs ~dir:fn
             in
-            let ignored =
-              ignored
-              || String.Set.mem ignored_subdirs fn
-              || Path.Set.mem extra_ignored_subtrees path
-            in
-            String.Map.add acc fn
-              (walk path ~dirs_visited ~project ~ignored))
+            match status with
+            | Ignored -> acc
+            | Normal | Data_only ->
+              let data_only = data_only || status = Data_only in
+              let dirs_visited =
+                if Sys.win32 then
+                  dirs_visited
+                else
+                  match File_map.find dirs_visited file with
+                  | None -> File_map.add dirs_visited file path
+                  | Some first_path ->
+                    die "Path %s has already been scanned. \
+                         Cannot scan it again through symlink %s"
+                      (Path.to_string_maybe_quoted first_path)
+                      (Path.to_string_maybe_quoted path)
+              in
+              walk path ~dirs_visited ~project ~data_only
+              |> String.Map.add acc fn)
       in
       { Dir. files; sub_dirs; dune_file; project })
     in
     { path
     ; contents
-    ; ignored
+    ; ignored = data_only
     }
   in
-  let root =
-    walk path
-      ~dirs_visited:(File_map.singleton
-                       (File.of_stats (Unix.stat (Path.to_string path)))
-                       path)
-      ~ignored:false
-      ~project:(Lazy.force Dune_project.anonymous)
-  in
-  let dirs = Hashtbl.create 1024      in
-  Hashtbl.add dirs Path.root root;
-  { root; dirs }
+  walk path
+    ~dirs_visited:(File_map.singleton
+                     (File.of_stats (Unix.stat (Path.to_string path)))
+                     path)
+    ~data_only:false
+    ~project:(Lazy.force Dune_project.anonymous)
 
-let fold t ~traverse_ignored_dirs ~init ~f =
-  Dir.fold t.root ~traverse_ignored_dirs ~init ~f
+let fold = Dir.fold
 
 let rec find_dir t path =
   if not (Path.is_managed path) then
     None
+  else if Path.equal (Dir.path t) path then
+    Some t
   else
-    match Hashtbl.find t.dirs path with
+    match
+      let open Option.O in
+      Path.parent path
+      >>= find_dir t
+      >>= fun parent ->
+      String.Map.find (Dir.sub_dirs parent) (Path.basename path)
+    with
     | Some _ as res -> res
     | None ->
-      match
-        let open Option.O in
-        Path.parent path
-        >>= find_dir t
-        >>= fun parent ->
-        String.Map.find (Dir.sub_dirs parent) (Path.basename path)
-      with
-      | Some dir as res ->
-        Hashtbl.add t.dirs path dir;
-        res
-      | None ->
-        (* We don't cache failures in [t.dirs]. The expectation is
-           that these only happen when the user writes an invalid path
-           in a jbuild file, so there is no need to cache them. *)
-        None
+      (* We don't cache failures in [t.dirs]. The expectation is
+         that these only happen when the user writes an invalid path
+         in a jbuild file, so there is no need to cache them. *)
+      None
 
 let files_of t path =
   match find_dir t path with

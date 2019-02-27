@@ -140,9 +140,9 @@ module Local : sig
   val compare : t -> t -> Ordering.t
   val compare_val : t -> t -> Ordering.t
   val equal : t -> t -> bool
-  val of_string : ?error_loc:Loc.t -> string -> t
+  val of_string : ?error_loc:Loc0.t -> string -> t
   val to_string : t -> string
-  val relative : ?error_loc:Loc.t -> t -> string -> t
+  val relative : ?error_loc:Loc0.t -> t -> string -> t
   val append : t -> t -> t
   val parent : t -> t
   val mkdir_p : t -> unit
@@ -154,6 +154,11 @@ module Local : sig
   val extension : t -> string
   val is_suffix : t -> suffix:string -> bool
   val split_extension : t -> t * string
+  val pp : Format.formatter -> t -> unit
+
+  module L : sig
+    val relative : ?error_loc:Loc0.t -> t -> string list -> t
+  end
   module Set : Set.S with type elt = t
 
   module Prefix : sig
@@ -174,6 +179,8 @@ end = struct
       let resize_policy = Interned.Greedy
       let order = Interned.Natural
     end)()
+
+  let pp ppf s = Format.pp_print_string ppf (to_string s)
 
   let compare_val x y = String.compare (to_string x) (to_string y)
 
@@ -226,6 +233,33 @@ end = struct
 
   let to_sexp t = Sexp.Encoder.string (to_string t)
 
+  module L = struct
+    let relative_result t components =
+      let rec loop t components =
+        match components with
+        | [] -> Result.Ok t
+        | "." :: rest -> loop t rest
+        | ".." :: rest ->
+          if is_root t then
+            Result.Error ()
+          else
+            loop (parent t) rest
+        | fn :: rest ->
+          if is_root t then
+            loop (make fn) rest
+          else
+            loop (make (to_string t ^ "/" ^ fn)) rest
+      in loop t components
+
+    let relative ?error_loc t components =
+      match relative_result t components with
+      | Result.Ok t -> t
+      | Error () ->
+        Exn.fatalf ?loc:error_loc "path outside the workspace: %s from %s"
+          (String.concat ~sep:"/" components)
+          (to_string t)
+  end
+
   let relative ?error_loc t path =
     if not (Filename.is_relative path) then (
       Exn.code_error "Local.relative: received absolute path"
@@ -233,25 +267,11 @@ end = struct
         ; "path", Sexp.Encoder.string path
         ]
     );
-    let rec loop t components =
-      match components with
-      | [] -> Result.Ok t
-      | "." :: rest -> loop t rest
-      | ".." :: rest ->
-        if is_root t then
-          Result.Error ()
-        else
-          loop (parent t) rest
-      | fn :: rest ->
-        if is_root t then
-          loop (make fn) rest
-        else
-          loop (make (to_string t ^ "/" ^ fn)) rest
-    in
-    match loop t (explode_path path) with
+    match L.relative_result t (explode_path path) with
     | Result.Ok t -> t
     | Error () ->
-      Exn.fatalf ?loc:error_loc "path outside the workspace: %s from %s" path
+      Exn.fatalf ?loc:error_loc "path outside the workspace: %s from %s"
+        path
         (to_string t)
 
   let is_canonicalized =
@@ -545,6 +565,8 @@ end
 
 include T
 
+let hash (t : t) = Hashtbl.hash t
+
 let build_dir = in_build_dir Local.root
 
 let is_root = function
@@ -604,10 +626,10 @@ let of_string ?error_loc s =
   match s with
   | "" | "." -> in_source_tree Local.root
   | s  ->
-    if not (Filename.is_relative s) then
-      external_ (External.of_string s)
-    else
+    if Filename.is_relative s then
       make_local_path (Local.of_string s ?error_loc)
+    else
+      external_ (External.of_string s)
 
 let to_sexp t =
   let constr f x y = Sexp.Encoder.(pair string f) (x, y) in
@@ -660,14 +682,18 @@ let reach_for_running ?(from=root) t =
   | _       -> fn
 
 let descendant t ~of_ =
-  match kind t, kind of_ with
-  | Local t, Local of_ -> Option.map ~f:in_source_tree (Local.descendant t ~of_)
-  | _, _ -> None
+  match t, of_ with
+  | In_source_tree t, In_source_tree of_
+  | In_build_dir t, In_build_dir of_ ->
+    Option.map ~f:in_source_tree (Local.descendant t ~of_)
+  | _ -> None
 
 let is_descendant t ~of_ =
-  match kind t, kind of_ with
-  | Local t, Local of_ -> Local.is_descendant t ~of_
-  | _, _ -> false
+  match t, of_ with
+  | In_source_tree t, In_source_tree of_
+  | In_build_dir t, In_build_dir of_ ->
+    Local.is_descendant t ~of_
+  | _ -> false
 
 let append_local a b =
   match a with
@@ -926,6 +952,9 @@ let split_extension t =
     (in_source_tree t, ext)
 
 let pp ppf t = Format.pp_print_string ppf (to_string_maybe_quoted t)
+
+let pp_in_source ppf t =
+  pp ppf (drop_optional_build_context t)
 
 let pp_debug ppf = function
   | In_source_tree s ->
