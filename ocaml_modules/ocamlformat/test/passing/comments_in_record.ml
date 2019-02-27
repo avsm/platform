@@ -12,6 +12,11 @@ type t =
   ; c: string
   ; d: [`something_looooooooooooooooooooooooooooooooong] }
 
+type t = { a : int (* Comment *); b : int (* Comment *) }
+
+type t = { a : int (* Comment *); b : int (* Comment *) }
+[@@ocamlformat "type-decl=sparse"]
+
 let { (* cmts *)
       pat
     ; loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong

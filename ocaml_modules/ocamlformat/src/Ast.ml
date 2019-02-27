@@ -153,8 +153,8 @@ let is_sequence exp =
   | Pexp_extension
       ( ext
       , PStr
-          [ { pstr_desc= Pstr_eval (({pexp_desc= Pexp_sequence _} as e), []); _
-            } ] )
+          [ { pstr_desc= Pstr_eval (({pexp_desc= Pexp_sequence _} as e), [])
+            ; _ } ] )
     when Source.extension_using_sugar ~name:ext ~payload:e ->
       true
   | _ -> false
@@ -236,9 +236,7 @@ module Structure_item : Module_item with type t = structure_item = struct
 
   let is_simple (itm, c) =
     match c.Conf.module_item_spacing with
-    | `Compact ->
-        Location.width itm.pstr_loc <= c.Conf.margin
-        && Location.is_single_line itm.pstr_loc
+    | `Compact -> Location.is_single_line itm.pstr_loc c.Conf.margin
     | `Sparse -> (
       match itm.pstr_desc with
       | Pstr_include {pincl_mod= me} | Pstr_module {pmb_expr= me} ->
@@ -247,11 +245,12 @@ module Structure_item : Module_item with type t = structure_item = struct
             | Pmod_apply (me1, me2) ->
                 is_simple_mod me1 && is_simple_mod me2
             | Pmod_functor (_, _, me) -> is_simple_mod me
-            | Pmod_ident _ -> true
+            | Pmod_ident _ ->
+                Location.is_single_line me.pmod_loc c.Conf.margin
             | _ -> false
           in
           is_simple_mod me
-      | Pstr_open _ -> true
+      | Pstr_open _ -> Location.is_single_line itm.pstr_loc c.Conf.margin
       | _ -> false )
 
   let allow_adjacent (itmI, cI) (itmJ, cJ) =
@@ -315,13 +314,11 @@ module Signature_item : Module_item with type t = signature_item = struct
 
   let is_simple (itm, c) =
     match c.Conf.module_item_spacing with
-    | `Compact ->
-        Location.width itm.psig_loc <= c.Conf.margin
-        && Location.is_single_line itm.psig_loc
+    | `Compact -> Location.is_single_line itm.psig_loc c.Conf.margin
     | `Sparse -> (
       match itm.psig_desc with
-      | Psig_open _ -> true
-      | Psig_module {pmd_type= {pmty_desc= Pmty_alias _}} -> true
+      | Psig_open _ | Psig_module {pmd_type= {pmty_desc= Pmty_alias _}} ->
+          Location.is_single_line itm.psig_loc c.Conf.margin
       | _ -> false )
 
   let allow_adjacent (itmI, cI) (itmJ, cJ) =
@@ -357,8 +354,7 @@ module Expression : Module_item with type t = expression = struct
 
   let is_simple (i, c) =
     Poly.(c.Conf.module_item_spacing = `Compact)
-    && Location.width i.pexp_loc <= c.Conf.margin
-    && Location.is_single_line i.pexp_loc
+    && Location.is_single_line i.pexp_loc c.Conf.margin
 
   let break_between cmts (i1, c1) (i2, c2) =
     Cmts.has_after cmts i1.pexp_loc
@@ -388,15 +384,16 @@ let rec is_trivial c exp =
       is_trivial c e1
   | _ -> false
 
+let is_doc = function
+  | {Location.txt= "ocaml.doc" | "ocaml.text"}, _ -> false
+  | _ -> true
+
 let has_trailing_attributes_exp {pexp_desc; pexp_attributes} =
   match pexp_desc with
   | Pexp_fun _ | Pexp_function _ | Pexp_ifthenelse _ | Pexp_match _
    |Pexp_newtype _ | Pexp_try _ ->
       false
-  | _ ->
-      List.exists pexp_attributes ~f:(function
-        | {Location.txt= "ocaml.doc" | "ocaml.text"}, _ -> false
-        | _ -> true )
+  | _ -> List.exists pexp_attributes ~f:is_doc
 
 let has_trailing_attributes_pat {ppat_desc; ppat_attributes} =
   match ppat_desc with
@@ -406,22 +403,13 @@ let has_trailing_attributes_pat {ppat_desc; ppat_attributes} =
    |Ppat_record _ | Ppat_array _ | Ppat_type _ | Ppat_unpack _
    |Ppat_extension _ | Ppat_open _ | Ppat_interval _ ->
       false
-  | _ ->
-      List.exists ppat_attributes ~f:(function
-        | {Location.txt= "ocaml.doc" | "ocaml.text"}, _ -> false
-        | _ -> true )
+  | _ -> List.exists ppat_attributes ~f:is_doc
 
-let has_trailing_attributes_mty {pmty_desc; pmty_attributes} =
-  match pmty_desc with _ ->
-    List.exists pmty_attributes ~f:(function
-      | {Location.txt= "ocaml.doc" | "ocaml.text"}, _ -> false
-      | _ -> true )
+let has_trailing_attributes_mty {pmty_attributes} =
+  List.exists pmty_attributes ~f:is_doc
 
-let has_trailing_attributes_mod {pmod_desc; pmod_attributes} =
-  match pmod_desc with _ ->
-    List.exists pmod_attributes ~f:(function
-      | {Location.txt= "ocaml.doc" | "ocaml.text"}, _ -> false
-      | _ -> true )
+let has_trailing_attributes_mod {pmod_attributes} =
+  List.exists pmod_attributes ~f:is_doc
 
 (** Ast terms of various forms. *)
 module T = struct
@@ -500,11 +488,50 @@ end
 
 include T
 
+let attributes = function
+  | Pld _ -> []
+  | Typ x -> x.ptyp_attributes
+  | Cty x -> x.pcty_attributes
+  | Pat x -> x.ppat_attributes
+  | Exp x -> x.pexp_attributes
+  | Cl x -> x.pcl_attributes
+  | Mty x -> x.pmty_attributes
+  | Mod x -> x.pmod_attributes
+  | Sig _ -> []
+  | Str _ -> []
+  | Top -> []
+
+let location = function
+  | Pld _ -> Location.none
+  | Typ x -> x.ptyp_loc
+  | Cty x -> x.pcty_loc
+  | Pat x -> x.ppat_loc
+  | Exp x -> x.pexp_loc
+  | Cl x -> x.pcl_loc
+  | Mty x -> x.pmty_loc
+  | Mod x -> x.pmod_loc
+  | Sig x -> x.psig_loc
+  | Str x -> x.pstr_loc
+  | Top -> Location.none
+
+let break_between_modules cmts (i1, c1) (i2, c2) =
+  let has_doc itm = Option.is_some (fst (doc_atrs (attributes itm))) in
+  let is_simple (itm, c) =
+    Location.is_single_line (location itm) c.Conf.margin
+  in
+  Cmts.has_after cmts (location i1)
+  || Cmts.has_before cmts (location i2)
+  || has_doc i1 || has_doc i2
+  || (not (is_simple (i1, c1)))
+  || not (is_simple (i2, c2))
+
 let break_between cmts (i1, c1) (i2, c2) =
   match (i1, i2) with
   | Str i1, Str i2 -> Structure_item.break_between cmts (i1, c1) (i2, c2)
   | Sig i1, Sig i2 -> Signature_item.break_between cmts (i1, c1) (i2, c2)
   | Exp i1, Exp i2 -> Expression.break_between cmts (i1, c1) (i2, c2)
+  | Mty _, Mty _ -> break_between_modules cmts (i1, c1) (i2, c2)
+  | Mod _, Mod _ -> break_between_modules cmts (i1, c1) (i2, c2)
   | _ -> assert false
 
 (** Precedence levels of Ast terms. *)
@@ -1587,10 +1614,9 @@ end = struct
       parenthesized in context [ctx]. *)
   let parenze_cty ({ctx; ast= cty} as xcty) =
     assert (check_cty xcty ; true) ;
-    match xcty with _ -> (
-      match ambig_prec (sub_ast ~ctx (Cty cty)) with
-      | Some (Some true) -> true
-      | _ -> false )
+    match ambig_prec (sub_ast ~ctx (Cty cty)) with
+    | Some (Some true) -> true
+    | _ -> false
 
   (** [parenze_mty {ctx; ast}] holds when module type [ast] should be
       parenthesized in context [ctx]. *)
@@ -1648,7 +1674,10 @@ end = struct
       , Ppat_constraint (_, {ptyp_desc= Ptyp_poly _}) ) ->
         false
     | ( (Exp {pexp_desc= Pexp_let _} | Str {pstr_desc= Pstr_value _})
-      , Ppat_constraint ({ppat_desc= Ppat_any | Ppat_tuple _}, _) ) ->
+      , Ppat_constraint ({ppat_desc= Ppat_any}, _) ) ->
+        true
+    | ( (Exp {pexp_desc= Pexp_let _} | Str {pstr_desc= Pstr_value _})
+      , Ppat_constraint ({ppat_desc= Ppat_tuple _}, _) ) ->
         false
     | ( (Exp {pexp_desc= Pexp_let _} | Str {pstr_desc= Pstr_value _})
       , Ppat_constraint _ ) ->
@@ -2068,11 +2097,10 @@ end = struct
       parenthesized in context [ctx]. *)
   and parenze_cl ({ctx; ast= cl} as xcl) =
     assert (check_cl xcl ; true) ;
-    match xcl with _ -> (
-      match ambig_prec (sub_ast ~ctx (Cl cl)) with
-      | None -> false
-      | Some (Some true) -> true
-      | _ -> exposed_right_cl Non_apply cl )
+    match ambig_prec (sub_ast ~ctx (Cl cl)) with
+    | None -> false
+    | Some (Some true) -> true
+    | _ -> exposed_right_cl Non_apply cl
 
   let rec exposed_left_typ typ =
     match typ.ptyp_desc with

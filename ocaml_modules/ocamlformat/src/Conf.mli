@@ -12,9 +12,11 @@
 (** Configuration options *)
 
 type t =
-  { break_cases: [`Fit | `Nested | `All]
+  { break_cases: [`Fit | `Nested | `Toplevel | `All]
   ; break_collection_expressions: [`Wrap | `Fit_or_vertical]
   ; break_infix: [`Wrap | `Fit_or_vertical]
+  ; break_infix_before_func: bool
+  ; break_separators: [`Before | `After | `After_and_docked]
   ; break_sequences: bool
   ; break_string_literals: [`Newlines | `Never | `Wrap]
         (** How to potentially break string literals into new lines. *)
@@ -23,6 +25,7 @@ type t =
   ; comment_check: bool
   ; disable: bool
   ; doc_comments: [`Before | `After]
+  ; doc_comments_padding: int
   ; escape_chars: [`Decimal | `Hexadecimal | `Preserve]
         (** Escape encoding for chars literals. *)
   ; escape_strings: [`Decimal | `Hexadecimal | `Preserve]

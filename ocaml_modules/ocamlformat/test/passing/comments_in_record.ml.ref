@@ -10,19 +10,23 @@ type t =
   ; c: string
   ; d: [`something_looooooooooooooooooooooooooooooooong] }
 
+type t = {a: int (* Comment *); b: int (* Comment *)}
+
+type t =
+  { a: int (* Comment *)
+  ; b: int (* Comment *) }
+[@@ocamlformat "type-decl=sparse"]
+
 let { (* cmts *)
         pat
     ; loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong
     ; a
     ; (* b *) b
     ; (* c *) c
-    ; d=
-        (* d *)
-        (D :
-          loooooooooooooooooooooooooooooooooooooooooooooooooooooooong_int)
+    ; (* d *)
+      d: loooooooooooooooooooooooooooooooooooooooooooooooooooooooong_int = D
     ; (* e *)
-      e : loooooooooooooooooooooooooooooooooooooooooooooooooooooooong_int }
-    =
+      e: loooooooooooooooooooooooooooooooooooooooooooooooooooooooong_int } =
   exp
 
 let x =

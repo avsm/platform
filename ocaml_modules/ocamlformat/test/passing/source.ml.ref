@@ -1746,8 +1746,10 @@ let rec filter : type a n. (a -> bool) -> (a, n) seq -> (a, n) filter =
   match s with
   | Snil -> Filter (LeZ NZ, Snil)
   | Scons (a, l) -> (
-    match filter f l with Filter (le, l') ->
-      if f a then Filter (LeS le, Scons (a, l')) else Filter (leS' le, l') )
+    match filter f l with
+    | Filter (le, l') ->
+        if f a then Filter (LeS le, Scons (a, l')) else Filter (leS' le, l')
+    )
 
 (* 4.1 AVL trees *)
 
@@ -2277,7 +2279,8 @@ let rec rule : type a b.
  fun v1 v2 ->
   match (v1, v2) with
   | Lam (x, body), v -> (
-    match subst body (Bind (x, v, Id)) with Ex term -> (
+    match subst body (Bind (x, v, Id)) with
+    | Ex term -> (
       match mode term with Pexp -> Inl term | Pval -> Inr term ) )
   | Const (IntTo b, f), Const (IntR, x) -> Inr (Const (b, f x))
 
@@ -2715,6 +2718,7 @@ let f (type a) (x : a t) =
     let (I : a t) = x
 
     (* fail because of toplevel let *)
+
     let x : a t = I
   end in
   ()
@@ -2731,6 +2735,7 @@ let bad (type a) =
       let (Refl : (int, a) eq) = M.e
 
       (* must fail for soundness *)
+
       let e : (int, a) eq = Refl
     end
   end in
@@ -3497,8 +3502,7 @@ let ssmap =
   )
 
 let ssmap :
-    (module
-     MapT
+    (module MapT
        with type key = string
         and type data = string
         and type map = SSMap.map) =
@@ -4837,6 +4841,7 @@ module A_annotated_alias : S with type t = (module A.A_S) = A
 let _ = f (module A_annotated_alias)
 
 (* ok *)
+
 let _ = f (module A_annotated_alias : S with type t = (module A.A_S))
 
 (* ok *)
@@ -4850,6 +4855,7 @@ end
 let _ = f (module A_alias_expanded : S with type t = (module A.A_S))
 
 (* ok *)
+
 let _ = f (module A_alias_expanded)
 
 (* ok *)
@@ -4857,9 +4863,11 @@ let _ = f (module A_alias_expanded)
 let _ = f (module A_alias : S with type t = (module A.A_S))
 
 (* doesn't type *)
+
 let _ = f (module A_alias)
 
 (* doesn't type either *)
+
 module Foo (Bar : sig
   type a = private [> `A]
 end) (Baz : module type of struct
@@ -5475,6 +5483,7 @@ module M = struct
   module Y = FF (X)
 
   (* XXX *)
+
   type t = Y.t
 end
 
@@ -6985,7 +6994,6 @@ module PR_4261 = struct
   end
 
   module rec U : (T with module D = U') = U
-  
   and U' : (S with type t = U'.t) = U
 end
 
@@ -7085,7 +7093,7 @@ module Bootstrap2 (MakeDiet : functor (X : ORD) -> SET
           done
       | D (_, d, _) -> Diet.iter (iter f) d
   end
-  
+
   and Diet : (SET with type t = Elt.t tree and type elt = Elt.t) =
     MakeDiet (Elt)
 
@@ -7124,7 +7132,7 @@ module PR_4758 = struct
   end
 
   module rec A : S = struct end
-  
+
   and C : sig
     include Mod with module Other = A
   end = struct
@@ -7134,6 +7142,7 @@ module PR_4758 = struct
   module C' = C
 
   (* check that we can take an alias *)
+
   module F (X : sig end) = struct
     type t
   end
@@ -7172,7 +7181,7 @@ module PR_4557 = struct
 
       let compare x y = 0
     end
-    
+
     and ModSet : (Set.S with type elt = Mod.t) = Set.Make (Mod)
   end
 end
@@ -7206,7 +7215,7 @@ module F (X : Set.OrderedType) = struct
 
     let compare x y = 0
   end
-  
+
   and ModSet : (Set.S with type elt = Mod.t) = Set.Make (Mod)
 end
 
@@ -7316,7 +7325,7 @@ module rec Strengthen : sig
 end = struct
   type t = A | B
 
-  let _ : Strengthen.t = A
+  let (_ : Strengthen.t) = A
 
   let f x = if true then A else Strengthen.f B
 end
@@ -7336,14 +7345,14 @@ module rec Strengthen2 : sig
 end = struct
   type t = A | B
 
-  let _ : Strengthen2.t = A
+  let (_ : Strengthen2.t) = A
 
   let f x = if true then A else Strengthen2.f B
 
   module M = struct
     type u = C
 
-    let _ : Strengthen2.M.u = C
+    let (_ : Strengthen2.M.u) = C
   end
 
   module rec R : sig
@@ -7351,9 +7360,9 @@ end = struct
   end = struct
     type v = D
 
-    let _ : R.v = D
+    let (_ : R.v) = D
 
-    let _ : Strengthen2.R.v = D
+    let (_ : Strengthen2.R.v) = D
   end
 end
 
@@ -7527,7 +7536,7 @@ module Bootstrap (MakeH : functor (Element : ORDERED) -> HEAP
       | E, H _ -> true
       | E, E -> false
   end
-  
+
   and PrimH : (HEAP with type Elem.t = BE.t) = MakeH (BE)
 
   type heap = BE.t
@@ -7655,7 +7664,7 @@ let _ =
             method m = 123
           end
       end
-      
+
       and BadClass2 : sig
         val x : int
       end = struct
@@ -8085,9 +8094,11 @@ module type VALUE = sig
   type value
 
   (* a Lua value *)
+
   type state
 
   (* the state of a Lua interpreter *)
+
   type usert
 
   (* a user-defined value *)
@@ -8735,6 +8746,7 @@ module X2 : sig end = struct
   let x = 42
 
   (* unused value *)
+
   let _f = function
     | A ->
         let x = () in
@@ -8771,6 +8783,7 @@ module OK = struct
   let f1 (r : t) = r.x
 
   (* ok *)
+
   let f2 r =
     ignore (r : t) ;
     r.x
@@ -9006,6 +9019,7 @@ module Shadow1 = struct
   open M
 
   (* this open is unused, it isn't reported as shadowing 'x' *)
+
   let y : t = {x= 0}
 end
 
@@ -9019,6 +9033,7 @@ module Shadow2 = struct
   open M
 
   (* this open shadows label 'x' *)
+
   let y = {x= ""}
 end
 
@@ -9204,9 +9219,9 @@ let _ =
     type t = {x: int}
   end in
   let f M.(x) = () in
-  let g M.({x}) = () in
-  let h = function M.([]) | M.([a]) | M.(a :: q) -> () in
-  let i = function M.([||]) | M.([|x|]) -> true | _ -> false in
+  let g M.{x} = () in
+  let h = function M.[] | M.[a] | M.(a :: q) -> () in
+  let i = function M.[||] | M.[|x|] -> true | _ -> false in
   ()
 
 class ['a] c () =
@@ -9256,7 +9271,7 @@ class type t = object ((_[@foo])) end
 
 let test f x = f ~x:(x [@foo])
 
-let f = function ((`A | `B)[@bar]) | `C -> ()
+let f = function (`A | `B)[@bar] | `C -> ()
 
 let f = function _ :: ((_ :: _)[@foo]) -> () | _ -> ()
 
@@ -9294,7 +9309,7 @@ module Exotic_list = struct
     type ('a, 'b) t = [] | ( :: ) of 'a * 'b * ('a, 'b) t
   end
 
-  let (Inner.( :: ) (x, y, Inner.([]))) = Inner.( :: ) (1, "one", Inner.[])
+  let (Inner.( :: ) (x, y, Inner.[])) = Inner.( :: ) (1, "one", Inner.[])
 end
 
 (** Extended index operators *)

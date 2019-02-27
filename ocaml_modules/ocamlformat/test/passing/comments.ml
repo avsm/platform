@@ -129,3 +129,16 @@ type t = {
 a : int [@default a]
 (* comment *)
 ;  b : flag }
+
+let () =
+  (* *)
+  
+  (* *)
+  ()
+
+(* break when unicode sequence length measured in bytes but ¬ in code points *)
+
+type t =
+  | Aaaaaaaaaa (* Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. *)
+  | Bbbbbbbbbb (* foo *)
+  | Bbbbbbbbbb (* foo *)

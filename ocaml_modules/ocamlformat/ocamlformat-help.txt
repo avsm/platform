@@ -25,10 +25,17 @@ OPTIONS (CODE FORMATTING STYLE)
        has the lowest priority, then the closer the directory is to the
        processed file, the higher the priority.
 
-       --break-cases={fit|nested|all}
+       An .ocamlformat-ignore file specifies files that OCamlFormat should
+       ignore. Each line in an .ocamlformat-ignore file specifies a filename
+       relative to the directory containing the .ocamlformat-ignore file.
+       Lines starting with # are ignored and can be used as comments.
+
+       --break-cases={fit|nested|toplevel|all}
            Break pattern match cases. Specifying fit lets pattern matches
            break at the margin naturally. nested forces a break after nested
-           or-patterns to highlight the case body. all forces all pattern
+           or-patterns to highlight the case body. toplevel forces top-level
+           cases (i.e. not nested or-patterns) to break across lines,
+           otherwise break naturally at the margin. all forces all pattern
            matches to break across lines. The default value is fit.
 
        --break-collection-expressions={fit-or-vertical|wrap}
@@ -43,6 +50,13 @@ OPTIONS (CODE FORMATTING STYLE)
            expressions and try to format them in a single line.
            fit-or-vertical vertically breaks expressions if they do not fit
            on a single line. The default value is wrap.
+
+       --break-separators={before|after|after-and-docked}
+           Break before or after separators such as `;` in list or record
+           expressions. before breaks the expressions before the separator.
+           after breaks the expressions after the separator. after-and-docked
+           breaks the expressions after the separator and docks the brackets
+           for records. The default value is before.
 
        --break-sequences
            Force sequence expressions to break irrespective of margin.
@@ -73,6 +87,10 @@ OPTIONS (CODE FORMATTING STYLE)
            Doc comments position. after puts doc comments after the
            corresponding code. before puts comments before the corresponding
            code. The default value is after.
+
+       --doc-comments-padding=PADDING
+           Add PADDING spaces before doc comments in type declarations. The
+           default value is 2.
 
        --escape-chars={preserve|decimal|hexadecimal}
            Escape encoding for character literals. preserve escapes ASCII
@@ -138,6 +156,12 @@ OPTIONS (CODE FORMATTING STYLE)
            always break a line between two items. compact will not leave open
            lines between one-liners of similar sorts. The default value is
            sparse.
+
+       --no-break-infix-before-func
+           Break infix operators whose right arguments are anonymous
+           functions specially: do not break after the operator so that the
+           first line of the function appears docked at the end of line after
+           the operator.
 
        --no-indicate-multiline-delimiters
            Print a space inside a delimiter to indicate that it's matching
@@ -242,7 +266,7 @@ OPTIONS
            exclusive with --inplace.
 
        --no-comment-check
-           UNSAFE: Control wether to check comments and documentation
+           UNSAFE: Control whether to check comments and documentation
            comments. May be set in .ocamlformat.
 
        --no-version-check

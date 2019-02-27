@@ -12,9 +12,11 @@
 (** Configuration options *)
 
 type t =
-  { break_cases: [`Fit | `Nested | `All]
+  { break_cases: [`Fit | `Nested | `Toplevel | `All]
   ; break_collection_expressions: [`Wrap | `Fit_or_vertical]
   ; break_infix: [`Wrap | `Fit_or_vertical]
+  ; break_infix_before_func: bool
+  ; break_separators: [`Before | `After | `After_and_docked]
   ; break_sequences: bool
   ; break_string_literals: [`Newlines | `Never | `Wrap]
   ; break_struct: bool
@@ -22,6 +24,7 @@ type t =
   ; comment_check: bool
   ; disable: bool
   ; doc_comments: [`Before | `After]
+  ; doc_comments_padding: int
   ; escape_chars: [`Decimal | `Hexadecimal | `Preserve]
   ; escape_strings: [`Decimal | `Hexadecimal | `Preserve]
   ; extension_sugar: [`Preserve | `Always]
@@ -303,7 +306,8 @@ end = struct
     let docs = section_name section in
     let term = Arg.(value & flag & info names_for_cmdline ~doc ~docs) in
     let parse s =
-      try Ok (Bool.of_string s) with _ ->
+      try Ok (Bool.of_string s)
+      with _ ->
         Error
           (Format.sprintf "invalid value '%s', expecting 'true' or 'false'"
              s)
@@ -334,7 +338,8 @@ end = struct
       Arg.(value & opt (some int) None & info names ~doc ~docs ~docv)
     in
     let parse s =
-      try Ok (Int.of_string s) with _ ->
+      try Ok (Int.of_string s)
+      with _ ->
         Error (Format.sprintf "invalid value '%s', expecting an integer" s)
     in
     let r = mk ~default:None term in
@@ -461,7 +466,13 @@ let info =
          for each input file are used, as well as the global .ocamlformat \
          file defined in $(b,\\$XDG_CONFIG_HOME/ocamlformat). The global \
          .ocamlformat file has the lowest priority, then the closer the \
-         directory is to the processed file, the higher the priority." ]
+         directory is to the processed file, the higher the priority."
+    ; `P
+        "An $(b,.ocamlformat-ignore) file specifies files that OCamlFormat \
+         should ignore.  Each line in an $(b,.ocamlformat-ignore) file \
+         specifies a filename relative to the directory containing the \
+         $(b,.ocamlformat-ignore) file. Lines starting with $(b,#) are \
+         ignored and can be used as comments." ]
   in
   Term.info "ocamlformat" ~version:Version.version ~doc ~man
 
@@ -481,6 +492,11 @@ module Formatting = struct
         , `Nested
         , "$(b,nested) forces a break after nested or-patterns to \
            highlight the case body." )
+      ; ( "toplevel"
+        , `Toplevel
+        , "$(b,toplevel) forces top-level cases (i.e. not nested \
+           or-patterns) to break across lines, otherwise break naturally \
+           at the margin." )
       ; ( "all"
         , `All
         , "$(b,all) forces all pattern matches to break across lines." ) ]
@@ -524,6 +540,40 @@ module Formatting = struct
     C.choice ~names ~all ~doc ~section
       (fun conf x -> {conf with break_infix= x})
       (fun conf -> conf.break_infix)
+
+  let break_infix_before_func =
+    let doc =
+      "Break infix operators whose right arguments are anonymous functions \
+       specially: do not break after the operator so that the first line \
+       of the function appears docked at the end of line after the \
+       operator."
+    in
+    let names = ["break-infix-before-func"] in
+    C.flag ~default:true ~names ~doc ~section
+      (fun conf x -> {conf with break_infix_before_func= x})
+      (fun conf -> conf.break_infix_before_func)
+
+  let break_separators =
+    let doc =
+      "Break before or after separators such as `;` in list or record \
+       expressions."
+    in
+    let names = ["break-separators"] in
+    let all =
+      [ ( "before"
+        , `Before
+        , "$(b,before) breaks the expressions before the separator." )
+      ; ( "after"
+        , `After
+        , "$(b,after) breaks the expressions after the separator." )
+      ; ( "after-and-docked"
+        , `After_and_docked
+        , "$(b,after-and-docked) breaks the expressions after the \
+           separator and docks the brackets for records." ) ]
+    in
+    C.choice ~names ~all ~doc ~section
+      (fun conf x -> {conf with break_separators= x})
+      (fun conf -> conf.break_separators)
 
   let break_sequences =
     let doc =
@@ -605,6 +655,16 @@ module Formatting = struct
     C.choice ~names ~all ~doc ~section
       (fun conf x -> {conf with doc_comments= x})
       (fun conf -> conf.doc_comments)
+
+  let doc_comments_padding =
+    let docv = "PADDING" in
+    let doc =
+      "Add $(docv) spaces before doc comments in type declarations."
+    in
+    let names = ["doc-comments-padding"] in
+    C.int ~names ~default:2 ~doc ~docv ~section
+      (fun conf x -> {conf with doc_comments_padding= x})
+      (fun conf -> conf.doc_comments_padding)
 
   let escape_chars =
     let doc = "Escape encoding for character literals." in
@@ -963,7 +1023,7 @@ let docs = C.section_name section
 let comment_check =
   let default = true in
   let doc =
-    "UNSAFE: Control wether to check comments and documentation comments. \
+    "UNSAFE: Control whether to check comments and documentation comments. \
      May be set in $(b,.ocamlformat)."
   in
   C.flag ~default ~names:["comment-check"] ~doc ~section
@@ -1159,6 +1219,8 @@ let default_profile =
   ; break_collection_expressions=
       C.default Formatting.break_collection_expressions
   ; break_infix= C.default Formatting.break_infix
+  ; break_infix_before_func= C.default Formatting.break_infix_before_func
+  ; break_separators= C.default Formatting.break_separators
   ; break_sequences= C.default Formatting.break_sequences
   ; break_string_literals= C.default Formatting.break_string_literals
   ; break_struct= Poly.(C.default Formatting.break_struct = `Force)
@@ -1166,6 +1228,7 @@ let default_profile =
   ; comment_check= C.default comment_check
   ; disable= C.default Formatting.disable
   ; doc_comments= C.default Formatting.doc_comments
+  ; doc_comments_padding= C.default Formatting.doc_comments_padding
   ; escape_chars= C.default Formatting.escape_chars
   ; escape_strings= C.default Formatting.escape_strings
   ; extension_sugar= C.default Formatting.extension_sugar
@@ -1237,10 +1300,12 @@ let sparse_profile =
   ; wrap_fun_args= false }
 
 let janestreet_profile =
-  { break_cases= `Fit
+  { break_cases= `Toplevel
   ; break_collection_expressions=
       default_profile.break_collection_expressions
   ; break_infix= `Fit_or_vertical
+  ; break_infix_before_func= true
+  ; break_separators= `Before
   ; break_sequences= true
   ; break_string_literals= `Wrap
   ; break_struct= default_profile.break_struct
@@ -1248,6 +1313,7 @@ let janestreet_profile =
   ; comment_check= true
   ; disable= false
   ; doc_comments= `Before
+  ; doc_comments_padding= 1
   ; escape_chars= `Preserve
   ; escape_strings= `Preserve
   ; extension_sugar= `Preserve
@@ -1263,11 +1329,11 @@ let janestreet_profile =
   ; margin= 90
   ; max_iters= default_profile.max_iters
   ; module_item_spacing= `Compact
-  ; ocp_indent_compat= false
+  ; ocp_indent_compat= true
   ; parens_ite= true
   ; parens_tuple= `Multi_line_only
   ; parens_tuple_patterns= `Multi_line_only
-  ; parse_docstrings= true
+  ; parse_docstrings= false
   ; quiet= default_profile.quiet
   ; sequence_style= `Terminator
   ; single_case= `Sparse
@@ -1460,25 +1526,37 @@ let is_project_root dir =
       List.exists project_root_witness ~f:(fun name ->
           Fpath.(exists (dir / name)) )
 
-let rec collect_files ~segs acc =
+let dot_ocp_indent = ".ocp-indent"
+
+let dot_ocamlformat = ".ocamlformat"
+
+let dot_ocamlformat_ignore = ".ocamlformat-ignore"
+
+let rec collect_files ~segs ~ignores ~files =
   match segs with
-  | [] | [""] -> (acc, None)
-  | "" :: upper_segs -> collect_files ~segs:upper_segs acc
+  | [] | [""] -> (ignores, files, None)
+  | "" :: upper_segs -> collect_files ~segs:upper_segs ~ignores ~files
   | _ :: upper_segs ->
       let dir =
         String.concat ~sep:Fpath.dir_sep (List.rev segs) |> Fpath.v
       in
-      let acc =
-        let filename = Fpath.(dir / ".ocamlformat") in
-        if Fpath.exists filename then `Ocamlformat filename :: acc else acc
+      let files =
+        let filename = Fpath.(dir / dot_ocamlformat) in
+        if Fpath.exists filename then `Ocamlformat filename :: files
+        else files
       in
-      let acc =
-        let filename = Fpath.(dir / ".ocp-indent") in
-        if Fpath.exists filename then `Ocp_indent filename :: acc else acc
+      let ignores =
+        let filename = Fpath.(dir / dot_ocamlformat_ignore) in
+        if Fpath.exists filename then filename :: ignores else ignores
+      in
+      let files =
+        let filename = Fpath.(dir / dot_ocp_indent) in
+        if Fpath.exists filename then `Ocp_indent filename :: files
+        else files
       in
       if is_project_root dir && disable_outside_detected_project then
-        (acc, Some dir)
-      else collect_files ~segs:upper_segs acc
+        (ignores, files, Some dir)
+      else collect_files ~segs:upper_segs ~ignores ~files
 
 let read_config_file conf filename_kind =
   match filename_kind with
@@ -1500,8 +1578,8 @@ let read_config_file conf filename_kind =
           | l ->
               let kind =
                 match filename_kind with
-                | `Ocp_indent _ -> ".ocp-indent"
-                | `Ocamlformat _ -> ".ocamlformat"
+                | `Ocp_indent _ -> dot_ocp_indent
+                | `Ocamlformat _ -> dot_ocamlformat
               in
               user_error
                 (Format.sprintf "malformed %s file" kind)
@@ -1555,17 +1633,48 @@ let xdg_config =
   | Some xdg_config_home ->
       let filename =
         Fpath.(
-          append (v xdg_config_home) (v "ocamlformat" / ".ocamlformat"))
+          append (v xdg_config_home) (v "ocamlformat" / dot_ocamlformat))
       in
       if Fpath.exists filename then Some filename else None
   | None -> None
 
+let is_ignored ~quiet ~ignores ~filename =
+  let drop_line l = String.is_empty l || String.is_prefix l ~prefix:"#" in
+  (* process deeper files first *)
+  let ignores = List.rev ignores in
+  List.find_map ignores ~f:(fun ignore_file ->
+      let dir, _ = Fpath.split_base ignore_file in
+      try
+        In_channel.with_file (Fpath.to_string ignore_file) ~f:(fun ch ->
+            let lines =
+              In_channel.input_lines ch
+              |> List.mapi ~f:(fun i s -> (i + 1, String.strip s))
+              |> List.filter ~f:(fun (_, l) -> not (drop_line l))
+            in
+            List.find_map lines ~f:(fun (lno, line) ->
+                match Fpath.of_string line with
+                | Ok file_on_current_line ->
+                    let f = Fpath.(dir // file_on_current_line) in
+                    if Fpath.equal filename f then Some (ignore_file, lno)
+                    else None
+                | Error (`Msg msg) ->
+                    if not quiet then
+                      Format.eprintf "File %a, line %d:\nWarning: %s\n"
+                        (Fpath.pp ~pretty:true) ignore_file lno msg ;
+                    None ) )
+      with Sys_error err ->
+        if not quiet then
+          Format.eprintf "Warning: ignoring %a, %s\n"
+            (Fpath.pp ~pretty:true) ignore_file err ;
+        None )
+
 let build_config ~file =
-  let dir =
-    Fpath.(v file |> to_absolute |> normalize |> split_base |> fst)
-  in
+  let file_abs = Fpath.(v file |> to_absolute |> normalize) in
+  let dir = Fpath.(file_abs |> split_base |> fst) in
   let segs = Fpath.segs dir |> List.rev in
-  let files, project_root = collect_files ~segs [] in
+  let ignores, files, project_root =
+    collect_files ~segs ~ignores:[] ~files:[]
+  in
   let files =
     match (xdg_config, disable_outside_detected_project) with
     | None, _ | Some _, true -> files
@@ -1596,7 +1705,15 @@ let build_config ~file =
          %!"
         file reason ) ;
     {conf with disable= true} )
-  else conf
+  else
+    match is_ignored ~quiet:conf.quiet ~ignores ~filename:file_abs with
+    | None -> conf
+    | Some (ignored_in_file, lno) ->
+        if !debug then
+          Format.eprintf "File %a: ignored in %a:%d@\n"
+            (Fpath.pp ~pretty:true) file_abs (Fpath.pp ~pretty:true)
+            ignored_in_file lno ;
+        {conf with disable= true}
 
 ;;
 if !print_config then
@@ -1604,7 +1721,7 @@ if !print_config then
     match !inputs with
     | [] ->
         let root = Option.value root ~default:(Fpath.cwd ()) in
-        Fpath.(root / ".ocamlformat" |> to_string)
+        Fpath.(root / dot_ocamlformat |> to_string)
     | file :: _ -> file
   in
   C.print_config (build_config ~file)

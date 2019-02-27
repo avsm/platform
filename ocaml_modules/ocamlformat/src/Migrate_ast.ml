@@ -9,22 +9,26 @@
  *                                                                    *
  **********************************************************************)
 
+let selected_version = Migrate_parsetree.Versions.ocaml_407
+
+module Selected_version = Ast_407
+
 include (
-  Ast_407 :
+  Selected_version :
     module type of struct
-      include Ast_407
+      include Selected_version
     end
-    with module Location := Ast_407.Location )
+    with module Location := Selected_version.Location )
 
 module Parse = struct
   open Migrate_parsetree
 
-  let implementation = Parse.implementation Versions.ocaml_407
+  let implementation = Parse.implementation selected_version
 
-  let interface = Parse.interface Versions.ocaml_407
+  let interface = Parse.interface selected_version
 
   let use_file lexbuf =
-    List.filter (Parse.use_file Versions.ocaml_407 lexbuf)
+    List.filter (Parse.use_file selected_version lexbuf)
       ~f:(fun (p : Parsetree.toplevel_phrase) ->
         match p with
         | Ptop_def [] -> false
@@ -32,7 +36,7 @@ module Parse = struct
 end
 
 let to_current =
-  Migrate_parsetree.Versions.(migrate ocaml_407 ocaml_current)
+  Migrate_parsetree.Versions.(migrate selected_version ocaml_current)
 
 module Printast = struct
   open Printast
@@ -114,7 +118,7 @@ module Position = struct
 end
 
 module Location = struct
-  include Ast_407.Location
+  include Location
   module Format = Format_
 
   let fmt fs {loc_start; loc_end; loc_ghost} =
@@ -130,8 +134,6 @@ module Location = struct
 
   let hash = Hashtbl.hash
 
-  let is_single_line x = x.loc_start.pos_lnum = x.loc_end.pos_lnum
-
   let compare_start x y = Position.compare x.loc_start y.loc_start
 
   let compare_start_col x y = Position.compare_col x.loc_start y.loc_start
@@ -145,4 +147,7 @@ module Location = struct
   let width x = Position.distance x.loc_start x.loc_end
 
   let compare_width_decreasing l1 l2 = Int.compare (width l2) (width l1)
+
+  let is_single_line x margin =
+    width x <= margin && x.loc_start.pos_lnum = x.loc_end.pos_lnum
 end
