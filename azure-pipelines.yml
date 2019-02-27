@@ -3,7 +3,7 @@ jobs:
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
-  - script: env AGENT_OS=Linux TEST_DISTRIB=yes ./.azure-pipelines.sh
+  - script: env AGENT_OS=Linux ./.azure-pipelines.sh
     displayName: Build
   - task: PublishPipelineArtifact@0
     inputs:
