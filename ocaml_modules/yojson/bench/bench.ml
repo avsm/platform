@@ -1,53 +1,43 @@
-open Printf
+open Core
+open Core_bench
 
 let data =
-  let l = ref [] in
-  try
-    while true do
-      l := input_line stdin :: !l
-    done;
-    assert false
-  with End_of_file -> String.concat "\n" (List.rev !l)
+  In_channel.read_all "bench.json"
 
 let yojson_data = Yojson.Safe.from_string data
-let jsonwheel_data = Json_io.json_of_string data
 
-let n = 10_000
+(* chosen by fair dice roll, guaranteed to be large *)
+let large = 10_000
 
-let yojson_rd_loop () =
-  for i = 1 to n do
-    ignore (Yojson.Safe.from_string data)
-  done
+let large_int_assoc = 
+  let ints = List.init large (fun n ->
+   (string_of_int n, `Int n))
+  in
+  `Assoc ints
 
-let yojson_wr_loop () =
-  for i = 1 to n do
-    ignore (Yojson.Safe.to_string yojson_data)
-  done
+let large_int_list = 
+  let ints = List.init large (fun n -> `Int n) in
+  `List ints
 
-let jsonwheel_rd_loop () =
-  for i = 1 to n do
-    ignore (Json_io.json_of_string data)
-  done
+let large_string_list =
+  let strings = List.init large (fun n ->
+    `String (string_of_int n))
+  in
+  `List strings
 
-let jsonwheel_wr_loop () =
-  for i = 1 to n do
-    ignore (Json_io.string_of_json ~compact:true jsonwheel_data)
-  done
-
-let time msg f =
-  let t1 = Unix.gettimeofday () in
-  f ();
-  let t2 = Unix.gettimeofday () in
-  printf "%s: %.3f\n%!" msg (t2 -. t1)
+let main () =
+  Command.run (Bench.make_command [
+    Bench.Test.create ~name:"JSON reading" (fun () ->
+      ignore (Yojson.Safe.from_string data));
+    Bench.Test.create ~name:"JSON writing" (fun () ->
+      ignore (Yojson.Safe.to_string yojson_data));
+    Bench.Test.create ~name:"JSON writing assoc" (fun () ->
+      ignore (Yojson.Safe.to_string large_int_assoc));
+    Bench.Test.create ~name:"JSON writing int list" (fun () ->
+      ignore (Yojson.Safe.to_string large_int_list));
+    Bench.Test.create ~name:"JSON writing string list" (fun () ->
+      ignore (Yojson.Safe.to_string large_string_list));
+  ])
 
 let () =
-  time "rd yojson" yojson_rd_loop;
-  time "rd json-wheel" jsonwheel_rd_loop;
-  time "rd yojson" yojson_rd_loop;
-  time "rd json-wheel" jsonwheel_rd_loop;
-
-  time "wr yojson" yojson_wr_loop;
-  time "wr json-wheel" jsonwheel_wr_loop;
-  time "wr yojson" yojson_wr_loop;
-  time "wr json-wheel" jsonwheel_wr_loop
-  
+  main ()

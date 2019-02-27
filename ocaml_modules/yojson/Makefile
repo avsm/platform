@@ -1,21 +1,28 @@
+.PHONY: all
 all:
-	@jbuilder build @install @DEFAULT
+	@dune build @install @examples
 
-test:
-	@jbuilder runtest
+.PHONY: run-examples
+run-examples:
+	dune exec examples/filtering.exe < examples/filtering.json
 
-check: test
-
+.PHONY: install
 install:
-	@jbuilder install
+	@dune install
 
+.PHONY: uninstall
 uninstall:
-	@jbuilder uninstall
+	@dune uninstall
 
+.PHONY: bench
 bench:
-	@jbuilder build bench/bench.exe
+	@dune build @bench --force
 
-.PHONY: clean all bench test check install uninstall
-
+.PHONY: clean
 clean:
-	jbuilder clean
+	@dune clean
+
+.PHONY: test
+test:
+	@dune runtest --force
+

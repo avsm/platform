@@ -1053,7 +1053,9 @@ and junk = parse
     junk     { Lexing.lexeme lexbuf }
 
 {
-  let _ = (read_json : lexer_state -> Lexing.lexbuf -> json)
+  let _ = (read_json : lexer_state -> Lexing.lexbuf -> t)
+
+  let read_t = read_json
 
   let () =
     read_junk := junk
@@ -1139,6 +1141,8 @@ and junk = parse
       close_in_noerr ic;
       raise e
 
+  exception Finally of exn * exn
+
   let stream_from_lexbuf v ?(fin = fun () -> ()) lexbuf =
     let stream = Some true in
     let f i =
@@ -1148,7 +1152,7 @@ and junk = parse
             fin ();
             None
         | e ->
-            (try fin () with _ -> ());
+            (try fin () with fin_e -> raise (Finally (e, fin_e)));
             raise e
     in
     Stream.from f
@@ -1174,7 +1178,7 @@ and junk = parse
     let v = init_lexer ?buf ?fname ?lnum () in
     stream_from_lexbuf v ~fin lexbuf
 
-  type json_line = [ `Json of json | `Exn of exn ]
+  type json_line = [ `Json of t | `Exn of exn ]
 
   let linestream_from_channel
       ?buf ?(fin = fun () -> ()) ?fname ?lnum:(lnum0 = 1) ic =
