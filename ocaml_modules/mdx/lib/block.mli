@@ -16,12 +16,14 @@
 
 (** Code blocks. *)
 
+type cram_value = { pad: int; tests: Cram.t list }
+
 (** The type for block values. *)
 type value =
   | Raw
   | OCaml
   | Error of string list
-  | Cram of { pad: int; tests: Cram.t list }
+  | Cram of cram_value
   | Toplevel of Toplevel.t list
 
 type section = int * string
@@ -32,7 +34,8 @@ type t = {
   line    : int;
   file    : string;
   section : section option;
-  labels  : (string * string option) list;
+  labels  :
+    (string * ([`Eq | `Neq | `Le | `Lt | `Ge | `Gt] * string) option) list;
   header  : string option;
   contents: string list;
   value   : value;
@@ -46,16 +49,16 @@ val empty: t
 val dump: t Fmt.t
 (** [dump] is the printer for dumping code blocks. Useful for debugging. *)
 
-val pp_header: t Fmt.t
+val pp_header: ?syntax:Syntax.t -> t Fmt.t
 (** [pp_header] pretty-prints block headers. *)
 
-val pp_contents: t Fmt.t
+val pp_contents: ?syntax:Syntax.t -> t Fmt.t
 (** [pp_contents] pretty-prints block contents. *)
 
-val pp_footer: unit Fmt.t
+val pp_footer: ?syntax:Syntax.t -> unit Fmt.t
 (** [pp_footer] pretty-prints block footer. *)
 
-val pp: t Fmt.t
+val pp: ?syntax:Syntax.t -> t Fmt.t
 (** [pp] pretty-prints blocks. *)
 
 val pp_line_directive: (string * int) Fmt.t
@@ -102,6 +105,15 @@ val executable_contents: t -> string list
    or a cram block, or [t]'s commands if [t] is a toplevel fragments
    (e.g. the phrase result is discarded). *)
 
+val version:
+  t ->
+  [`Eq | `Neq | `Ge | `Gt | `Le | `Lt] * int option * int option * int option
+(** [version t] is [t]'s OCaml version. *)
+
+val version_enabled: t -> bool
+(** [version_supported t] if the current OCaml version complies with [t]'s
+    version. *)
+
 (** {2 Evaluation} *)
 
 val eval: t -> t
@@ -110,5 +122,7 @@ val eval: t -> t
 
 (** {2 Parsers} *)
 
-val labels_of_string: string -> (string * string option) list
+val labels_of_string:
+  string ->
+  (string * ([`Eq | `Neq | `Gt | `Ge | `Lt | `Le] * string) option) list
 (** [labels_of_string s] cuts [s] into a list of labels. *)

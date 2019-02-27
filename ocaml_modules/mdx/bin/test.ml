@@ -26,7 +26,8 @@ let run () _ _ _ _ _ _ _ _ _ _ =
   let dir = Filename.dirname Sys.argv.(0) in
   let cmd = match base with
     | "main.exe" -> dir / "test" / "main.exe"
-    | x -> dir / x ^ "-test"
+    | x when String.length x > 6 && String.sub x 0 6 = "ocaml-" -> dir / x ^ "-test"
+    | x -> dir / "ocaml-" ^ x ^ "-test"
   in
   let argv = Array.sub Sys.argv 1 (Array.length Sys.argv - 1) in
   argv.(0) <- cmd;
@@ -38,7 +39,7 @@ open Cmdliner
 let cmd: int Term.t * Term.info =
   let doc = "Test markdown files." in
   Term.(pure run
-        $ Cli.setup $ Cli.non_deterministic $ Cli.not_verbose
+        $ Cli.setup $ Cli.non_deterministic $ Cli.not_verbose $ Cli.syntax
         $ Cli.silent $ Cli.verbose_findlib $ Cli.prelude $ Cli.prelude_str
         $ Cli.file $ Cli.section $ Cli.root $ Cli.direction),
   Term.info "test" ~doc

@@ -21,6 +21,13 @@
 
 (alias
  (name   runtest)
+ (deps   (:x ellipsis-updates.md) (:y ellipsis-updates.md.expected) (package mdx))
+ (action (progn
+           (run mdx test %{x})
+           (diff? %{y} %{x}.corrected))))
+
+(alias
+ (name   runtest)
  (deps   (:x ellipsis.md) (package mdx))
  (action (progn
            (run mdx test %{x})
@@ -35,6 +42,20 @@
 
 (alias
  (name   runtest)
+ (deps   (:x empty_line.md) (package mdx))
+ (action (progn
+           (run mdx test %{x})
+           (diff? %{x} %{x}.corrected))))
+
+(alias
+ (name   runtest)
+ (deps   (:x empty_lines.md) (:y empty_lines.md.expected) (package mdx))
+ (action (progn
+           (run mdx test %{x})
+           (diff? %{y} %{x}.corrected))))
+
+(alias
+ (name   runtest)
  (deps   (:x output.md) (:y output.html.expected) (package mdx))
  (action (progn
            (run mdx output %{x} -o output.html)
@@ -45,6 +66,13 @@
  (deps   (:x spaces.md) (package mdx))
  (action (progn
            (run mdx test %{x})
+           (diff? %{x} %{x}.corrected))))
+
+(alias
+ (name   runtest)
+ (deps   (:x cram.t) (package mdx))
+ (action (progn
+           (run mdx test --syntax=cram %{x})
            (diff? %{x} %{x}.corrected))))
 
 (alias

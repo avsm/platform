@@ -9,11 +9,12 @@ rule token = parse
                    `Command c :: token lexbuf }
  | ([^'#' '\n'] [^'\n']* as str) eol
                  { `Output str :: token lexbuf }
+ | _ as c        { failwith (Printf.sprintf "unexpected character '%c'. Did you forget a space after the '#' at the start of the line?" c) }
 
 and phrase acc buf = parse
   | ("\n"* as nl) "\n  "
       { Lexing.new_line lexbuf;
-        let nl = List.init (String.length nl) (fun _ -> "") in
+        let nl = Compat.List.init (String.length nl) (fun _ -> "") in
         phrase (nl @ Buffer.contents buf :: acc) (Buffer.create 8) lexbuf }
   | eol
       { Lexing.new_line lexbuf;
@@ -24,5 +25,5 @@ and phrase acc buf = parse
 {
 let token lexbuf =
   try token lexbuf
-  with Failure _ -> Misc.err lexbuf "incomplete toplevel"
+  with Failure e -> Misc.err lexbuf "incomplete toplevel entry: %s" e
 }

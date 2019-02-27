@@ -1,10 +1,22 @@
+### 1.2.0 (2018-01-03)
+
+- Support end-of-line ellipsis (@dra27, #85)
+- Support OCaml 4.02.3 (@gpetiot, #86)
+- Support `version=..`, `version<=..` and `version>=..` keywords to run
+  a code-block depending on the currently installed OCaml version
+  (@gpetiot, #87, #90)
+- Upgrade Travis tests to use opam 2.0.2 (@avsm, #89)
+- Do not depend on `ppx_tools` for toplevel (@avsm, #89)
+- Fix embedding in a larger Dune project with a cppo override (@avsm, #89)
+- `mdx output`: escape HTML entities in code blocks (#91, @samoht)
+
 ### 1.1.0 (2018-11-16)
 
 - Add a mechanism to promote files to blocks and blocks to file
   (@gpetiot, #37)
 - Support multiple toplevel environments (@gpetiot, #38)
 - Use ocaml-migrate-parsetree to compile in 4.06.1 & 4.07.0 (@gpetiot, #41)
-- Add a `mdx'rule` command to generate dune rules (@gpetiot, #44)
+- Add a `mdx rule` command to generate dune rules (@gpetiot, #44)
 - Add a `mdx output` command to generate an HTML document (@samoht, #45)
 - Support empty code blocks (@samoht, #46)
 - Fix detection of OCaml code/toplevel (@samoht, #47)
