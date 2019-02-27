@@ -70,6 +70,15 @@
   "Report absence of .merlin or errors in .merlin in the lighter."
   :group 'merlin :type 'boolean)
 
+(defcustom merlin-client-log-function nil
+  "The function takes four arguments:
+   - the path to the merlin binary
+   - the name of the command
+   - the total time spent in the server (or -1 if that information is not available)
+   - the resulting state (\"return\", \"failure\" or \"interrupted\")
+Its return value is ignored."
+  :group 'merlin :type 'symbol)
+
 (defcustom merlin-configuration-function nil
   "The function takes no argument and returns the configuration for the current
 buffer, in a form suitable for `merlin-buffer-configuration'."
@@ -512,17 +521,29 @@ return (LOC1 . LOC2)."
     ;; Call merlin process
     (setcdr (car merlin-debug-last-commands) (merlin--call-process binary args))))
 
+(defun merlin-client-logger (binary cmd timing result)
+  (when merlin-client-log-function
+    (funcall merlin-client-log-function binary cmd timing result)))
+
 (defun merlin/call (command &rest args)
   "Execute a command and parse output: return an sexp on success or throw an error"
   (let ((result (merlin--call-merlin command args)))
     (condition-case err
         (setq result (car (read-from-string result)))
       (error
+        (merlin-client-logger
+          (merlin-command) command -1 "failure")
         (error "merlin: error %s trying to parse answer: %s"
-               err result)))
-    (let ((notifications (cdr-safe (assoc 'notifications result)))
-          (class (cdr-safe (assoc 'class result)))
-          (value (cdr-safe (assoc 'value result))))
+               err result))
+      (quit
+        (merlin-client-logger
+          (merlin-command) command -1 "interrupted")))
+    (let* ((notifications (cdr-safe (assoc 'notifications result)))
+           (timing (cdr-safe (assoc 'timing result)))
+           (total (cdr-safe (assoc 'total timing)))
+           (class (cdr-safe (assoc 'class result)))
+           (value (cdr-safe (assoc 'value result))))
+      (merlin-client-logger (merlin-command) command total class)
       (dolist (notification notifications)
         (message "(merlin) %s" notification))
       (cond ((string-equal class "return") value)
@@ -735,10 +756,6 @@ return (LOC1 . LOC2)."
   (setq merlin-erroneous-buffer nil)
   (remove-overlays nil nil 'merlin-kind 'error))
 
-(defun merlin--overlay (overlay)
-  "Returns non-nil if OVERLAY is managed by merlin."
-  (if overlay (overlay-get overlay 'merlin-kind) nil))
-
 (defun merlin--overlay-pending-error (overlay)
   "Returns non-nil if OVERLAY is about a pending error."
   (if overlay (overlay-get overlay 'merlin-pending-error) nil))
@@ -878,14 +895,14 @@ prefix of `bar' is `'."
          (prefix (if (string-equal s "") s (concat s "."))))
     (cons prefix suffix)))
 
-(defun merlin--completion-prepare-labels (labels suffix)
+(defun merlin--completion-prepare-labels (labels prefix)
   ;; Remove non-matching entry, adjusting optional labels if needed
   (cl-loop for x in labels
            for name = (cdr (assoc 'name x))
-           unless (or (string-prefix-p suffix name)
-                      (when (equal (aref name 0) ??)
-                        (aset name 0 ?~)
-                        (string-prefix-p suffix name)))
+           when (or (string-prefix-p prefix name)
+                    (when (equal (aref name 0) ??)
+                      (aset name 0 ?~)
+                      (string-prefix-p prefix name)))
            collect (append x '((kind . "Label") (info . nil)))))
 
 (defun merlin/complete (ident)
@@ -1645,21 +1662,43 @@ Empty string defaults to jumping to all these."
   "Return or update path of ocamlmerlin binary selected by configuration"
   (unless merlin-buffer-configuration
     (setq merlin-buffer-configuration (merlin--configuration)))
+
   (let ((command (merlin-lookup 'command merlin-buffer-configuration)))
     (unless command
-      (setq command (if (functionp merlin-command) (funcall merlin-command)
-                      merlin-command)))
-    (when (equal command 'opam)
-      (with-temp-buffer
-        (if (eq (call-process-shell-command
-                 "opam config var bin" nil (current-buffer) nil) 0)
-            (progn
-              (setq command (concat
-                             (replace-regexp-in-string "\n$" "" (buffer-string))
-                             "/ocamlmerlin"))
-              (push (cons 'command command) merlin-buffer-configuration))
-          (message "merlin-command: opam config failed (%S)" (buffer-string))
-          (setq command "ocamlmerlin"))))
+      (setq
+       command
+       (cond
+        ((functionp merlin-command) (funcall merlin-command))
+        ((stringp merlin-command) merlin-command)
+        ((equal merlin-command 'opam)
+         (with-temp-buffer
+           (if (eq (call-process-shell-command
+                    "opam config var bin" nil (current-buffer) nil) 0)
+               (let ((bin-path
+                      (replace-regexp-in-string "\n$" "" (buffer-string))))
+                 ;; the opam bin dir needs to be on the path, so if merlin
+                 ;; calls out to sub binaries (e.g. ocamlmerlin-reason), the
+                 ;; correct version is used rather than the version that
+                 ;; happens to be on the path
+
+                 ;; this was originally done via `opam exec' but that doesnt
+                 ;; work for opam 1, and added a performance hit
+                 (setq merlin-opam-bin-path (list (concat "PATH=" bin-path)))
+                 (concat bin-path "/ocamlmerlin"))
+
+             ;; best effort if opam is not available, lookup for the binary in
+             ;; the existing env
+             (progn
+               (message "merlin-command: opam config failed (%S)"
+                        (buffer-string))
+               "ocamlmerlin"))))))
+
+      ;; cache command in merlin-buffer configuration to avoid having to shell
+      ;; out to `opam` each time.
+      (push (cons 'command command) merlin-buffer-configuration)
+      (when (boundp 'merlin-opam-bin-path)
+        (push (cons 'env merlin-opam-bin-path) merlin-buffer-configuration)))
+
     command))
 
 ;;;;;;;;;;;;;;;;
@@ -1733,19 +1772,21 @@ Empty string defaults to jumping to all these."
 
 (defun merlin-lighter ()
   "Return the lighter for merlin which indicates the status of merlin process."
-  (let (messages)
+  (let (messages
+        (num-errors (length merlin-erroneous-buffer)))
     (when merlin-report-errors-in-lighter
       (cond ((not merlin--project-cache) nil)
             ((cdr-safe merlin--project-cache)
-             (add-to-list 'messages "check config!"))
+             (push "check config!" messages))
             ((not (car-safe merlin--project-cache))
-             (add-to-list 'messages "no .merlin"))))
-    (when merlin-erroneous-buffer
-      (add-to-list 'messages "errors in buffer"))
+             (push "no .merlin" messages))))
+    (unless (zerop num-errors)
+      (push (format "%d error%s" num-errors (if (> num-errors 1) "s" ""))
+            messages))
     (when (and merlin-show-instance-in-lighter
                (merlin-lookup 'name merlin-buffer-configuration))
-      (add-to-list 'messages
-                   (merlin-lookup 'name merlin-buffer-configuration)))
+      (push (merlin-lookup 'name merlin-buffer-configuration)
+            messages))
     (if messages
         (concat " Merlin (" (mapconcat 'identity messages ",") ")")
       " Merlin")))

@@ -33,7 +33,7 @@ function! merlin_type#ShowTypeHistory()
   if l:win <# 0
     let t:merlin_restore_windows = winrestcmd()
     silent execute "bot " . g:merlin_type_history_height . "split"
-    execute "buffer" g:merlin_type_history
+    silent execute "buffer" g:merlin_type_history
   elseif winnr() !=# l:win
     exe l:win . "wincmd w"
   endif
@@ -59,6 +59,8 @@ function! s:RecordType(type)
     exe l:cur . "wincmd w"
     exe t:merlin_restore_windows
   endif
+
+  let l:view = winsaveview()
 
   " vimscript can't append to a buffer without a refresh (?!)
   MerlinPy << EOF
@@ -95,6 +97,8 @@ else:
 # it is apparently the desired behavior.
 cw.cursor = cursor
 EOF
+
+  call winrestview(l:view)
 endfunction
 
 function! merlin_type#Show(type, tail_info)

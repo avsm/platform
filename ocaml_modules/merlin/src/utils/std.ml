@@ -61,6 +61,11 @@ module Hashtbl = struct
     with Not_found -> None
 
   let elements tbl = Hashtbl.fold (fun _key elt acc -> elt :: acc) tbl []
+
+  let forall table f =
+    match Hashtbl.iter (fun k v -> if not (f k v) then raise Exit) table with
+    | () -> true
+    | exception Exit -> false
 end
 
 module List = struct
@@ -431,6 +436,65 @@ module String = struct
 
   let lowercase = lowercase
   let uppercase = uppercase
+
+  let split_on_char_ c s =
+    match String.index s c with
+    | exception Not_found -> [s]
+    | p ->
+      let rec loop i =
+        match String.index_from s i c with
+        | exception Not_found -> [String.sub s i (String.length s - i)]
+        | j ->
+          let s0 = String.sub s i (j - i) in
+          s0 :: loop (j + 1)
+      in
+      let s0 = String.sub s 0 p in
+      s0 :: loop (p + 1)
+
+  let chop_prefix ~prefix text =
+    let tlen = String.length text in
+    let plen = String.length prefix in
+    if tlen >= plen then
+      try
+        for i = 0 to plen - 1 do
+          if prefix.[i] <> text.[i] then raise Not_found
+        done;
+        Some (String.sub text plen (tlen - plen))
+      with Not_found -> None
+    else
+      None
+
+  let next_occurrence ~pattern text from =
+    let plen = String.length pattern in
+    let last = String.length text - plen in
+    let i = ref from and j = ref 0 in
+    while !i <= last && !j < plen do
+      if text.[!i + !j] <> pattern.[!j]
+      then (incr i; j := 0)
+      else incr j
+    done;
+    if !j < plen then
+      raise Not_found
+    else
+      !i
+
+  let replace_all ~pattern ~with_ text =
+    if pattern = "" then text else
+      match next_occurrence ~pattern text 0 with
+      | exception Not_found -> text
+      | j0 ->
+        let buffer = Buffer.create (String.length text) in
+        let rec aux i j =
+          Buffer.add_substring buffer text i (j - i);
+          Buffer.add_string buffer with_;
+          let i' = j + String.length pattern in
+          match next_occurrence ~pattern text i' with
+          | exception Not_found ->
+            Buffer.add_substring buffer text i' (String.length text - i')
+          | j' -> aux i' j'
+        in
+        aux 0 j0;
+        Buffer.contents buffer
 end
 
 let sprintf = Printf.sprintf
@@ -450,38 +514,6 @@ module Format = struct
     pp_set_margin ppf width;
     ppf, contents
 end
-
-module Either = struct
-  type ('a,'b) t = L of 'a | R of 'b
-
-  let elim f g = function
-    | L a -> f a
-    | R b -> g b
-
-  let try' f =
-    try R (f ())
-    with exn -> L exn
-
-  let get = function
-    | L exn -> raise exn
-    | R v -> v
-
-  (* Remove ? *)
-  let join = function
-    | R (R _ as r) -> r
-    | R (L _ as e) -> e
-    | L _ as e -> e
-
-  let split =
-    let rec aux l1 l2 = function
-      | L a :: l -> aux (a :: l1) l2 l
-      | R b :: l -> aux l1 (b :: l2) l
-      | [] -> List.rev l1, List.rev l2
-    in
-    fun l -> aux [] [] l
-end
-type ('a, 'b) either = ('a, 'b) Either.t
-type 'a or_exn = (exn, 'a) Either.t
 
 module Lexing = struct
 
@@ -625,25 +657,6 @@ end = struct
     | Exact s -> s = str
 end
 
-module Obj = struct
-  include Obj
-  let unfolded_physical_equality a b =
-    let a, b = Obj.repr a, Obj.repr b in
-    if Obj.is_int a || Obj.is_int b then
-      a == b
-    else
-      let sa, sb = Obj.size a, Obj.size b in
-      sa = sb &&
-      try
-        for i = 0 to sa - 1 do
-          if not (Obj.field a i == Obj.field b i) then
-            raise Not_found
-        done;
-        true
-      with Not_found -> false
-end
-
-let trace = Trace.enter
 let fprintf = Format.fprintf
 
 let lazy_eq a b =

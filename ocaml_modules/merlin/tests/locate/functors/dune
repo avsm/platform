@@ -4,7 +4,7 @@
  (action
    (progn
      (setenv MERLIN %{exe:../../merlin-wrapper}
-       (run %{bin:craml} %{t}))
+       (run %{bin:mdx} test --syntax=cram %{t}))
      (diff? %{t} %{t}.corrected))))
 
 (alias
@@ -13,7 +13,16 @@
  (action
    (progn
      (setenv MERLIN %{exe:../../merlin-wrapper}
-       (run %{bin:craml} %{t}))
+       (run %{bin:mdx} test --syntax=cram %{t}))
+     (diff? %{t} %{t}.corrected))))
+
+(alias
+ (name runtest)
+ (deps (:t included.t) included.ml)
+ (action
+   (progn
+     (setenv MERLIN %{exe:../../merlin-wrapper}
+       (run %{bin:mdx} test --syntax=cram %{t}))
      (diff? %{t} %{t}.corrected))))
 
 (alias
@@ -22,7 +31,7 @@
  (action
    (progn
      (setenv MERLIN %{exe:../../merlin-wrapper}
-       (run %{bin:craml} %{t}))
+       (run %{bin:mdx} test --syntax=cram %{t}))
      (diff? %{t} %{t}.corrected))))
 
 (alias
@@ -31,5 +40,5 @@
  (action
    (progn
      (setenv MERLIN %{exe:../../merlin-wrapper}
-       (run %{bin:craml} %{t}))
+       (run %{bin:mdx} test --syntax=cram %{t}))
      (diff? %{t} %{t}.corrected))))

@@ -255,10 +255,10 @@ and short_paths_addition =
   | Class_type of Ident.t * class_type_declaration
   | Module_type of Ident.t * modtype_declaration
   | Module of Ident.t * module_declaration * module_components
-  | Type_open of Ident.t * Path.t
-  | Class_type_open of Ident.t * Path.t
-  | Module_type_open of Ident.t * Path.t
-  | Module_open of Ident.t * Path.t
+  | Type_open of Ident.t * Path.t * type_declaration
+  | Class_type_open of Ident.t * Path.t * class_type_declaration
+  | Module_type_open of Ident.t * Path.t * modtype_declaration
+  | Module_open of Ident.t * Path.t * module_components
 
 let copy_local ~from env =
   { env with
@@ -447,11 +447,25 @@ let register_pers_for_short_paths ps =
       ([], []) ps.ps_crcs
   in
   let path = Pident (Ident.create_persistent ps.ps_name) in
-  let desc =
-    Short_paths.Desc.Module.(Fresh
-      (Signature (lazy (!short_paths_module_components_desc' empty path ps.ps_comps))))
+  let components =
+    lazy (!short_paths_module_components_desc' empty path ps.ps_comps)
   in
-  Short_paths.Basis.load !short_paths_basis ps.ps_name deps alias_deps desc
+  let desc =
+    Short_paths.Desc.Module.(Fresh (Signature components))
+  in
+  let is_deprecated =
+    List.exists
+      (function
+        | Deprecated _ -> true
+        | _ -> false)
+      ps.ps_flags
+  in
+  let deprecated =
+    if is_deprecated then Short_paths.Desc.Deprecated
+    else Short_paths.Desc.Not_deprecated
+  in
+  Short_paths.Basis.load !short_paths_basis ps.ps_name
+    deps alias_deps desc deprecated
 
 (* Reading persistent structures from .cmi files *)
 
@@ -565,8 +579,8 @@ let check_pers_struct name =
   | Not_found ->
       let warn = Warnings.No_cmi_file(name, None) in
         Location.prerr_warning Location.none warn
-  | Cmi_format.Error err ->
-      let msg = Format.asprintf "%a" Cmi_format.report_error err in
+  | Magic_numbers.Cmi.Error err ->
+      let msg = Format.asprintf "%a" Magic_numbers.Cmi.report_error err in
       let warn = Warnings.No_cmi_file(name, Some msg) in
         Location.prerr_warning Location.none warn
   | Error err ->
@@ -1459,18 +1473,23 @@ let short_paths_type predef id path decl old =
     let addition =
       match path with
       | Pident id' when Ident.same id id' -> Type(id, decl)
-      | _ -> Type_open(id, path)
+      | _ -> Type_open(id, path, decl)
     in
     addition :: old
   end
 
+let unbound_class = Path.Pident (Ident.create "*undef*")
+
+let is_dummy_class decl =
+  Path.same decl.clty_path unbound_class
+
 let short_paths_class_type id path decl old =
-  if !Clflags.real_paths then old
+  if !Clflags.real_paths || is_dummy_class decl then old
   else begin
     let addition =
       match path with
       | Pident id' when Ident.same id id' -> Class_type(id, decl)
-      | _ -> Class_type_open(id, path)
+      | _ -> Class_type_open(id, path, decl)
     in
     addition :: old
   end
@@ -1481,7 +1500,7 @@ let short_paths_module_type id path decl old =
     let addition =
       match path with
       | Pident id' when Ident.same id id' -> Module_type(id, decl)
-      | _ -> Module_type_open(id, path)
+      | _ -> Module_type_open(id, path, decl)
     in
     addition :: old
   end
@@ -1492,7 +1511,7 @@ let short_paths_module id path decl comps old =
     let addition =
       match path with
       | Pident id' when Ident.same id id' -> Module(id, decl, comps)
-      | _ -> Module_open(id, path)
+      | _ -> Module_open(id, path, comps)
     in
     addition :: old
   end
@@ -2272,6 +2291,15 @@ let short_paths_module_type_desc mty =
   | Some (Mty_signature _ | Mty_functor _) -> Fresh
   | Some (Mty_alias _) -> assert false
 
+let deprecated_of_string_opt stro =
+  match stro with
+  | None -> Short_paths.Desc.Not_deprecated
+  | Some _ -> Short_paths.Desc.Deprecated
+
+let deprecated_of_attributes attrs =
+  deprecated_of_string_opt
+    (Builtin_attributes.deprecated_of_attrs attrs)
+
 let rec short_paths_module_desc env mpath mty comp =
   let open Short_paths.Desc.Module in
   match mty with
@@ -2300,7 +2328,8 @@ and short_paths_module_components_desc env mpath comp =
         Tbl.fold
           (fun name ((decl, _), _) acc ->
              let desc = short_paths_type_desc decl in
-             let item = Short_paths.Desc.Module.Type(name, desc) in
+             let depr = deprecated_of_attributes decl.type_attributes in
+             let item = Short_paths.Desc.Module.Type(name, desc, depr) in
              item :: acc)
           c.comp_types []
       in
@@ -2308,7 +2337,8 @@ and short_paths_module_components_desc env mpath comp =
         Tbl.fold
           (fun name (clty, _) acc ->
              let desc = short_paths_class_type_desc clty in
-             let item = Short_paths.Desc.Module.Class_type(name, desc) in
+             let depr = deprecated_of_attributes clty.clty_attributes in
+             let item = Short_paths.Desc.Module.Class_type(name, desc, depr) in
              item :: acc)
           c.comp_cltypes comps
       in
@@ -2316,7 +2346,8 @@ and short_paths_module_components_desc env mpath comp =
         Tbl.fold
           (fun name (mtd, _) acc ->
              let desc = short_paths_module_type_desc mtd.mtd_type in
-             let item = Short_paths.Desc.Module.Module_type(name, desc) in
+             let depr = deprecated_of_attributes mtd.mtd_attributes in
+             let item = Short_paths.Desc.Module.Module_type(name, desc, depr) in
              item :: acc)
           c.comp_modtypes comps
       in
@@ -2331,7 +2362,8 @@ and short_paths_module_components_desc env mpath comp =
              let mty = EnvLazy.force subst_modtype_maker data in
              let mpath = Pdot(mpath, name, 0) in
              let desc = short_paths_module_desc env mpath mty.md_type comps in
-             let item = Short_paths.Desc.Module.Module(name, desc) in
+             let depr = deprecated_of_string_opt comps.deprecated in
+             let item = Short_paths.Desc.Module.Module(name, desc, depr) in
              item :: acc)
           c.comp_modules comps
       in
@@ -2362,32 +2394,50 @@ let short_paths_additions_desc env additions =
     (function
       | Type(id, decl) ->
           let desc = short_paths_type_desc decl in
-          Short_paths.Desc.Type(id, desc, true)
+          let source = Short_paths.Desc.Local in
+          let depr = deprecated_of_attributes decl.type_attributes in
+          Short_paths.Desc.Type(id, desc, source, depr)
       | Class_type(id, clty) ->
           let desc = short_paths_class_type_desc clty in
-          Short_paths.Desc.Class_type(id, desc, true)
+          let source = Short_paths.Desc.Local in
+          let depr = deprecated_of_attributes clty.clty_attributes in
+          Short_paths.Desc.Class_type(id, desc, source, depr)
       | Module_type(id, mtd) ->
           let desc = short_paths_module_type_desc mtd.mtd_type in
-          Short_paths.Desc.Module_type(id, desc, true)
+          let source = Short_paths.Desc.Local in
+          let depr = deprecated_of_attributes mtd.mtd_attributes in
+          Short_paths.Desc.Module_type(id, desc, source, depr)
       | Module(id, md, comps) ->
-          let desc = short_paths_module_desc env (Pident id) md.md_type comps in
-          Short_paths.Desc.Module(id, desc, true)
-      | Type_open(id, path) ->
+          let desc =
+            short_paths_module_desc env (Pident id) md.md_type comps
+          in
+          let source = Short_paths.Desc.Local in
+          let depr = deprecated_of_string_opt comps.deprecated in
+          Short_paths.Desc.Module(id, desc, source, depr)
+      | Type_open(id, path, decl) ->
           let id = Ident.rename id in
           let desc = Short_paths.Desc.Type.Alias path in
-          Short_paths.Desc.Type(id, desc, false)
-      | Class_type_open(id, path) ->
+          let source = Short_paths.Desc.Open in
+          let depr = deprecated_of_attributes decl.type_attributes in
+          Short_paths.Desc.Type(id, desc, source, depr)
+      | Class_type_open(id, path, clty) ->
           let id = Ident.rename id in
           let desc = Short_paths.Desc.Class_type.Alias path in
-          Short_paths.Desc.Class_type(id, desc, false)
-      | Module_type_open(id, path) ->
+          let source = Short_paths.Desc.Open in
+          let depr = deprecated_of_attributes clty.clty_attributes in
+          Short_paths.Desc.Class_type(id, desc, source, depr)
+      | Module_type_open(id, path, mtd) ->
           let id = Ident.rename id in
           let desc = Short_paths.Desc.Module_type.Alias path in
-          Short_paths.Desc.Module_type(id, desc, false)
-      | Module_open(id, path) ->
+          let source = Short_paths.Desc.Open in
+          let depr = deprecated_of_attributes mtd.mtd_attributes in
+          Short_paths.Desc.Module_type(id, desc, source, depr)
+      | Module_open(id, path, comps) ->
           let id = Ident.rename id in
           let desc = Short_paths.Desc.Module.Alias path in
-          Short_paths.Desc.Module(id, desc, false))
+          let source = Short_paths.Desc.Open in
+          let depr = deprecated_of_string_opt comps.deprecated in
+          Short_paths.Desc.Module(id, desc, source, depr))
     additions
 
 let () =
@@ -2508,25 +2558,18 @@ let () =
     )
 
 let check_state_consistency () =
-  try
-    Hashtbl.iter (fun name ps ->
-        let filename =
-          try Some (find_in_path_uncap !load_path (name ^ ".cmi"))
-          with Not_found -> None
-        in
-        let invalid =
-          match filename, ps with
-          | None, None -> false
-          | Some filename, Some ps ->
-            begin match !(Cmi_cache.(read filename).Cmi_cache.cmi_cache) with
-              | Cmi_cache_store ps_sig -> not (Std.lazy_eq ps_sig ps.ps_sig)
-              | _ -> true
-            end
-          | _, _ -> true
-        in
-        if invalid then raise Not_found
-      ) !persistent_structures;
-    true
-  with Not_found -> false
+  Std.Hashtbl.forall !persistent_structures @@ fun name ps ->
+  match ps with
+  | None ->
+    begin match find_in_path_uncap !load_path (name ^ ".cmi") with
+      | _ -> false
+      | exception Not_found -> true
+    end
+  | Some cell ->
+    begin match !(Cmi_cache.(read cell.ps_filename).Cmi_cache.cmi_cache) with
+      | Cmi_cache_store ps_sig -> Std.lazy_eq ps_sig cell.ps_sig
+      | _ -> false
+      | exception Not_found -> false
+    end
 
 let with_cmis f = f ()
