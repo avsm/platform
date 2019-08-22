@@ -1,5 +1,5 @@
 PACKAGES=opam-devel dune-release utop odoc merlin ocp-indent ocamlformat ocamlfind mdx
-PINS=odoc ocamlformat merlin lwt ocamlfind mdx
+PINS=
 
 build:
 	./build.sh native
@@ -12,7 +12,6 @@ flambda:
 
 quick:
 	cd vendor/lwt && ocaml src/util/configure.ml -use-libev false
-	cd vendor/markup && ocaml src/configure.ml
 	./bootstrap/dune/_build/install/default/bin/dune build --profile=release @cli
 
 doc:
@@ -30,17 +29,5 @@ vendor-dune:
 	git add bootstrap/dune
 	git commit -m 'update dune vendor' bootstrap/dune
 
-debug-opam:
-	$(DUNIVERSE) opam $(PINS:%=--pin %) $(PACKAGES) -v
-
-debug-dune:
-	$(DUNIVERSE) lock $(DEBUG)
-
-git-lock:
-	$(DUNIVERSE) git-lock $(PINS:%=--pin %) $(PACKAGES) $(DEBUG)
-
-git-pull:
-	$(DUNIVERSE) git-pull -v $(DEBUG)
-
-git-merge:
-	$(DUNIVERSE) git-merge -v $(DEBUG)
+init:
+	$(DUNIVERSE) init $(PACKAGES)
