@@ -1,0 +1,10 @@
+(library
+ (name algo)
+ (public_name dose3.algo)
+ (modules :standard \ tests bench)
+ (flags :standard -w -3-9-27-32-33-34-50)
+ (libraries dose3.common ocamlgraph)
+ (preprocess
+  (action
+   (run %{bin:cppo} -D "OCAMLGRAPHVERSION 188" -V OCAML:%{ocaml_version}
+     %{input-file}))))

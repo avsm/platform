@@ -1,0 +1,18 @@
+description = "Unicode text segmentation for OCaml"
+version = "%%VERSION%%"
+requires = "uchar uucp"
+archive(byte) = "uuseg.cma"
+archive(native) = "uuseg.cmxa"
+plugin(byte) = "uuseg.cma"
+plugin(native) = "uuseg.cmxs"
+
+package "string" (
+  description = "Unicode text segmentation on UTF-X OCaml strings"
+  version = "%%VERSION%%"
+  requires = "uuseg uutf"
+  archive(byte) = "uuseg_string.cma"
+  archive(native) = "uuseg_string.cmxa"
+  plugin(byte) = "uuseg_string.cma"
+  plugin(native) = "uuseg_string.cmxs"
+  exists_if = "uuseg_string.cma"
+)

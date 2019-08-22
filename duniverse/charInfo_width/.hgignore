@@ -1,0 +1,17 @@
+syntax: glob
+
+**/*.annot
+
+**/.\#*
+**/*~
+**/Session.vim
+**/.*.swp
+
+**/*.o
+**/*.a
+**/*.so
+**/*.cm*
+_build
+.merlin
+charInfo_width.install
+

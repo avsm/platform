@@ -1,0 +1,13 @@
+(library
+ (name react)
+ (public_name react)
+ (modules react)
+ (flags :standard -w -9-22-27-32-39)
+ (wrapped false))
+
+(library
+ (name react_top)
+ (public_name react.top)
+ (libraries compiler-libs.toplevel)
+ (modules react_top)
+ (wrapped false))

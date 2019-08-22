@@ -1,0 +1,10 @@
+* release procedure
+- git checkout -t -b vM.N.O
+- topkg tag M.N.O
+- dune subst
+- ocaml tools/gen_version.mlt src/Version.ml M.N.O
+- git add src/Version.ml
+- git commit -a -m vM.N.O
+- topkg tag M.N.O -f
+- git push origin refs/heads/vM.N.O refs/tags/M.N.O
+- opam publish ocamlformat.opam

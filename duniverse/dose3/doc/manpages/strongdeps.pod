@@ -1,0 +1,111 @@
+=head1 NAME
+
+strongdeps - indentify the strong dependency of a set of packages
+
+=head1 SYNOPSIS
+
+B<strongdeps> [option] ... I<file> ... 
+
+=cut
+
+=head1 DESCRIPTION
+
+B<strongdeps> computes the strong dependencies and the impact set of a
+set of packages. We say that p strongly depends on q if whenever p
+is installed then q must also be installed. The impact set of a
+package q is the set of all packages p that strongly depend on q.
+
+=head1 Input Specification
+
+Input files have to contain stanzas in the format of
+L<deb-control(5)>, separated by one blank line. For instance, the
+Packages files as found on a Debian mirror server, or in the directory
+I</var/lib/apt/lists/> of a Debian system, are suitable as input. The
+repository used in the analysis consists of the union of all packages 
+from the input files.
+
+=head1 Output Specification
+
+The output of strongdeps is a CSV table containing strong dependencies, impact
+set and direct dependencies. If the option B<--checkonly> is spefified,
+B<strongdeps> prints on standard output the list of the packages that strong
+depends on each of the given packages. If B<--checkonly> if paired with
+B<--dot> then B<strongdeps> prints on standard output the detransitivitazed
+graph of the strong dependencies of each package in dot format.
+
+N.B. Since B<--checkonly> computes only the strong dependencies of a set of
+packages, the impact set is not computed.
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<--checkonly> I<package>[,I<package>] ...
+
+Specifies a list of packages to check. By default all packages are
+checked. B<--checkonly> and B<--table> are mutually exclusive.
+
+=item B<--dot>
+
+Print the strong dependency graph in dot format
+
+=item B<--table>
+
+Print the table (package,strong,direct,difference) in the file data.csv
+
+=item B<--detrans>
+
+Perform the transitive reduction of the strong dependency graph. This 
+option is implied by B<--checkonly>
+
+=item B<--transitive-closure>
+
+Perform the transitive closure of the direct dependency graph
+
+=item B<--conj-only>
+
+Use the conjunctive graph only
+
+=item B<-v>
+ 
+Enable info / warnings / debug messages. This option may be repeated up to
+three times in order to increase verbosity.
+
+=item B<--progress> 
+
+Display progress bars. 
+
+=item B<-h>, B<--help> 
+
+Display this list of options. 
+
+=back
+=cut
+
+=head1 EXAMPLE
+
+ strongdeps --dot --checkonly "2ping,libc6" \
+ deb:///var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages
+
+ strongdeps --table \
+ deb:///var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages
+
+=cut
+
+=head1 AUTHORS
+
+Pietro Abate, Jaap Boender, Roberto Di Cosmo
+
+=cut
+
+=head1 SEE ALSO
+
+<http://www.mancoosi.org> is the home page of the Mancoosi project. 
+
+For a comprehensive explanation of the notion of strong dependency
+and impact set see
+
+Strong Dependencies between Software Components, 
+by Pietro Abate, Jaap Boender, Roberto Di Cosmo, and Stefano Zacchiroli.
+<http://mancoosi.org/reports/>
+ 
