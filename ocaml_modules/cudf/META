@@ -1,5 +1,0 @@
-description = "CUDF library"
-version = "placeholder"
-archive(byte) = "cudf.cma"
-archive(native) = "cudf.cmxa"
-requires = "extlib"

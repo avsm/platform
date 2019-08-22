@@ -1,8 +1,0 @@
-common/Common
-versioning/Versioning
-algo/Algo
-deb/Debian
-pef/Pef
-opam/Opam
-doseparse/Doseparse
-@DOC_RPM@

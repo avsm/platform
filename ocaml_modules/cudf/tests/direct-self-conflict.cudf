@@ -1,4 +1,0 @@
-package: foo
-version: 1
-conflicts: foo
-installed: true

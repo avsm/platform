@@ -1,3 +1,0 @@
-(install
- (section man)
- (files utop.1 utop-full.1 utoprc.5))
