@@ -11,9 +11,10 @@ module Signal = struct
   type t = Int | Quit | Term
   let compare : t -> t -> Ordering.t = compare
 
-  module Set = Set.Make(struct
+  include Comparable.Make(struct
       type nonrec t = t
       let compare = compare
+      let to_dyn _ = Dyn.opaque
     end)
 
   let all = [Int; Quit; Term]
@@ -28,7 +29,7 @@ module Signal = struct
     |> Int.Map.of_list_reduce ~f:(fun _ t -> t)
     |> Int.Map.find
 
-  let name t = Utils.signal_name (to_int t)
+  let name t = Signal.name (to_int t)
 end
 
 module Thread = struct
@@ -166,11 +167,6 @@ end
 
 let ignore_for_watch = Event.ignore_next_file_change_event
 
-type status_line_config =
-  { message   : string option
-  ; show_jobs : bool
-  }
-
 module File_watcher : sig
   type t
 
@@ -222,8 +218,11 @@ end = struct
              "--event"; "Updated";
              "--event"; "Removed"] @ excludes
          | None ->
-           die "@{<error>Error@}: fswatch (or inotifywait) was not found. \
-                One of them needs to be installed for watch mode to work.\n"))
+           User_error.raise
+             [ Pp.text "fswatch (or inotifywait) was not found. One of \
+                        them needs to be installed for watch mode to \
+                        work."
+             ]))
 
   let buffering_time = 0.5 (* seconds *)
   let buffer_capacity = 65536
@@ -360,7 +359,7 @@ end = struct
     let add job =
       match Hashtbl.find table job.pid with
       | None ->
-        Hashtbl.add table job.pid (Running job);
+        Hashtbl.set table job.pid (Running job);
         incr running_count;
         if !running_count = 1 then Condition.signal something_is_running_cv
       | Some (Zombie status) ->
@@ -372,7 +371,7 @@ end = struct
     let remove ~pid status =
       match Hashtbl.find table pid with
       | None ->
-        Hashtbl.add table pid (Zombie status)
+        Hashtbl.set table pid (Zombie status)
       | Some (Running job) ->
         decr running_count;
         Hashtbl.remove table pid;
@@ -512,62 +511,23 @@ end
 type t =
   { log                        : Log.t
   ; original_cwd               : string
-  ; display                    : Config.Display.t
   ; mutable concurrency        : int
   ; waiting_for_available_job  : t Fiber.Ivar.t Queue.t
-  ; mutable status_line        : string
-  ; mutable gen_status_line    : unit -> status_line_config
-  ; mutable cur_build_canceled : bool
   }
 
 let log t = t.log
-let display t = t.display
 
 let with_chdir t ~dir ~f =
   Sys.chdir (Path.to_string dir);
   protectx () ~finally:(fun () -> Sys.chdir t.original_cwd) ~f
 
-let hide_status_line s =
-  let len = String.length s in
-  if len > 0 then Printf.eprintf "\r%*s\r" len ""
-
-let show_status_line s =
-  prerr_string s
-
-let print t msg =
-  let s = t.status_line in
-  hide_status_line s;
-  prerr_string msg;
-  show_status_line s;
-  flush stderr
-
 let t_var : t Fiber.Var.t = Fiber.Var.create ()
 
-let update_status_line t =
-  if t.display = Progress then begin
-    match t.gen_status_line () with
-    | { message = None; _ } ->
-      if t.status_line <> "" then begin
-        hide_status_line t.status_line;
-        flush stderr
-      end
-    | { message = Some status_line; show_jobs } ->
-      let status_line =
-        if show_jobs then
-          sprintf "%s (jobs: %u)" status_line (Event.pending_jobs ())
-        else
-          status_line
-      in
-      hide_status_line t.status_line;
-      show_status_line   status_line;
-      flush stderr;
-      t.status_line <- status_line;
-  end
+let update_status_line () =
+  Console.update_status_line ~running_jobs:(Event.pending_jobs ())
 
-let set_status_line_generator f =
-  let t = Fiber.Var.get_exn t_var in
-  t.gen_status_line <- f;
-  update_status_line t
+let set_status_line_generator gen =
+  Console.set_status_line_generator ~running_jobs:(Event.pending_jobs ()) gen
 
 let set_concurrency n =
   let t = Fiber.Var.get_exn t_var in
@@ -594,47 +554,33 @@ let rec restart_waiting_for_available_job t =
     Fiber.return ()
   else begin
     let ivar = Queue.pop t.waiting_for_available_job in
-    Fiber.Ivar.fill ivar t
-    >>= fun () ->
+    let* () = Fiber.Ivar.fill ivar t in
     restart_waiting_for_available_job t
   end
 
 let got_signal t signal =
-  if t.display = Verbose then
+  if Console.display () = Verbose then
     Log.infof t.log "Got signal %s, exiting." (Signal.name signal)
 
-let go_rec t =
-  let rec go_rec t =
-    Fiber.yield ()
-    >>= fun () ->
-    let count = Event.pending_jobs () in
-    if count = 0 then begin
-      hide_status_line t.status_line;
-      flush stderr;
-      Fiber.return ()
-    end else begin
-      update_status_line t;
-      begin
-        match Event.next () with
-        | Job_completed (job, status) ->
-          Fiber.Ivar.fill job.ivar status
-          >>= fun () ->
-          restart_waiting_for_available_job t
-          >>= fun () ->
-          go_rec t
-        | Files_changed ->
-          t.cur_build_canceled <- true;
-          Fiber.return ()
-        | Signal signal ->
-          got_signal t signal;
-          Fiber.return ()
-      end
-    end
-  in
-  go_rec t
+type saw_signal =
+  | Ok
+  | Got_signal
 
-let prepare ?(log=Log.no_log) ?(config=Config.default)
-      ?(gen_status_line=fun () -> { message = None; show_jobs = false }) () =
+let kill_and_wait_for_all_processes t () =
+  Queue.clear t.waiting_for_available_job;
+  Process_watcher.killall Sys.sigkill;
+  let saw_signal = ref Ok in
+  while Event.pending_jobs () > 0 do
+    match Event.next () with
+    | Signal signal ->
+      got_signal t signal;
+      saw_signal := Got_signal;
+    | _ -> ()
+  done;
+  !saw_signal
+
+let prepare ?(log=Log.no_log) ?(config=Config.default) () =
+  Console.init config.Config.display;
   Log.infof log "Workspace root: %s"
     (Path.to_absolute_filename Path.root |> String.maybe_quoted);
   (* The signal watcher must be initialized first so that signals are
@@ -669,52 +615,128 @@ let prepare ?(log=Log.no_log) ?(config=Config.default)
          cwd);
   let t =
     { log
-    ; gen_status_line
     ; original_cwd = cwd
-    ; display      = config.Config.display
     ; concurrency  = (match config.concurrency with Auto -> 1 | Fixed n -> n)
-    ; status_line  = ""
     ; waiting_for_available_job = Queue.create ()
-    ; cur_build_canceled = false
     }
   in
-  Errors.printer := print t;
   t
 
-let run t f =
-  let fiber =
-    Fiber.Var.set t_var t
-      (fun () -> Fiber.with_error_handler f ~on_error:Report_error.report)
-  in
-  Fiber.run
-    (Fiber.fork_and_join_unit
-       (fun () -> go_rec t)
-       (fun () -> fiber))
+module Run_once : sig
 
-let kill_and_wait_for_all_processes () =
-  Process_watcher.killall Sys.sigkill;
-  while Event.pending_jobs () > 0 do
-    ignore (Event.next () : Event.t)
-  done
+  type run_error =
+    | Got_signal
+    | Files_changed
+    | Never
+    | Exn of Exn.t * Printexc.raw_backtrace
 
-let go ?log ?config ?gen_status_line f =
-  let t = prepare ?log ?config ?gen_status_line () in
-  try
-    run t f
-  with exn ->
-    kill_and_wait_for_all_processes ();
-    raise exn
+  (** Run the build and clean up after it (kill any stray processes etc). *)
+  val run_and_cleanup :
+    t ->
+    (unit -> 'a Fiber.t) ->
+    ('a, run_error) Result.t
+
+end = struct
+
+  type pump_events_result =
+    | Done
+    | Got_signal
+    | Files_changed
+
+  let rec pump_events t =
+    let* () = Fiber.yield () in
+    let count = Event.pending_jobs () in
+    if count = 0 then begin
+      Console.hide_status_line ();
+      Fiber.return Done
+    end else begin
+      update_status_line ();
+      begin
+        match Event.next () with
+        | Job_completed (job, status) ->
+          let* () = Fiber.Ivar.fill job.ivar status in
+          let* () = restart_waiting_for_available_job t in
+          pump_events t
+        | Files_changed ->
+          Fiber.return Files_changed
+        | Signal signal ->
+          got_signal t signal;
+          Fiber.return Got_signal
+      end
+    end
+
+  type run_error =
+    | Got_signal
+    | Files_changed
+    | Never
+    | Exn of Exn.t * Printexc.raw_backtrace
+
+  let run t f =
+    let fiber =
+      Fiber.Var.set t_var t
+        (fun () -> Fiber.with_error_handler f ~on_error:Report_error.report)
+    in
+    match Fiber.run
+            (let* user_action_result = Fiber.fork (fun () -> fiber) in
+             let* pump_events_result = pump_events t in
+             Fiber.return (pump_events_result, user_action_result)) with
+    | exception Fiber.Never ->
+      Code_error.raise "[Scheduler.pump_events] got stuck somehow" []
+    | exception exn ->
+      Error (Exn (exn, (Printexc.get_raw_backtrace ())))
+    | (a, b) ->
+      let b = Fiber.Future.peek b in
+      match (a, b) with
+      | Done, None ->
+        Error Never
+      | Done, Some res ->
+        Ok res
+      | Got_signal, _ -> Error Got_signal
+      | Files_changed, _ -> Error Files_changed
+
+  let run_and_cleanup t f =
+    let res = run t f in
+    (match res with
+     | Error Files_changed ->
+       set_status_line_generator
+         (fun () ->
+            { message =
+                Some (Pp.seq (Pp.tag ~tag:User_message.Style.Error
+                                (Pp.verbatim "Had errors"))
+                        (Pp.verbatim ", killing current build..."))
+            ; show_jobs = false
+            })
+     | _ -> ());
+    match kill_and_wait_for_all_processes t () with
+    | Got_signal ->
+      Error Got_signal
+    | Ok ->
+      res
+end
+
+let go ?log ?config f =
+  let t = prepare ?log ?config () in
+  match
+    Run_once.run_and_cleanup t f
+  with
+  | Error (Exn (exn, bt)) ->
+    Exn.raise_with_backtrace exn bt
+  | Ok res ->
+    res
+  | Error Got_signal ->
+    raise Report_error.Already_reported
+  | Error Never ->
+    raise Fiber.Never
+  | Error Files_changed ->
+    Code_error.raise
+      "Scheduler.go: files changed even though we're running without filesystem watcher"
+      []
 
 type exit_or_continue = Exit | Continue
-type got_signal = Got_signal
 
 let poll ?log ?config ~once ~finally () =
   let t = prepare ?log ?config () in
   let watcher = File_watcher.create () in
-  let once () =
-    t.cur_build_canceled <- false;
-    once ()
-  in
   let block_waiting_for_changes () =
     match Event.next () with
     | Job_completed _ -> assert false
@@ -723,64 +745,43 @@ let poll ?log ?config ~once ~finally () =
       got_signal t signal;
       Exit
   in
-  let rec wait msg =
-    let old_generator = t.gen_status_line in
+  let wait msg =
+    let old_generator = Console.get_status_line_generator () in
     set_status_line_generator
       (fun () ->
-         { message = Some (msg ^ ".\nWaiting for filesystem changes...")
+         { message = Some (Pp.seq msg
+                             (Pp.verbatim ", waiting for filesystem changes..."))
          ; show_jobs = false
          });
     let res = block_waiting_for_changes () in
     set_status_line_generator old_generator;
-    match res with
-    | Exit -> Fiber.return Got_signal
-    | Continue -> main_loop ()
-  and main_loop () =
-    once ()
-    >>= fun _ ->
+    res
+  in
+  let rec loop () =
+    let res = Run_once.run_and_cleanup t once in
     finally ();
-    wait "Success"
+    match res with
+    | Ok () ->
+      wait (Pp.tag ~tag:User_message.Style.Success
+              (Pp.verbatim "Success"))
+      |> after_wait
+    | Error Got_signal ->
+      (Report_error.Already_reported, None)
+    | Error Never ->
+      wait (Pp.tag ~tag:User_message.Style.Error
+              (Pp.verbatim "Had errors"))
+      |> after_wait
+    | Error Files_changed ->
+      loop ()
+    | Error (Exn (exn, bt)) -> (exn, Some bt)
+  and
+    after_wait = function
+    | Exit -> (Report_error.Already_reported, None)
+    | Continue -> loop ()
   in
-  let continue_on_error () =
-    if not t.cur_build_canceled then begin
-      finally ();
-      wait "Had errors"
-    end else begin
-      set_status_line_generator
-        (fun () ->
-           { message = Some "Had errors.\nKilling current build..."
-           ; show_jobs = false
-           });
-      Queue.clear t.waiting_for_available_job;
-      Process_watcher.killall Sys.sigkill;
-      let rec loop () =
-        if Event.pending_jobs () = 0 then
-          Continue
-        else
-          match Event.next () with
-          | Files_changed -> loop ()
-          | Job_completed _ -> loop ()
-          | Signal signal ->
-            got_signal t signal;
-            Exit
-      in
-      match loop () with
-      | Exit ->
-        Fiber.return Got_signal
-      | Continue ->
-        finally ();
-        main_loop ()
-    end
-  in
-  let rec loop f =
-    match run t f with
-    | Got_signal -> (Fiber.Never, None)
-    | exception Fiber.Never -> loop continue_on_error
-    | exception exn -> (exn, Some (Printexc.get_raw_backtrace ()))
-  in
-  let exn, bt = loop main_loop in
+  let exn, bt = loop () in
   ignore (wait_for_process (File_watcher.pid watcher) : _ Fiber.t);
-  kill_and_wait_for_all_processes ();
+  ignore (kill_and_wait_for_all_processes t () : saw_signal);
   match bt with
   | None -> Exn.raise exn
   | Some bt -> Exn.raise_with_backtrace exn bt

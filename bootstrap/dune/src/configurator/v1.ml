@@ -256,9 +256,6 @@ module Process = struct
   let run_command_ok t ?dir ?env cmd =
     (run_command t ?dir ?env cmd).exit_code = 0
 
-  let run_process_ok t ?dir ?env prog args =
-    (run_process t ?dir ?env prog args).exit_code = 0
-
   let run t ?dir ?env prog args =
     run_command t ?dir ?env (command_line prog args)
 
@@ -591,19 +588,20 @@ module Pkg_config = struct
       match ocaml_config_var c "system" with
       | Some "macosx" -> begin
           let open Option.O in
-          which c "brew" >>= fun brew ->
-          (let prefix =
-             String.trim (Process.run_capture_exn c ~dir brew ["--prefix"])
-           in
-           let p = sprintf "%s/opt/%s/lib/pkgconfig"
-                     (quote_if_needed prefix) package
-           in
-           Option.some_if (
-             match Sys.is_directory p with
-             | s -> s
-             | exception Sys_error _ -> false)
-             p)
-          >>| fun new_pkg_config_path ->
+          let* brew = which c "brew" in
+          let+ new_pkg_config_path =
+            let prefix =
+              String.trim (Process.run_capture_exn c ~dir brew ["--prefix"])
+            in
+            let p = sprintf "%s/opt/%s/lib/pkgconfig"
+                      (quote_if_needed prefix) package
+            in
+            Option.some_if (
+              match Sys.is_directory p with
+              | s -> s
+              | exception Sys_error _ -> false)
+              p
+          in
           let _PKG_CONFIG_PATH = "PKG_CONFIG_PATH" in
           let pkg_config_path =
             match Sys.getenv _PKG_CONFIG_PATH with
@@ -615,7 +613,10 @@ module Pkg_config = struct
         end
       | _ -> None
     in
-    if Process.run_process_ok c ~dir ?env t.pkg_config [expr] then
+    let pc_flags = "--print-errors" in
+    let { Process.exit_code; stderr; _ } =
+      Process.run_process c ~dir ?env t.pkg_config [pc_flags; expr] in
+    if exit_code = 0 then
       let run what =
         match String.trim (Process.run_capture_exn c ~dir ?env
                              t.pkg_config [what; package])
@@ -623,15 +624,19 @@ module Pkg_config = struct
         | "" -> []
         | s  -> String.split s ~on:' '
       in
-      Some
+      Ok
         { libs   = run "--libs"
         ; cflags = run "--cflags"
         }
     else
-      None
+      Error stderr
 
-  let query t ~package = gen_query t ~package ~expr:None
-  let query_expr t ~package ~expr = gen_query t ~package ~expr:(Some expr)
+  let query t ~package = Result.to_option @@ gen_query t ~package ~expr:None
+
+  let query_expr t ~package ~expr =
+    Result.to_option @@ gen_query t ~package ~expr:(Some expr)
+
+  let query_expr_err t ~package ~expr = gen_query t ~package ~expr:(Some expr)
 end
 
 let main ?(args=[]) ~name f =

@@ -2,18 +2,18 @@ open! Stdune
 open! Import
 
 let local_install_dir =
-  let dir = Path.relative Path.build_dir "install" in
-  fun ~context -> Path.relative dir context
+  let dir = Path.Build.relative Path.Build.root "install" in
+  fun ~context -> Path.Build.relative dir context
 
 let local_install_bin_dir ~context =
-  Path.relative (local_install_dir ~context) "bin"
+  Path.Build.relative (local_install_dir ~context) "bin"
 
 let local_install_man_dir ~context =
-  Path.relative (local_install_dir ~context) "bin"
+  Path.Build.relative (local_install_dir ~context) "bin"
 
 let local_install_lib_dir ~context ~package =
-  Path.relative
-    (Path.relative (local_install_dir ~context) "lib")
+  Path.Build.relative
+    (Path.Build.relative (local_install_dir ~context) "lib")
     (Package.Name.to_string package)
 
 let dev_null =
@@ -24,6 +24,10 @@ let dune_keep_fname = ".dune-keep"
 
 let inside_emacs = Option.is_some (Env.get Env.initial "INSIDE_EMACS")
 let inside_dune  = Option.is_some (Env.get Env.initial "INSIDE_DUNE")
+let inside_ci = Option.is_some (Env.get Env.initial "CI")
+
+let show_full_command_on_error () =
+  inside_dune || inside_ci || !Clflags.always_show_command_line
 
 let default_build_profile =
   match Wp.t with
@@ -37,19 +41,7 @@ open Stanza.Decoder
 let syntax = Stanza.syntax
 
 module Display = struct
-  type t =
-    | Progress
-    | Short
-    | Verbose
-    | Quiet
-
-  let all =
-      [ "progress" , Progress
-      ; "verbose"  , Verbose
-      ; "short"    , Short
-      ; "quiet"    , Quiet
-      ]
-
+  include Stdune.Console.Display
   let decode = enum all
 end
 
@@ -75,7 +67,7 @@ module Concurrency = struct
   let decode =
     plain_string (fun ~loc s ->
       match of_string s with
-      | Error m -> of_sexp_errorf loc "%s" m
+      | Error m -> User_error.raise ~loc [ Pp.text m ]
       | Ok s -> s)
 
   let to_string = function
@@ -111,9 +103,9 @@ let default =
   }
 
 let decode =
-  let%map display = field "display" Display.decode ~default:default.display
-  and concurrency = field "jobs" Concurrency.decode ~default:default.concurrency
-  and () = Versioned_file.no_more_lang
+  let+ display = field "display" Display.decode ~default:default.display
+  and+ concurrency = field "jobs" Concurrency.decode ~default:default.concurrency
+  and+ () = Versioned_file.no_more_lang
   in
   { display
   ; concurrency

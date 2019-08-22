@@ -90,7 +90,7 @@ let rec find l ~f =
 let find_exn l ~f =
   match find l ~f with
   | Some x -> x
-  | None -> invalid_arg "List.find_exn"
+  | None -> Code_error.raise "List.find_exn" []
 
 let rec last = function
   | [] -> None
@@ -110,6 +110,9 @@ let sort t ~compare =
 
 let stable_sort t ~compare =
   stable_sort t ~cmp:(fun a b -> Ordering.to_int (compare a b))
+
+let sort_uniq t ~compare =
+  Dune_caml.List.sort_uniq (fun a b -> Ordering.to_int (compare a b)) t
 
 let rec compare a b ~compare:f : Ordering.t =
   match a, b with
@@ -134,7 +137,7 @@ let rec nth t i =
   | x :: _, 0 -> Some x
   | _ :: xs, i -> nth xs (i - 1)
 
-let physically_equal = Pervasives.(==)
+let physically_equal = Pervasives.(==) [@warning "-3"]
 
 let init =
   let rec loop acc i n f =
@@ -144,3 +147,29 @@ let init =
       loop (f i :: acc) (i + 1) n f
   in
   fun n ~f -> loop [] 0 n f
+
+let hd_opt = function
+  | [] -> None
+  | x :: _ -> Some x
+
+let rec equal eq xs ys =
+  match xs, ys with
+  | [], [] -> true
+  | x :: xs, y :: ys -> eq x y && equal eq xs ys
+  | _, _ -> false
+
+let hash f xs = Dune_caml.Hashtbl.hash (map ~f xs)
+
+let cons xs x = x :: xs
+
+(* copy&paste from [base] *)
+let fold_map t ~init ~f =
+  let acc = ref init in
+  let result =
+    map t ~f:(fun x ->
+      let new_acc, y = f !acc x in
+      acc := new_acc;
+      y)
+  in
+  !acc, result
+;;

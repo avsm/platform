@@ -1,6 +1,9 @@
 module type S = sig
   type t
+  val hash : t -> int
+  val equal : t -> t -> bool
   val compare : t -> t -> Ordering.t
+  val to_dyn : t -> Dyn.t
   val to_string : t -> string
   val pp: t Fmt.t
   val make : string -> t
@@ -8,6 +11,9 @@ module type S = sig
   val all : unit -> t list
   module Set : sig
     include Set.S with type elt = t
+
+    val to_dyn : t -> Dyn.t
+
     val make : string list -> t
 
     val pp : t Fmt.t
@@ -38,8 +44,7 @@ module type Settings = sig
   val order : order
 end
 
-module Make(R : Settings)()
-= struct
+module Make(R : Settings)() = struct
 
   let ids = Hashtbl.create 1024
   let next = ref 0
@@ -75,6 +80,7 @@ module Make(R : Settings)()
     let set t ~key ~data =
       if key >= Array.length t.data then resize t;
       t.data.(key) <- data
+
   end
 
   let names = Table.create ~default_value:""
@@ -89,6 +95,7 @@ module Make(R : Settings)()
   let get s = Hashtbl.find ids s
 
   let to_string t = Table.get names t
+  let hash t = String.hash (to_string t)
 
   let all () = List.init !next ~f:(fun t -> t)
 
@@ -99,14 +106,20 @@ module Make(R : Settings)()
       match R.order with
       | Fast -> Int.compare
       | Natural -> fun x y -> String.compare (to_string x) (to_string y)
+
+    let equal x y = compare x y = Ordering.Eq
+
+    let to_dyn = Dyn.Encoder.int
   end
 
   include T
 
   let pp fmt t = Format.fprintf fmt "%S" (to_string t)
 
+  module O = Comparable.Make(T)
+
   module Set = struct
-    include Set.Make(T)
+    include O.Set
 
     let make l =
       List.fold_left l ~init:empty ~f:(fun acc s -> add acc (make s))
@@ -121,11 +134,15 @@ module No_interning(R : Settings)() = struct
   type t = string
 
   let compare = String.compare
+  let hash = String.hash
+  let equal = String.equal
   let make s = s
   let to_string s = s
   let pp fmt s = Format.fprintf fmt "%S" (to_string s)
   let get s = Some s
   let all () = assert false
+
+  let to_dyn t = Dyn.String (to_string t)
 
   module Set = struct
     include String.Set

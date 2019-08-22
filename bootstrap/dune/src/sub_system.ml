@@ -26,9 +26,9 @@ module Register_backend(M : Backend) = struct
       assert false
     | exception exn -> Error exn
 
-  module Set =
-    Set.Make(struct
+  include Comparable.Make(struct
       type t = M.t
+      let to_dyn _ = Dyn.opaque
       let compare a b =
         Lib.Id.compare
           (Lib.unique_id (M.lib a))
@@ -37,12 +37,16 @@ module Register_backend(M : Backend) = struct
 
   let resolve db (loc, name) =
     let open Result.O in
-    Lib.DB.resolve db (loc, name) >>= fun lib ->
+    let* lib = Lib.DB.resolve db (loc, name) in
     match get lib with
     | None ->
-      Error (Errors.exnf loc "%a is not %s %s" Lib_name.pp_quoted name
-               M.desc_article
-               (M.desc ~plural:false))
+      Error (User_error.E
+               (User_error.make ~loc
+                  [ Pp.textf "%s is not %s %s"
+                      (Lib_name.to_string name)
+                      M.desc_article
+                      (M.desc ~plural:false)
+                  ]))
     | Some t -> Ok t
 
   module Selection_error = struct
@@ -54,17 +58,22 @@ module Register_backend(M : Backend) = struct
     let to_exn t ~loc =
       match t with
       | Too_many_backends backends ->
-        Errors.exnf loc
-          "Too many independent %s found:\n%s"
-          (M.desc ~plural:true)
-          (String.concat ~sep:"\n"
-             (List.map backends ~f:(fun t ->
-                let lib = M.lib t in
-                sprintf "- %S in %s"
-                  (Lib_name.to_string (Lib.name lib))
-                  (Path.to_string_maybe_quoted (Lib.src_dir lib)))))
+        User_error.E
+          (User_error.make ~loc
+             [ Pp.textf "Too many independent %s found:"
+                 (M.desc ~plural:true)
+             ; Pp.enumerate backends ~f:(fun t ->
+                 let lib = M.lib t in
+                 let info = Lib.info lib in
+                 let src_dir = Lib_info.src_dir info in
+                 Pp.textf "%S in %s"
+                   (Lib_name.to_string (Lib.name lib))
+                   (Path.to_string_maybe_quoted src_dir))
+             ])
       | No_backend_found ->
-        Errors.exnf loc "No %s found." (M.desc ~plural:false)
+        User_error.E
+          (User_error.make ~loc
+             [ Pp.textf "No %s found." (M.desc ~plural:false) ])
       | Other exn ->
         exn
 
@@ -90,10 +99,8 @@ module Register_backend(M : Backend) = struct
 
   let select_extensible_backends ?written_by_user ~extends to_scan =
     let open Result.O in
-    written_by_user_or_scan ~written_by_user ~to_scan
-    >>= fun backends ->
-    wrap (top_closure backends ~deps:extends)
-    >>= fun backends ->
+    let* backends = written_by_user_or_scan ~written_by_user ~to_scan in
+    let* backends = wrap (top_closure backends ~deps:extends) in
     let roots =
       let all = Set.of_list backends in
       List.fold_left backends ~init:all ~f:(fun acc t ->
@@ -107,10 +114,9 @@ module Register_backend(M : Backend) = struct
 
   let select_replaceable_backend ?written_by_user ~replaces to_scan =
     let open Result.O in
-    written_by_user_or_scan ~written_by_user ~to_scan
-    >>= fun backends ->
-    wrap (Result.List.concat_map backends ~f:replaces)
-    >>= fun replaced_backends ->
+    let* backends = written_by_user_or_scan ~written_by_user ~to_scan in
+    let* replaced_backends =
+      wrap (Result.List.concat_map backends ~f:replaces) in
     match
       Set.diff (Set.of_list backends) (Set.of_list replaced_backends)
       |> Set.to_list
@@ -128,14 +134,15 @@ module Register_end_point(M : End_point) = struct
   let gen info (c : Library_compilation_context.t) =
     let open Result.O in
     let backends =
-      Lib.Compile.direct_requires c.compile_info >>= fun deps ->
-      Lib.Compile.pps             c.compile_info >>= fun pps  ->
-      (match M.Info.backends info with
-       | None -> Ok None
-       | Some l ->
-         Result.List.map l ~f:(M.Backend.resolve (Scope.libs c.scope))
-         >>| Option.some)
-      >>= fun written_by_user ->
+      let* deps = Lib.Compile.direct_requires c.compile_info in
+      let* pps = Lib.Compile.pps c.compile_info in
+      let* written_by_user =
+        match M.Info.backends info with
+         | None -> Ok None
+         | Some l ->
+           Result.List.map l ~f:(M.Backend.resolve (Scope.libs c.scope))
+           >>| Option.some
+      in
       M.Backend.Selection_error.or_exn ~loc:(M.Info.loc info)
         (M.Backend.select_extensible_backends
            ?written_by_user

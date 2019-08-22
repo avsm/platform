@@ -1,16 +1,15 @@
 open! Stdune
 open Import
-open Fiber.O
 
 let run_build_command ~log ~common ~targets =
   let once () =
-    Main.setup ~log common
-    >>= fun setup ->
+    let open Fiber.O in
+    let* setup = Main.setup ~log common in
     do_build setup (targets setup)
   in
   if common.watch then begin
     let once () =
-      Utils.Cached_digest.invalidate_cached_timestamps ();
+      Cached_digest.invalidate_cached_timestamps ();
       once ()
     in
     Scheduler.poll ~log ~common ~once ~finally:Hooks.End_of_build.run ()
@@ -32,8 +31,8 @@ let build_targets =
     | Jbuilder -> "@install"
   in
   let term =
-    let%map common = Common.term
-    and targets = Arg.(value & pos_all string [default_target] name_)
+    let+ common = Common.term
+    and+ targets = Arg.(value & pos_all string [default_target] name_)
     in
     Common.set_common common ~targets;
     let log = Log.create common in
@@ -53,8 +52,8 @@ let runtest =
   in
   let name_ = Arg.info [] ~docv:"DIR" in
   let term =
-    let%map common = Common.term
-    and dirs = Arg.(value & pos_all string ["."] name_)
+    let+ common = Common.term
+    and+ dirs = Arg.(value & pos_all string ["."] name_)
     in
     Common.set_common common
       ~targets:(List.map dirs ~f:(function
@@ -81,8 +80,7 @@ let clean =
     ]
   in
   let term =
-    let%map common = Common.term
-    in
+    let+ common = Common.term in
     Common.set_common common ~targets:[];
     Build_system.files_in_source_tree_to_delete ()
     |> Path.Set.iter ~f:Path.unlink_no_err;
@@ -105,8 +103,8 @@ let promote =
     ; `Blocks Common.help_secs
     ] in
   let term =
-    let%map common = Common.term
-    and files =
+    let+ common = Common.term
+    and+ files =
       Arg.(value & pos_all Cmdliner.Arg.file [] & info [] ~docv:"FILE")
     in
     Common.set_common common ~targets:[];
@@ -116,11 +114,11 @@ let promote =
        | _ ->
          let files =
            List.map files
-             ~f:(fun fn -> Path.of_string (Common.prefix_target common fn))
+             ~f:(fun fn -> Path.Source.of_string (Common.prefix_target common fn))
          in
          let on_missing fn =
            Format.eprintf "@{<warning>Warning@}: Nothing to promote for %a.@."
-             Path.pp fn
+             Path.Source.pp fn
          in
          These (files, on_missing))
   in
@@ -138,6 +136,7 @@ let all =
   ; Subst.command
   ; Print_rules.command
   ; Utop.command
+  ; Init.command
   ; promote
   ; Printenv.command
   ; Help.command
@@ -150,11 +149,14 @@ let default =
   let doc = "composable build system for OCaml" in
   let term =
     Term.ret @@
-    let%map _ = Common.term in
+    let+ _ = Common.term in
     `Help (`Pager, None)
   in
   (term,
-   Term.info "dune" ~doc ~version:"1.7.2"
+   Term.info "dune" ~doc
+     ~version:(match Build_info.V1.version () with
+       | None -> "n/a"
+       | Some v -> Build_info.V1.Version.to_string v)
      ~man:
        [ `S "DESCRIPTION"
        ; `P {|Dune is a build system designed for OCaml projects only. It
@@ -180,5 +182,6 @@ let main () =
   with
   | Fiber.Never -> exit 1
   | exn ->
+    let exn = Exn_with_backtrace.capture exn in
     Report_error.report exn;
     exit 1

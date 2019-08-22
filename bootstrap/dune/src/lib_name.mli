@@ -19,21 +19,22 @@ module Local : sig
   val decode_loc : (Loc.t * result) Dune_lang.Decoder.t
   val validate : (Loc.t * result) -> wrapped:bool option -> t
 
-  val to_sexp : t Sexp.Encoder.t
-
   val of_string_exn : string -> t
 
   val of_string : string -> result
 
   val to_string : t -> string
 
-  val invalid_message : string
+  (** Description of valid library banes *)
+  val valid_format_doc : User_message.Style.t Pp.t
 
   val pp_quoted : t Fmt.t
   val pp : t Fmt.t
 end
 
 val compare : t -> t -> Ordering.t
+
+val equal : t -> t -> bool
 
 val pp : t Fmt.t
 
@@ -55,6 +56,6 @@ module Set : sig
   val to_string_list : t -> string list
 end
 
-val to_sexp : t Sexp.Encoder.t
-
 val nest : t -> t -> t
+
+val to_dyn : t -> Dyn.t

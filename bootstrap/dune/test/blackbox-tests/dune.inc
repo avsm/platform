@@ -23,6 +23,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name allow_approximate_merlin)
+ (deps (package dune) (source_tree test-cases/allow_approximate_merlin))
+ (action
+  (chdir
+   test-cases/allow_approximate_merlin
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name bad-alias-error)
  (deps (package dune) (source_tree test-cases/bad-alias-error))
  (action
@@ -63,6 +71,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name cinaps)
+ (deps (package dune) (source_tree test-cases/cinaps))
+ (action
+  (chdir
+   test-cases/cinaps
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name configurator)
  (deps (package dune) (source_tree test-cases/configurator))
  (action
@@ -77,6 +93,14 @@
  (action
   (chdir
    test-cases/configurator-gh1166
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name contents-depends-on-glob)
+ (deps (package dune) (source_tree test-cases/contents-depends-on-glob))
+ (action
+  (chdir
+   test-cases/contents-depends-on-glob
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -96,6 +120,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name coq)
+ (deps (package dune) (source_tree test-cases/coq))
+ (action
+  (chdir
+   test-cases/coq
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name cross-compilation)
  (deps (package dune) (source_tree test-cases/cross-compilation))
  (action
@@ -112,11 +144,35 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name custom-cross-compilation)
+ (deps (package dune) (source_tree test-cases/custom-cross-compilation))
+ (action
+  (chdir
+   test-cases/custom-cross-compilation
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name cxx-extension)
+ (deps (package dune) (source_tree test-cases/cxx-extension))
+ (action
+  (chdir
+   test-cases/cxx-extension
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name default-targets)
  (deps (package dune) (source_tree test-cases/default-targets))
  (action
   (chdir
    test-cases/default-targets
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name dep-on-dir-that-does-not-exist)
+ (deps (package dune) (source_tree test-cases/dep-on-dir-that-does-not-exist))
+ (action
+  (chdir
+   test-cases/dep-on-dir-that-does-not-exist
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -152,6 +208,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name dialects)
+ (deps (package dune) (source_tree test-cases/dialects))
+ (action
+  (chdir
+   test-cases/dialects
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name dir-target-dep)
  (deps (package dune) (source_tree test-cases/dir-target-dep))
  (action
@@ -173,6 +237,14 @@
  (action
   (chdir
    test-cases/dune-build-dir-exec-1101
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name dune-init)
+ (deps (package dune) (source_tree test-cases/dune-init))
+ (action
+  (chdir
+   test-cases/dune-init
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -208,6 +280,22 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name dune-project-meta)
+ (deps (package dune) (source_tree test-cases/dune-project-meta))
+ (action
+  (chdir
+   test-cases/dune-project-meta
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name dune-project-no-opam)
+ (deps (package dune) (source_tree test-cases/dune-project-no-opam))
+ (action
+  (chdir
+   test-cases/dune-project-no-opam
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name dup-fields)
  (deps (package dune) (source_tree test-cases/dup-fields))
  (action
@@ -229,6 +317,14 @@
  (action
   (chdir
    test-cases/duplicate-c-cxx-obj
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name duplicate-project-names)
+ (deps (package dune) (source_tree test-cases/duplicate-project-names))
+ (action
+  (chdir
+   test-cases/duplicate-project-names
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -261,7 +357,9 @@
  (action
   (chdir
    test-cases/env
-   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+   (progn
+    (run %{exe:cram.exe} -skip-versions <4.06.0 -test run.t)
+    (diff? run.t run.t.corrected)))))
 
 (alias
  (name env-and-flags-include)
@@ -272,12 +370,30 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name env-bin-pform)
+ (deps (package dune) (source_tree test-cases/env-bin-pform))
+ (action
+  (chdir
+   test-cases/env-bin-pform
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name env-bins)
  (deps (package dune) (source_tree test-cases/env-bins))
  (action
   (chdir
    test-cases/env-bins
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name env-cflags)
+ (deps (package dune) (source_tree test-cases/env-cflags))
+ (action
+  (chdir
+   test-cases/env-cflags
+   (progn
+    (run %{exe:cram.exe} -skip-versions <4.06.0 -test run.t)
+    (diff? run.t run.t.corrected)))))
 
 (alias
  (name env-dune-file)
@@ -328,6 +444,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name exe-name-mangle)
+ (deps (package dune) (source_tree test-cases/exe-name-mangle))
+ (action
+  (chdir
+   test-cases/exe-name-mangle
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name exec-cmd)
  (deps (package dune) (source_tree test-cases/exec-cmd))
  (action
@@ -341,6 +465,14 @@
  (action
   (chdir
    test-cases/exec-missing
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name explicit_js_mode)
+ (deps (package dune) (source_tree test-cases/explicit_js_mode))
+ (action
+  (chdir
+   test-cases/explicit_js_mode
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -480,6 +612,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name github1426)
+ (deps (package dune) (source_tree test-cases/github1426))
+ (action
+  (chdir
+   test-cases/github1426
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name github1529)
  (deps (package dune) (source_tree test-cases/github1529))
  (action
@@ -528,6 +668,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name github1946)
+ (deps (package dune) (source_tree test-cases/github1946))
+ (action
+  (chdir
+   test-cases/github1946
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name github20)
  (deps (package dune) (source_tree test-cases/github20))
  (action
@@ -536,11 +684,67 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name github2033)
+ (deps (package dune) (source_tree test-cases/github2033))
+ (action
+  (chdir
+   test-cases/github2033
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github2061)
+ (deps (package dune) (source_tree test-cases/github2061))
+ (action
+  (chdir
+   test-cases/github2061
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github2123)
+ (deps (package dune) (source_tree test-cases/github2123))
+ (action
+  (chdir
+   test-cases/github2123
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github2206)
+ (deps (package dune) (source_tree test-cases/github2206))
+ (action
+  (chdir
+   test-cases/github2206
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github2228)
+ (deps (package dune) (source_tree test-cases/github2228))
+ (action
+  (chdir
+   test-cases/github2228
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github2272)
+ (deps (package dune) (source_tree test-cases/github2272))
+ (action
+  (chdir
+   test-cases/github2272
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name github24)
  (deps (package dune) (source_tree test-cases/github24))
  (action
   (chdir
    test-cases/github24
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name github2499)
+ (deps (package dune) (source_tree test-cases/github2499))
+ (action
+  (chdir
+   test-cases/github2499
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -678,6 +882,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name include-qualified)
+ (deps (package dune) (source_tree test-cases/include-qualified))
+ (action
+  (chdir
+   test-cases/include-qualified
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name inline_tests)
  (deps (package dune) (source_tree test-cases/inline_tests))
  (action
@@ -699,6 +911,22 @@
  (action
   (chdir
    test-cases/install-libdir
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name install-multiple-contexts)
+ (deps (package dune) (source_tree test-cases/install-multiple-contexts))
+ (action
+  (chdir
+   test-cases/install-multiple-contexts
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name install-partial-package)
+ (deps (package dune) (source_tree test-cases/install-partial-package))
+ (action
+  (chdir
+   test-cases/install-partial-package
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -851,6 +1079,14 @@
     (diff? run.t run.t.corrected)))))
 
 (alias
+ (name multiple-targets)
+ (deps (package dune) (source_tree test-cases/multiple-targets))
+ (action
+  (chdir
+   test-cases/multiple-targets
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name name-field-validation)
  (deps (package dune) (source_tree test-cases/name-field-validation))
  (action
@@ -915,11 +1151,29 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name odig-files-workspace)
+ (deps (package dune) (source_tree test-cases/odig-files-workspace))
+ (action
+  (chdir
+   test-cases/odig-files-workspace
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name odoc)
  (deps (package dune) (source_tree test-cases/odoc))
  (action
   (chdir
    test-cases/odoc
+   (progn
+    (run %{exe:cram.exe} -skip-versions 4.02.3 -test run.t)
+    (diff? run.t run.t.corrected)))))
+
+(alias
+ (name odoc-package-mld-link)
+ (deps (package dune) (source_tree test-cases/odoc-package-mld-link))
+ (action
+  (chdir
+   test-cases/odoc-package-mld-link
    (progn
     (run %{exe:cram.exe} -skip-versions 4.02.3 -test run.t)
     (diff? run.t run.t.corrected)))))
@@ -1069,6 +1323,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name rule-target-external)
+ (deps (package dune) (source_tree test-cases/rule-target-external))
+ (action
+  (chdir
+   test-cases/rule-target-external
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name scope-bug)
  (deps (package dune) (source_tree test-cases/scope-bug))
  (action
@@ -1106,6 +1368,14 @@
  (action
   (chdir
    test-cases/shadow-bindings
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name stale-artifact-removal)
+ (deps (package dune) (source_tree test-cases/stale-artifact-removal))
+ (action
+  (chdir
+   test-cases/stale-artifact-removal
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -1209,6 +1479,14 @@
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
+ (name unreadable-src)
+ (deps (package dune) (source_tree test-cases/unreadable-src))
+ (action
+  (chdir
+   test-cases/unreadable-src
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
  (name upgrader)
  (deps (package dune) (source_tree test-cases/upgrader))
  (action
@@ -1243,11 +1521,105 @@
     (diff? run.t run.t.corrected)))))
 
 (alias
+ (name utop-default-implementation)
+ (deps (package dune) (source_tree test-cases/utop-default-implementation))
+ (action
+  (chdir
+   test-cases/utop-default-implementation
+   (progn
+    (run %{exe:cram.exe} -skip-versions <4.05.0 -test run.t)
+    (diff? run.t run.t.corrected)))))
+
+(alias
  (name variants)
  (deps (package dune) (source_tree test-cases/variants))
  (action
   (chdir
    test-cases/variants
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name variants-external-declaration)
+ (deps (package dune) (source_tree test-cases/variants-external-declaration))
+ (action
+  (chdir
+   test-cases/variants-external-declaration
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name variants-external-declaration-conflict)
+ (deps
+  (package dune)
+  (source_tree test-cases/variants-external-declaration-conflict))
+ (action
+  (chdir
+   test-cases/variants-external-declaration-conflict
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name variants-multi-project)
+ (deps (package dune) (source_tree test-cases/variants-multi-project))
+ (action
+  (chdir
+   test-cases/variants-multi-project
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name variants-only-package)
+ (deps (package dune) (source_tree test-cases/variants-only-package))
+ (action
+  (chdir
+   test-cases/variants-only-package
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name variants-rogue-impl)
+ (deps (package dune) (source_tree test-cases/variants-rogue-impl))
+ (action
+  (chdir
+   test-cases/variants-rogue-impl
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name variants-wrong-external-declaration)
+ (deps
+  (package dune)
+  (source_tree test-cases/variants-wrong-external-declaration))
+ (action
+  (chdir
+   test-cases/variants-wrong-external-declaration
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name vendor)
+ (deps (package dune) (source_tree test-cases/vendor))
+ (action
+  (chdir
+   test-cases/vendor
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name vlib)
+ (deps (package dune) (source_tree test-cases/vlib))
+ (action
+  (chdir
+   test-cases/vlib
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name vlib-default-impl)
+ (deps (package dune) (source_tree test-cases/vlib-default-impl))
+ (action
+  (chdir
+   test-cases/vlib-default-impl
+   (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
+
+(alias
+ (name vlib-wrong-default-impl)
+ (deps (package dune) (source_tree test-cases/vlib-wrong-default-impl))
+ (action
+  (chdir
+   test-cases/vlib-wrong-default-impl
    (progn (run %{exe:cram.exe} -test run.t) (diff? run.t run.t.corrected)))))
 
 (alias
@@ -1290,6 +1662,7 @@
   (alias action-modifying-a-dependency)
   (alias aliases)
   (alias all-alias)
+  (alias allow_approximate_merlin)
   (alias bad-alias-error)
   (alias block-strings)
   (alias byte-code-only)
@@ -1297,36 +1670,48 @@
   (alias check-alias)
   (alias configurator)
   (alias configurator-gh1166)
+  (alias contents-depends-on-glob)
   (alias copy-files-non-sub-dir-error)
   (alias copy_files)
   (alias cross-compilation)
   (alias custom-build-dir)
+  (alias custom-cross-compilation)
+  (alias cxx-extension)
   (alias default-targets)
+  (alias dep-on-dir-that-does-not-exist)
   (alias dep-vars)
   (alias depend-on-the-universe)
   (alias deps-conf-vars)
   (alias dev-flag-1103)
+  (alias dialects)
   (alias dir-target-dep)
   (alias double-echo)
   (alias dune-build-dir-exec-1101)
+  (alias dune-init)
   (alias dune-jbuild-var-case)
   (alias dune-package)
   (alias dune-ppx-driver-system)
   (alias dune-project-edition)
+  (alias dune-project-meta)
+  (alias dune-project-no-opam)
   (alias dup-fields)
   (alias duplicate-c-cxx)
   (alias duplicate-c-cxx-obj)
+  (alias duplicate-project-names)
   (alias duplicate-target-no-loc)
   (alias embed-jbuild)
   (alias enabled_if)
   (alias env)
   (alias env-and-flags-include)
+  (alias env-bin-pform)
   (alias env-bins)
+  (alias env-cflags)
   (alias env-dune-file)
   (alias env-tracking)
   (alias env-var-expansion)
   (alias env-variables)
   (alias exclude-missing-module)
+  (alias exe-name-mangle)
   (alias exec-cmd)
   (alias exec-missing)
   (alias external-lib-deps)
@@ -1346,14 +1731,23 @@
   (alias github1342)
   (alias github1372)
   (alias github1395)
+  (alias github1426)
   (alias github1529)
   (alias github1549)
   (alias github1560)
   (alias github1616)
   (alias github1811)
   (alias github1856)
+  (alias github1946)
   (alias github20)
+  (alias github2033)
+  (alias github2061)
+  (alias github2123)
+  (alias github2206)
+  (alias github2228)
+  (alias github2272)
   (alias github24)
+  (alias github2499)
   (alias github25)
   (alias github534)
   (alias github568)
@@ -1370,9 +1764,12 @@
   (alias glob-deps)
   (alias ignored_subdirs)
   (alias include-loop)
+  (alias include-qualified)
   (alias inline_tests)
   (alias install-dry-run)
   (alias install-libdir)
+  (alias install-multiple-contexts)
+  (alias install-partial-package)
   (alias install-rule-order)
   (alias install-with-var)
   (alias installable-dup-private-libs)
@@ -1390,6 +1787,7 @@
   (alias missing-loc-run)
   (alias multi-dir)
   (alias multiple-private-libs)
+  (alias multiple-targets)
   (alias name-field-validation)
   (alias no-installable-mode)
   (alias no-name-field)
@@ -1398,7 +1796,9 @@
   (alias ocaml-syntax)
   (alias ocamldep-multi-stanzas)
   (alias ocamllex-jbuild)
+  (alias odig-files-workspace)
   (alias odoc)
+  (alias odoc-package-mld-link)
   (alias odoc-unique-mlds)
   (alias old-dune-subsystem)
   (alias optional)
@@ -1416,11 +1816,13 @@
   (alias reason)
   (alias redirections)
   (alias reporting-of-cycles)
+  (alias rule-target-external)
   (alias scope-bug)
   (alias scope-ppx-bug)
   (alias select)
   (alias several-packages)
   (alias shadow-bindings)
+  (alias stale-artifact-removal)
   (alias stdlib-compilation)
   (alias subst)
   (alias syntax-versioning)
@@ -1433,11 +1835,23 @@
   (alias toplevel-stanza)
   (alias trace-file)
   (alias transitive-deps-mode)
+  (alias unreadable-src)
   (alias upgrader)
   (alias use-meta)
   (alias utop)
   (alias utop-default)
+  (alias utop-default-implementation)
   (alias variants)
+  (alias variants-external-declaration)
+  (alias variants-external-declaration-conflict)
+  (alias variants-multi-project)
+  (alias variants-only-package)
+  (alias variants-rogue-impl)
+  (alias variants-wrong-external-declaration)
+  (alias vendor)
+  (alias vlib)
+  (alias vlib-default-impl)
+  (alias vlib-wrong-default-impl)
   (alias windows-diff)
   (alias workspaces)
   (alias wrapped-false-main-module-name)
@@ -1449,6 +1863,7 @@
   (alias action-modifying-a-dependency)
   (alias aliases)
   (alias all-alias)
+  (alias allow_approximate_merlin)
   (alias bad-alias-error)
   (alias block-strings)
   (alias byte-code-only)
@@ -1456,36 +1871,46 @@
   (alias check-alias)
   (alias configurator)
   (alias configurator-gh1166)
+  (alias contents-depends-on-glob)
   (alias copy-files-non-sub-dir-error)
   (alias copy_files)
-  (alias cross-compilation)
   (alias custom-build-dir)
+  (alias custom-cross-compilation)
+  (alias cxx-extension)
   (alias default-targets)
+  (alias dep-on-dir-that-does-not-exist)
   (alias dep-vars)
   (alias depend-on-the-universe)
   (alias deps-conf-vars)
   (alias dev-flag-1103)
+  (alias dialects)
   (alias dir-target-dep)
   (alias double-echo)
   (alias dune-build-dir-exec-1101)
+  (alias dune-init)
   (alias dune-jbuild-var-case)
   (alias dune-package)
-  (alias dune-ppx-driver-system)
   (alias dune-project-edition)
+  (alias dune-project-meta)
+  (alias dune-project-no-opam)
   (alias dup-fields)
   (alias duplicate-c-cxx)
   (alias duplicate-c-cxx-obj)
+  (alias duplicate-project-names)
   (alias duplicate-target-no-loc)
   (alias embed-jbuild)
   (alias enabled_if)
   (alias env)
   (alias env-and-flags-include)
+  (alias env-bin-pform)
   (alias env-bins)
+  (alias env-cflags)
   (alias env-dune-file)
   (alias env-tracking)
   (alias env-var-expansion)
   (alias env-variables)
   (alias exclude-missing-module)
+  (alias exe-name-mangle)
   (alias exec-cmd)
   (alias exec-missing)
   (alias external-lib-deps)
@@ -1501,16 +1926,24 @@
   (alias github1231)
   (alias github1306)
   (alias github1342)
-  (alias github1372)
   (alias github1395)
+  (alias github1426)
   (alias github1529)
   (alias github1549)
   (alias github1560)
   (alias github1616)
   (alias github1811)
   (alias github1856)
+  (alias github1946)
   (alias github20)
+  (alias github2033)
+  (alias github2061)
+  (alias github2123)
+  (alias github2206)
+  (alias github2228)
+  (alias github2272)
   (alias github24)
+  (alias github2499)
   (alias github25)
   (alias github534)
   (alias github568)
@@ -1525,9 +1958,10 @@
   (alias glob-deps)
   (alias ignored_subdirs)
   (alias include-loop)
+  (alias include-qualified)
   (alias inline_tests)
-  (alias install-dry-run)
-  (alias install-libdir)
+  (alias install-multiple-contexts)
+  (alias install-partial-package)
   (alias install-rule-order)
   (alias install-with-var)
   (alias installable-dup-private-libs)
@@ -1535,14 +1969,13 @@
   (alias lib-available)
   (alias lib-errors)
   (alias link-deps)
-  (alias lint)
   (alias loop)
   (alias macro-expand-error)
-  (alias merlin-tests)
   (alias meta-gen)
   (alias misc)
   (alias missing-loc-run)
   (alias multi-dir)
+  (alias multiple-targets)
   (alias name-field-validation)
   (alias no-installable-mode)
   (alias no-name-field)
@@ -1551,10 +1984,10 @@
   (alias ocaml-syntax)
   (alias ocamldep-multi-stanzas)
   (alias ocamllex-jbuild)
+  (alias odig-files-workspace)
   (alias old-dune-subsystem)
   (alias optional)
   (alias output-obj)
-  (alias package-dep)
   (alias path-variables)
   (alias pkg-config-quoting)
   (alias preprocess-with-action)
@@ -1564,10 +1997,12 @@
   (alias quoting)
   (alias redirections)
   (alias reporting-of-cycles)
+  (alias rule-target-external)
   (alias scope-bug)
   (alias select)
   (alias several-packages)
   (alias shadow-bindings)
+  (alias stale-artifact-removal)
   (alias stdlib-compilation)
   (alias subst)
   (alias syntax-versioning)
@@ -1580,14 +2015,28 @@
   (alias toplevel-stanza)
   (alias trace-file)
   (alias transitive-deps-mode)
+  (alias unreadable-src)
   (alias upgrader)
-  (alias use-meta)
   (alias variants)
+  (alias variants-external-declaration)
+  (alias variants-external-declaration-conflict)
+  (alias variants-multi-project)
+  (alias variants-only-package)
+  (alias variants-rogue-impl)
+  (alias variants-wrong-external-declaration)
+  (alias vendor)
+  (alias vlib)
+  (alias vlib-default-impl)
+  (alias vlib-wrong-default-impl)
   (alias windows-diff)
   (alias workspaces)
   (alias wrapped-false-main-module-name)
   (alias wrapped-transition)))
 
-(alias (name runtest-disabled) (deps (alias envs-and-contexts)))
+(alias
+ (name runtest-disabled)
+ (deps (alias cinaps) (alias envs-and-contexts)))
 
-(alias (name runtest-js) (deps (alias js_of_ocaml)))
+(alias (name runtest-js) (deps (alias explicit_js_mode) (alias js_of_ocaml)))
+
+(alias (name runtest-coq) (deps (alias coq)))

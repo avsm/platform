@@ -12,6 +12,9 @@ module O = struct
     match t with
     | None   -> None
     | Some a -> f a
+
+  let (let*) = (>>=)
+  let (let+) = (>>|)
 end
 
 let map  t ~f = O.(>>|) t f
@@ -34,7 +37,7 @@ let value t ~default =
 
 let value_exn = function
   | Some x -> x
-  | None -> invalid_arg "Option.value_exn"
+  | None -> Code_error.raise "Option.value_exn" []
 
 let some x = Some x
 
@@ -86,3 +89,7 @@ module List = struct
     in
     fun xs -> loop [] xs
 end
+
+let hash f = function
+  | None -> Dune_caml.Hashtbl.hash None
+  | Some s -> Dune_caml.Hashtbl.hash (f s)

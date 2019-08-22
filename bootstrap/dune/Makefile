@@ -1,7 +1,7 @@
 PREFIX_ARG := $(if $(PREFIX),--prefix $(PREFIX),)
 LIBDIR_ARG := $(if $(LIBDIR),--libdir $(LIBDIR),)
 INSTALL_ARGS := $(PREFIX_ARG) $(LIBDIR_ARG)
-BIN := ./_boot/default/bin/main_dune.exe
+BIN := ./_boot/default/bin/main/main_dune.exe
 
 -include Makefile.dev
 
@@ -28,8 +28,11 @@ test:
 test-js:
 	$(BIN) build @runtest-js
 
+test-coq:
+	$(BIN) build @runtest-coq
+
 test-all:
-	$(BIN) build @runtest @runtest-js
+	$(BIN) build @runtest @runtest-js @runtest-coq
 
 check:
 	$(BIN) build @check

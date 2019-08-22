@@ -10,91 +10,108 @@ module Key : sig
   (* This module implements a bi-directional function between
      [encoded] and [decoded] *)
   type encoded = Digest.t
-  type decoded =
-    { pps   : Lib_name.t list
-    ; scope : Dune_project.Name.t option
-    }
+  module Decoded : sig
+    type t = private
+      { pps   : Lib_name.t list
+      ; project : Dune_project.t option
+      }
 
-  val of_libs : dir_kind:Dune_lang.Syntax.t -> Lib.t list -> decoded
+    val of_libs : dir_kind:Dune_lang.File_syntax.t -> Lib.t list -> t
+  end
 
   (* [decode y] fails if there hasn't been a previous call to [encode]
      such that [encode x = y]. *)
-  val encode : decoded -> encoded
-  val decode : encoded -> decoded
+  val encode : Decoded.t -> encoded
+  val decode : encoded -> Decoded.t
 end = struct
   type encoded = Digest.t
-  type decoded =
-    { pps   : Lib_name.t list
-    ; scope : Dune_project.Name.t option
-    }
+  module Decoded = struct
+    type t =
+      { pps   : Lib_name.t list
+      ; project : Dune_project.t option
+      }
 
-  let reverse_table : (encoded, decoded) Hashtbl.t = Hashtbl.create 128
+    let equal x y =
+      List.equal Lib_name.equal x.pps y.pps
+      && Option.equal Dune_project.equal x.project y.project
 
-  let of_libs ~dir_kind libs =
-    let pps =
-      (let compare a b = Lib_name.compare (Lib.name a) (Lib.name b) in
-       match (dir_kind : Dune_lang.Syntax.t) with
-       | Dune -> List.sort libs ~compare
-       | Jbuild ->
-         match List.rev libs with
-         | last :: others -> List.sort others ~compare @ [last]
-         | [] -> [])
-      |> List.map ~f:Lib.name
-    in
-    let scope =
-      List.fold_left libs ~init:None ~f:(fun acc lib ->
-        let scope_for_key =
-          match Lib.status lib with
-          | Private scope_name   -> Some scope_name
-          | Public _ | Installed -> None
-        in
-        let open Dune_project.Name.Infix in
-        match acc, scope_for_key with
-        | Some a, Some b -> assert (a = b); acc
-        | Some _, None   -> acc
-        | None  , Some _ -> scope_for_key
-        | None  , None   -> None)
-    in
-    { pps; scope }
+    let to_string { pps; project } =
+      let s = String.enumerate_and (List.map pps ~f:Lib_name.to_string) in
+      match project with
+      | None -> s
+      | Some project ->
+        let name = Dune_project.name project in
+        sprintf "%s (in project: %s)" s
+          (Dune_project.Name.to_string_hum name)
 
-  let encode x =
-    let y = Digest.string (Marshal.to_string x []) in
+    let of_libs ~dir_kind libs =
+      let pps =
+        (let compare a b = Lib_name.compare (Lib.name a) (Lib.name b) in
+         match (dir_kind : Dune_lang.File_syntax.t) with
+         | Dune -> List.sort libs ~compare
+         | Jbuild ->
+           match List.rev libs with
+           | last :: others -> List.sort others ~compare @ [last]
+           | [] -> [])
+        |> List.map ~f:Lib.name
+      in
+      let project =
+        List.fold_left libs ~init:None ~f:(fun acc lib ->
+          let scope_for_key =
+            let info = Lib.info lib in
+            let status = Lib_info.status info in
+            match status with
+            | Private scope_name   -> Some scope_name
+            | Public _ | Installed -> None
+          in
+          match acc, scope_for_key with
+          | Some a, Some b -> assert (Dune_project.equal a b); acc
+          | Some _, None   -> acc
+          | None  , Some _ -> scope_for_key
+          | None  , None   -> None)
+      in
+      { pps; project }
+  end
+
+  let reverse_table : (encoded, Decoded.t) Hashtbl.t =
+    Hashtbl.create 128
+
+  let encode ({ Decoded. pps; project } as x) =
+    let y = Digest.generic (pps, Option.map ~f:Dune_project.file_key project) in
     match Hashtbl.find reverse_table y with
     | None ->
-      Hashtbl.add reverse_table y x;
+      Hashtbl.set reverse_table y x;
       y
     | Some x' ->
-      if x = x' then
+      if Decoded.equal x x' then
         y
       else begin
-        let to_string { pps; scope } =
-          let s = String.enumerate_and (List.map pps ~f:Lib_name.to_string) in
-          match scope with
-          | None -> s
-          | Some scope ->
-            sprintf "%s (in project: %s)" s
-              (Dune_project.Name.to_string_hum scope)
-        in
-        die "Hash collision between set of ppx drivers:\n\
-             - cache : %s\n\
-             - fetch : %s"
-          (to_string x')
-          (to_string x)
+        User_error.raise
+          [ Pp.textf "Hash collision between set of ppx drivers:"
+          ; Pp.textf "- cache : %s" (Decoded.to_string x')
+          ; Pp.textf "- fetch : %s" (Decoded.to_string x)
+          ]
       end
 
   let decode y =
     match Hashtbl.find reverse_table y with
     | Some x -> x
     | None ->
-      die "I don't know what ppx rewriters set %s correspond to."
-        (Digest.to_string y)
+      User_error.raise
+        [ Pp.textf "I don't know what ppx rewriters set %s correspond to."
+            (Digest.to_string y) ]
 end
 
 let pped_module m ~f =
   let pped = Module.pped m in
-  Module.iter m ~f:(fun kind file ->
-    let pp_path = Option.value_exn (Module.file pped kind) in
-    f kind file.path pp_path);
+  Module.iter m ~f:(fun ml_kind file ->
+    let pp_path =
+      Module.file pped ~ml_kind
+      |> Option.value_exn
+      |> Path.as_in_build_dir_exn
+    in
+    let file = Path.as_in_build_dir_exn file.path in
+    f ml_kind file pp_path);
   pped
 
 module Driver = struct
@@ -127,18 +144,18 @@ module Driver = struct
 
       let parse =
         record
-          (let%map loc = loc
-           and flags = Ordered_set_lang.Unexpanded.field "flags"
-           and as_ppx_flags =
+          (let+ loc = loc
+           and+ flags = Ordered_set_lang.Unexpanded.field "flags"
+           and+ as_ppx_flags =
              Ordered_set_lang.Unexpanded.field "as_ppx_flags"
                ~check:(Syntax.since syntax (1, 2))
                ~default:(Ordered_set_lang.Unexpanded.of_strings ["--as-ppx"]
                            ~pos:__POS__)
-           and lint_flags = Ordered_set_lang.Unexpanded.field "lint_flags"
-           and main = field "main" string
-           and replaces =
+           and+ lint_flags = Ordered_set_lang.Unexpanded.field "lint_flags"
+           and+ main = field "main" string
+           and+ replaces =
              field "replaces" (list (located (Lib_name.decode))) ~default:[]
-           and file_kind = Stanza.file_kind ()
+           and+ file_kind = Stanza.file_kind ()
            in
            { loc
            ; flags
@@ -173,12 +190,15 @@ module Driver = struct
       ; replaces =
           let open Result.O in
           Result.List.map info.replaces ~f:(fun ((loc, name) as x) ->
-            resolve x >>= fun lib ->
+            let* lib = resolve x in
             match get ~loc lib with
             | None ->
-              Error (Errors.exnf loc "%a is not a %s"
-                       Lib_name.pp_quoted name
-                       (desc ~plural:false))
+              Error (User_error.E
+                       (User_error.make ~loc
+                          [ Pp.textf "%S is not a %s"
+                              (Lib_name.to_string name)
+                              (desc ~plural:false)
+                          ]))
             | Some t -> Ok t)
       }
 
@@ -201,17 +221,22 @@ module Driver = struct
   (* Where are we called from? *)
   type loc =
     | User_file of Loc.t * (Loc.t * Lib_name.t) list
-    | Dot_ppx   of Path.t * Lib_name.t list
+    | Dot_ppx   of Path.Build.t * Lib_name.t list
 
   let make_error loc msg =
     match loc with
-    | User_file (loc, _) -> Error (Errors.exnf loc "%a" Fmt.text msg)
+    | User_file (loc, _) ->
+      Error (User_error.E
+               (User_error.make ~loc [ Pp.text msg ]))
     | Dot_ppx (path, pps) ->
-      Error (Errors.exnf (Loc.in_file path) "%a" Fmt.text
-               (sprintf
-                  "Failed to create on-demand ppx rewriter for %s; %s"
-                  (String.enumerate_and (List.map pps ~f:Lib_name.to_string))
-                  (String.uncapitalize msg)))
+      Error (User_error.E
+               (User_error.make ~loc:(Loc.in_file (Path.build path))
+                  [ Pp.textf
+                      "Failed to create on-demand ppx rewriter for %s; %s"
+                      (String.enumerate_and
+                         (List.map pps ~f:Lib_name.to_string))
+                      (String.uncapitalize msg)
+                  ]))
 
   let select libs ~loc =
     match select_replaceable_backend libs ~replaces with
@@ -305,9 +330,10 @@ module Jbuild_driver = struct
   |}
 
   let drivers =
-    [ Lib_name.of_string_exn ~loc:None "ocaml-migrate-parsetree.driver-main" , omp
-    ; Lib_name.of_string_exn ~loc:None "ppxlib.runner"                       , ppxlib
-    ; Lib_name.of_string_exn ~loc:None "ppx_driver.runner"                   , ppx_driver
+    let name = Lib_name.of_string_exn ~loc:None in
+    [ name "ocaml-migrate-parsetree.driver-main" , omp
+    ; name "ppxlib.runner"                       , ppxlib
+    ; name "ppx_driver.runner"                   , ppx_driver
     ]
 
   let get_driver pps =
@@ -333,18 +359,18 @@ module Jbuild_driver = struct
 end
 
 let ppx_exe sctx ~key ~dir_kind =
-  match (dir_kind : Dune_lang.Syntax.t) with
+  match (dir_kind : Dune_lang.File_syntax.t) with
   | Dune ->
-    Path.relative (SC.build_dir sctx) (".ppx/" ^ key ^ "/ppx.exe")
+    Path.Build.relative (SC.build_dir sctx) (".ppx/" ^ key ^ "/ppx.exe")
   | Jbuild ->
-    Path.relative (SC.build_dir sctx) (".ppx/jbuild/" ^ key ^ "/ppx.exe")
+    Path.Build.relative (SC.build_dir sctx) (".ppx/jbuild/" ^ key ^ "/ppx.exe")
 
 let build_ppx_driver sctx ~dep_kind ~target ~dir_kind ~pps ~pp_names =
   let ctx = SC.context sctx in
   let mode = Context.best_mode ctx in
   let compiler = Option.value_exn (Context.compiler ctx mode) in
   let jbuild_driver, pps, pp_names =
-    match (dir_kind : Dune_lang.Syntax.t) with
+    match (dir_kind : Dune_lang.File_syntax.t) with
     | Dune -> (None, pps, pp_names)
     | Jbuild ->
       match pps with
@@ -360,8 +386,9 @@ let build_ppx_driver sctx ~dep_kind ~target ~dir_kind ~pps ~pp_names =
         let pp_names = driver_name :: List.map pps ~f:Lib.name in
         let pps =
           let open Result.O in
-          Lib.DB.resolve_pps (SC.public_libs sctx) [(Loc.none, driver_name)]
-          >>| fun driver ->
+          let+ driver =
+            Lib.DB.resolve_pps (SC.public_libs sctx) [(Loc.none, driver_name)]
+          in
           driver @ pps
         in
         (Some driver, pps, pp_names)
@@ -372,42 +399,41 @@ let build_ppx_driver sctx ~dep_kind ~target ~dir_kind ~pps ~pp_names =
       (* Extend the dependency stack as we don't have locations at
          this point *)
       Dep_path.prepend_exn e (Preprocess pp_names))
-      (pps
-       >>= Lib.closure ~linking:true
-       >>= fun pps ->
+      (let* pps = pps in
+       let* pps = Lib.closure ~linking:true pps in
        match jbuild_driver with
        | None ->
-         Driver.select pps ~loc:(Dot_ppx (target, pp_names))
-         >>| fun driver ->
+         let+ driver =
+           Driver.select pps ~loc:(Dot_ppx (target, pp_names))
+         in
          (driver, pps)
        | Some driver ->
          Ok (driver, pps))
   in
   (* CR-someday diml: what we should do is build the .cmx/.cmo once
      and for all at the point where the driver is defined. *)
-  let ml = Path.relative (Path.parent_exn target) "ppx.ml" in
-  let add_rule = SC.add_rule sctx ~dir:(Super_context.build_dir sctx) in
+  let dir = Path.Build.parent_exn target in
+  let ml = Path.Build.relative dir "_ppx.ml" in
+  let add_rule = SC.add_rule sctx ~dir in
   add_rule
     (Build.of_result_map driver_and_libs ~f:(fun (driver, _) ->
        Build.return (sprintf "let () = %s ()\n" driver.info.main))
      >>>
      Build.write_file_dyn ml);
   add_rule
-    (Build.record_lib_deps
-       (Lib_deps.info ~kind:dep_kind (Lib_deps.of_pps pp_names))
-     >>>
-     Build.of_result_map driver_and_libs ~f:(fun (_, libs) ->
-       Build.paths (Lib.L.archive_files libs ~mode))
-     >>>
-     Build.run (Ok compiler) ~dir:ctx.build_dir
-       [ A "-o" ; Target target
-       ; Arg_spec.of_result
-           (Result.map driver_and_libs ~f:(fun (_driver, libs) ->
-              Lib.L.compile_and_link_flags ~mode ~stdlib_dir:ctx.stdlib_dir
-                ~compile:libs
-                ~link:libs))
-       ; Dep ml
-       ])
+    (Build.S.seqs
+       [Build.record_lib_deps
+          (Lib_deps.info ~kind:dep_kind (Lib_deps.of_pps pp_names));
+        Build.of_result_map driver_and_libs ~f:(fun (_, libs) ->
+          Build.paths (Lib.L.archive_files libs ~mode))]
+       (Command.run (Ok compiler) ~dir:(Path.build ctx.build_dir)
+          [ A "-o" ; Target target
+          ; A "-w"; A "-24"
+          ; Command.of_result
+              (Result.map driver_and_libs ~f:(fun (_driver, libs) ->
+                 Lib.L.compile_and_link_flags ~mode ~compile:libs ~link:libs))
+          ; Dep (Path.build ml)
+          ]))
 
 let get_rules sctx key ~dir_kind =
   let exe = ppx_exe sctx ~key ~dir_kind in
@@ -415,16 +441,47 @@ let get_rules sctx key ~dir_kind =
     let names, lib_db =
       match Digest.from_hex key with
       | key ->
-        let { Key.pps; scope } = Key.decode key in
+        let { Key.Decoded.pps; project } = Key.decode key in
         let lib_db =
-          match scope with
+          match project with
           | None -> SC.public_libs sctx
-          | Some name -> Scope.libs (SC.find_scope_by_name sctx name)
+          | Some project -> Scope.libs (SC.find_scope_by_project sctx project)
         in
         (pps, lib_db)
       | exception _ ->
         (* Still support the old scheme for backward compatibility *)
-        let (key, lib_db) = SC.Scope_key.of_string sctx key in
+
+        (* DUNE2 get rid of this crud *)
+        let module Scope_key = struct
+          let of_string sctx key =
+            match String.rsplit2 key ~on:'@' with
+            | None ->
+              (key, Super_context.public_libs sctx)
+            | Some (key, scope) ->
+              let scope =
+                let name = Dune_project.Name.of_encoded_string scope in
+                match Super_context.find_scope_by_name sctx name with
+                | [x] -> x
+                | [] -> assert false
+                | p1 :: p2 :: _ ->
+                  let file p =
+                    Scope.project p
+                    |> Dune_project.file
+                    |> Path.Source.to_string
+                    |> Pp.textf "- %s"
+                  in
+                  User_error.raise
+                    [ Pp.textf "jbuild projects must have unique names. \
+                               The project %s is defined in:"
+                        (Dune_project.Name.to_string_hum name)
+                    ; file p1
+                    ; file p2
+                    ]
+                    in
+              (key, Scope.libs scope)
+        end in
+
+        let (key, lib_db) = Scope_key.of_string sctx key in
         let names =
           match key with
           | "+none+" -> []
@@ -452,7 +509,8 @@ let gen_rules sctx components =
   | _ -> ()
 
 let ppx_driver_exe sctx libs ~dir_kind =
-  let key = Digest.to_string (Key.of_libs ~dir_kind libs |> Key.encode) in
+  let key =
+    Digest.to_string (Key.Decoded.of_libs ~dir_kind libs |> Key.encode) in
   ppx_exe sctx ~key ~dir_kind
 
 module Compat_ppx_exe_kind = struct
@@ -463,6 +521,7 @@ end
 
 let get_compat_ppx_exe sctx ~name ~kind =
   let name = Lib_name.to_string name in
+  let sctx = SC.host sctx in
   match (kind : Compat_ppx_exe_kind.t) with
   | Dune ->
     ppx_exe sctx ~key:name ~dir_kind:Dune
@@ -476,52 +535,88 @@ let get_compat_ppx_exe sctx ~name ~kind =
     in
     ppx_exe sctx ~key ~dir_kind:Jbuild
 
-let get_ppx_driver sctx ~loc ~scope ~dir_kind pps =
+let get_cookies ~loc ~expander ~lib_name libs =
+  let expander, library_name_cookie =
+    match lib_name with
+    | None -> expander, None
+    | Some lib_name ->
+      let library_name = Lib_name.Local.to_string lib_name in
+      let bindings =
+        Pform.Map.singleton "library_name"
+          (Values [String library_name])
+      in
+      Expander.add_bindings expander ~bindings,
+      Some ("library-name", (library_name, Lib_name.of_local (loc, lib_name)))
+  in
+  try
+    Ok (
+      List.concat_map libs ~f:(fun t ->
+        let info = Lib.info t in
+        let kind = Lib_info.kind info in
+        match kind with
+        | Normal -> []
+        | Ppx_rewriter {cookies}
+        | Ppx_deriver {cookies} ->
+          List.map ~f:(fun {Lib_kind.Ppx_args.Cookie.name; value} ->
+            (name, (Expander.expand_str expander value, Lib.name t)))
+            cookies
+      )
+      |> (fun l ->
+        match library_name_cookie with
+        | None -> l
+        | Some cookie -> cookie :: l
+      )
+      |> String.Map.of_list_reducei ~f:
+           (fun name ((val1, lib1) as res) (val2, lib2) ->
+              if String.equal val1 val2 then
+                res
+              else
+                let lib1 = Lib_name.to_string lib1 in
+                let lib2 = Lib_name.to_string lib2 in
+                User_error.raise ~loc
+                  [ Pp.textf
+                      "%s and %s have inconsistent requests for cookie \
+                       %S; %s requests %S and %s requests %S"
+                      lib1 lib2 name
+                      lib1 val1
+                      lib2 val2
+                  ])
+      |> String.Map.foldi ~init:[]
+           ~f:(fun name (value, _) acc -> (name, value) :: acc)
+      |> List.rev
+      |> List.concat_map ~f:
+           (fun (name, value) ->
+              ["--cookie"; sprintf "%s=%S" name value]
+           ))
+  with exn -> Error exn
+
+let ppx_driver_and_flags_internal sctx ~loc ~expander ~lib_name ~flags
+      ~dir_kind libs =
   let open Result.O in
-  Lib.DB.resolve_pps (Scope.libs scope) pps
-  >>= fun libs ->
-  (match (dir_kind : Dune_lang.Syntax.t) with
-   | Dune ->
-     Lib.closure libs ~linking:true
-     >>=
-     Driver.select ~loc:(User_file (loc, pps))
-   | Jbuild ->
-     Ok (Jbuild_driver.get_driver pps))
-  >>| fun driver ->
-  (ppx_driver_exe (SC.host sctx) libs ~dir_kind, driver)
+  let flags = List.map ~f:(Expander.expand_str expander) flags in
+  let+ cookies = get_cookies ~loc ~lib_name ~expander libs in
+  let sctx = SC.host sctx in
+  ppx_driver_exe sctx libs ~dir_kind, flags @ cookies
+
+let ppx_driver_and_flags sctx ~lib_name ~expander ~scope ~loc ~dir_kind ~flags
+      pps =
+  let open Result.O in
+  let* libs = Lib.DB.resolve_pps (Scope.libs scope) pps in
+  let* exe, flags = ppx_driver_and_flags_internal sctx ~loc ~expander ~lib_name
+                      ~flags ~dir_kind libs in
+  let+ driver =
+    match (dir_kind : Dune_lang.File_syntax.t) with
+    | Dune ->
+      Lib.closure libs ~linking:true
+      >>=
+      Driver.select ~loc:(User_file (loc, pps))
+    | Jbuild ->
+      Ok (Jbuild_driver.get_driver pps)
+  in
+  (exe, driver, flags)
+
 
 let workspace_root_var = String_with_vars.virt_var __POS__ "workspace_root"
-
-let cookie_library_name lib_name =
-  match lib_name with
-  | None -> []
-  | Some name ->
-    ["--cookie"; sprintf "library-name=%S" (Lib_name.Local.to_string name)]
-
-(* Generate rules for the reason modules in [modules] and return a
-   a new module with only OCaml sources *)
-let setup_reason_rules sctx (m : Module.t) =
-  let ctx = SC.context sctx in
-  let refmt =
-    SC.resolve_program sctx ~loc:None ~dir:ctx.build_dir
-      "refmt" ~hint:"try: opam install reason" in
-  let rule src target =
-    Build.run ~dir:ctx.build_dir refmt
-      [ A "--print"
-      ; A "binary"
-      ; Dep src
-      ]
-      ~stdout_to:target
-  in
-  let ml = Module.ml_source m in
-  Module.iter m ~f:(fun kind f ->
-    match f.syntax with
-    | OCaml  ->
-      ()
-    | Reason ->
-      let ml = Option.value_exn (Module.file ml kind) in
-      SC.add_rule sctx ~dir:ctx.build_dir (rule f.path ml));
-  ml
 
 let promote_correction fn build ~suffix =
   Build.progn
@@ -532,14 +627,18 @@ let promote_correction fn build ~suffix =
            (Path.extend_basename fn ~suffix))
     ]
 
+let chdir action = Action_unexpanded.Chdir (workspace_root_var, action)
+
 let action_for_pp sctx ~dep_kind ~loc ~expander ~action ~src ~target =
-  let action = Action_unexpanded.Chdir (workspace_root_var, action) in
-  let bindings = Pform.Map.input_file src in
+  let action = chdir action in
+  let bindings = Pform.Map.input_file (Path.build src) in
   let expander = Expander.add_bindings expander ~bindings in
   let targets = Expander.Targets.Forbidden "preprocessing actions" in
   let targets_dir =
-    Path.parent_exn (Option.value ~default:src target) in
-  Build.path src
+    Option.value ~default:src target
+    |> Path.Build.parent_exn
+  in
+  Build.path (Path.build src)
   >>^ (fun _ -> Bindings.empty)
   >>>
   SC.Action.run sctx
@@ -558,9 +657,27 @@ let action_for_pp sctx ~dep_kind ~loc ~expander ~action ~src ~target =
   | None -> action
   | Some dst -> Action.with_stdout_to dst action
 
+(* Generate rules for the dialect modules in [modules] and return a
+   a new module with only OCaml sources *)
+let setup_dialect_rules sctx ~dir ~dep_kind ~expander (m : Module.t) =
+  let ml = Module.ml_source m in
+  Module.iter m ~f:(fun ml_kind f ->
+    match Dialect.preprocess f.dialect ml_kind with
+    | None -> ()
+    | Some (loc, action) ->
+      let src = Path.as_in_build_dir_exn f.path in
+      let dst =
+        Option.value_exn (Module.file ml ~ml_kind)
+        |> Path.as_in_build_dir_exn
+      in
+      SC.add_rule sctx ~dir
+        (action_for_pp sctx ~dep_kind ~loc ~expander ~action ~src ~target:(Some dst))
+  );
+  ml
+
 let lint_module sctx ~dir ~expander ~dep_kind ~lint ~lib_name ~scope ~dir_kind =
   Staged.stage (
-    let alias = Build_system.Alias.lint ~dir in
+    let alias = Alias.lint ~dir in
     let add_alias fn build =
       SC.add_alias_action sctx alias build ~dir
         ~stamp:("lint", lib_name, fn)
@@ -569,52 +686,55 @@ let lint_module sctx ~dir ~expander ~dep_kind ~lint ~lib_name ~scope ~dir_kind =
       Per_module.map lint ~f:(function
         | Preprocess.No_preprocessing ->
           (fun ~source:_ ~ast:_ -> ())
+        | Future_syntax loc ->
+          User_error.raise ~loc
+            [ Pp.text "'compat' cannot be used as a linter" ]
         | Action (loc, action) ->
           (fun ~source ~ast:_ ->
              Module.iter source ~f:(fun _ (src : Module.File.t) ->
-               let src = src.path in
+               let src = Path.as_in_build_dir_exn src.path in
                add_alias src ~loc:(Some loc)
                  (action_for_pp sctx ~dep_kind ~loc ~expander ~action
                     ~src ~target:None)))
         | Pps { loc; pps; flags; staged } ->
           if staged then
-            Errors.fail loc
-              "Staged ppx rewriters cannot be used as linters.";
-          let args : _ Arg_spec.t =
-            S [ As flags
-              ; As (cookie_library_name lib_name)
-              ]
-          in
+            User_error.raise ~loc
+              [ Pp.text "Staged ppx rewriters cannot be used as linters." ];
           let corrected_suffix = ".lint-corrected" in
           let driver_and_flags =
             let open Result.O in
-            get_ppx_driver sctx ~loc ~scope ~dir_kind pps
-            >>| fun (exe, driver) ->
-            (exe,
-             let bindings =
-               Pform.Map.singleton "corrected-suffix"
-                 (Values [String corrected_suffix])
-             in
-             let expander = Expander.add_bindings expander ~bindings in
-             Build.memoize "ppx flags"
-               (Expander.expand_and_eval_set expander driver.info.lint_flags
-                  ~standard:(Build.return [])))
+            let+ (exe, driver, driver_flags) =
+              ppx_driver_and_flags sctx ~expander ~loc ~lib_name ~flags
+                ~dir_kind ~scope pps
+            in
+            let flags =
+              let bindings =
+                Pform.Map.singleton "corrected-suffix"
+                  (Values [String corrected_suffix])
+              in
+              let expander = Expander.add_bindings expander ~bindings in
+              Build.memoize "ppx flags"
+                (Expander.expand_and_eval_set expander driver.info.lint_flags
+                   ~standard:(Build.return []))
+            in
+            let args : _ Command.Args.t = S [ As driver_flags ] in
+            (exe, flags, args)
           in
           (fun ~source ~ast ->
-             Module.iter ast ~f:(fun kind src ->
+             Module.iter ast ~f:(fun ml_kind src ->
                add_alias src.path
                  ~loc:None
                  (promote_correction ~suffix:corrected_suffix
-                    (Option.value_exn (Module.file source kind))
-                    (Build.of_result_map driver_and_flags ~f:(fun (exe, flags) ->
-                       flags >>>
-                       Build.run ~dir:(SC.context sctx).build_dir
-                         (Ok exe)
-                         [ args
-                         ; Ml_kind.ppx_driver_flag kind
-                         ; Dep src.path
-                         ; Dyn (fun x -> As x)
-                         ]))))))
+                    (Option.value_exn (Module.file source ~ml_kind))
+                    (Build.of_result_map driver_and_flags
+                       ~f:(fun (exe, flags, args) ->
+                         Command.run ~dir:(Path.build (SC.build_dir sctx))
+                           (Ok (Path.build exe))
+                           [ args
+                           ; Command.Ml_kind.ppx_driver_flag ml_kind
+                           ; Dep src.path
+                           ; Command.Args.dyn flags
+                           ]))))))
     in
     fun ~(source : Module.t) ~ast ->
       Per_module.get lint (Module.name source) ~source ~ast)
@@ -629,13 +749,18 @@ let make sctx ~dir ~expander ~dep_kind ~lint ~preprocess
     Build.memoize "preprocessor deps" preprocessor_deps
   in
   let lint_module =
-    Staged.unstage (lint_module sctx ~dir ~expander ~dep_kind ~lint ~lib_name
-                      ~scope ~dir_kind)
+    Staged.unstage (lint_module sctx ~dir ~expander ~dep_kind
+                      ~lint ~lib_name ~scope ~dir_kind)
   in
-  Per_module.map preprocess ~f:(function
-    | Preprocess.No_preprocessing ->
+  Per_module.map preprocess ~f:(fun pp ->
+    match Dune_file.Preprocess.remove_future_syntax
+            ~for_:Compiler
+            pp
+            (Super_context.context sctx).version
+    with
+    | No_preprocessing ->
       (fun m ~lint ->
-         let ast = setup_reason_rules sctx m in
+         let ast = setup_dialect_rules sctx ~dir ~dep_kind ~expander m in
          if lint then lint_module ~ast ~source:m;
          ast)
     | Action (loc, action) ->
@@ -647,58 +772,56 @@ let make sctx ~dir ~expander ~dep_kind ~lint ~preprocess
              in
              SC.add_rule sctx ~loc ~dir
                (preprocessor_deps >>> action))
-           |> setup_reason_rules sctx
+           |> setup_dialect_rules sctx ~dir ~dep_kind ~expander
          in
          if lint then lint_module ~ast ~source:m;
          ast)
     | Pps { loc; pps; flags; staged } ->
       if not staged then begin
-        let args : _ Arg_spec.t =
-          S [ As flags
-            ; As (cookie_library_name lib_name)
-            ]
-        in
         let corrected_suffix = ".ppx-corrected" in
         let driver_and_flags =
           let open Result.O in
-          get_ppx_driver sctx ~loc ~scope ~dir_kind pps >>| fun (exe, driver) ->
+          let+ (exe, driver, flags) = ppx_driver_and_flags sctx ~expander ~loc
+                                        ~lib_name ~flags ~dir_kind ~scope pps in
+          let args : _ Command.Args.t = S [ As flags ] in
           (exe,
-           let bindings =
-             Pform.Map.singleton "corrected-suffix"
-               (Values [String corrected_suffix])
-           in
-           let expander = Expander.add_bindings expander ~bindings in
-           Build.memoize "ppx flags"
-             (Expander.expand_and_eval_set expander driver.info.flags
-                ~standard:(Build.return ["--as-ppx"])))
+           (let bindings =
+              Pform.Map.singleton "corrected-suffix"
+                (Values [String corrected_suffix])
+            in
+            let expander = Expander.add_bindings expander ~bindings in
+            Build.memoize "ppx flags"
+              (Expander.expand_and_eval_set expander driver.info.flags
+                 ~standard:(Build.return ["--as-ppx"]))), args)
         in
         (fun m ~lint ->
-           let ast = setup_reason_rules sctx m in
+           let ast = setup_dialect_rules sctx ~dir ~dep_kind ~expander m in
            if lint then lint_module ~ast ~source:m;
-           pped_module ast ~f:(fun kind src dst ->
+           pped_module ast ~f:(fun ml_kind src dst ->
              SC.add_rule sctx ~loc ~dir
                (promote_correction ~suffix:corrected_suffix
-                  (Option.value_exn (Module.file m kind))
+                  (Option.value_exn (Module.file m ~ml_kind))
                   (preprocessor_deps >>^ ignore
                    >>>
                    Build.of_result_map driver_and_flags
                      ~targets:[dst]
-                     ~f:(fun (exe, flags) ->
-                       flags
-                       >>>
-                       Build.run ~dir:(SC.context sctx).build_dir
-                         (Ok exe)
+                     ~f:(fun (exe, flags, args) ->
+                       Command.run ~dir:(Path.build (SC.build_dir sctx))
+                         (Ok (Path.build exe))
                          [ args
                          ; A "-o"; Target dst
-                         ; Ml_kind.ppx_driver_flag kind; Dep src
-                         ; Dyn (fun x -> As x)
+                         ; Command.Ml_kind.ppx_driver_flag ml_kind; Dep (Path.build src)
+                         ; Command.Args.dyn flags
                          ])))))
       end else begin
         let pp_flags = Build.of_result (
           let open Result.O in
-          get_ppx_driver sctx ~loc ~scope ~dir_kind pps >>| fun (exe, driver) ->
+          let+ (exe, driver, flags) =
+            ppx_driver_and_flags sctx ~expander ~loc ~scope ~dir_kind ~flags
+              ~lib_name pps
+          in
           Build.memoize "ppx command"
-            (Build.path exe
+            (Build.path (Path.build exe)
              >>>
              preprocessor_deps >>^ ignore
              >>>
@@ -708,33 +831,32 @@ let make sctx ~dir ~expander ~dep_kind ~lint ~preprocess
              let command =
                List.map
                  (List.concat
-                    [ [Path.reach exe ~from:(SC.context sctx).build_dir]
+                    [ [Path.reach (Path.build exe)
+                         ~from:(Path.build (SC.build_dir sctx))
+                      ]
                     ; driver_flags
                     ; flags
-                    ; cookie_library_name lib_name
                     ])
-                 ~f:quote_for_shell
+                 ~f:String.quote_for_shell
                |> String.concat ~sep:" "
              in
              ["-ppx"; command]))
         in
         let pp = Some pp_flags in
         (fun m ~lint ->
-           let ast = setup_reason_rules sctx m in
+           let ast = setup_dialect_rules sctx ~dir ~dep_kind ~expander m in
            if lint then lint_module ~ast ~source:m;
            Module.set_pp ast pp)
       end)
 
-let pp_modules t ?(lint=true) modules =
-  Module.Name.Map.map modules ~f:(fun (m : Module.t) ->
-    Per_module.get t (Module.name m) m ~lint)
+let pp_module t ?(lint=true) m =
+  Per_module.get t (Module.name m) m ~lint
 
 let pp_module_as t ?(lint=true) name m =
   Per_module.get t name m ~lint
 
-let get_ppx_driver sctx ~scope ~dir_kind pps =
+let get_ppx_driver sctx ~loc ~expander ~scope ~lib_name ~flags ~dir_kind pps =
   let open Result.O in
-  Lib.DB.resolve_pps (Scope.libs scope) pps
-  >>| fun libs ->
-  let sctx = SC.host sctx in
-  ppx_driver_exe sctx libs ~dir_kind
+  let* libs = Lib.DB.resolve_pps (Scope.libs scope) pps in
+  ppx_driver_and_flags_internal sctx ~loc ~expander ~lib_name ~flags ~dir_kind
+    libs

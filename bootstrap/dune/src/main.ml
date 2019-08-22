@@ -19,12 +19,12 @@ let package_install_file w pkg =
   match Package.Name.Map.find w.conf.packages pkg with
   | None -> Error ()
   | Some p ->
-    Ok (Path.relative p.path
+    Ok (Path.Source.relative p.path
           (Utils.install_file ~package:p.name ~findlib_toolchain:None))
 
 let setup_env ~capture_outputs =
   let env =
-    if capture_outputs || not (Lazy.force Colors.stderr_supports_colors) then
+    if not capture_outputs || not (Lazy.force Ansi_color.stderr_supports_color) then
       Env.initial
     else
       Colors.setup_env_for_colors Env.initial
@@ -34,13 +34,13 @@ let setup_env ~capture_outputs =
 let scan_workspace ?(log=Log.no_log)
       ?workspace ?workspace_file
       ?x
-      ?ignore_promoted_rules
       ?(capture_outputs=true)
       ?profile
+      ~ancestor_vcs
       () =
   let env = setup_env ~capture_outputs in
   let conf =
-    Dune_load.load ?ignore_promoted_rules ()
+    Dune_load.load ~ancestor_vcs ()
   in
   let workspace =
     match workspace with
@@ -49,8 +49,10 @@ let scan_workspace ?(log=Log.no_log)
       match workspace_file with
       | Some p ->
         if not (Path.exists p) then
-          die "@{<error>Error@}: workspace file %s does not exist"
-            (Path.to_string_maybe_quoted p);
+          User_error.raise
+            [ Pp.textf "Workspace file %s does not exist"
+                (Path.to_string_maybe_quoted p)
+            ];
         Workspace.load ?x ?profile p
       | None ->
         match
@@ -61,33 +63,33 @@ let scan_workspace ?(log=Log.no_log)
         | None -> Workspace.default ?x ?profile ()
   in
 
-  Context.create ~env workspace
-  >>= fun contexts ->
+  let+ contexts = Context.create ~env workspace in
   List.iter contexts ~f:(fun (ctx : Context.t) ->
-    Log.infof log "@[<1>Dune context:@,%a@]@." Sexp.pp
-      (Context.to_sexp ctx));
-  Fiber.return
-    { contexts
-    ; conf
-    ; env
-    }
+    Log.infof log "@[<1>Dune context:@,%a@]@." Pp.render_ignore_tags
+      (Dyn.pp (Context.to_dyn ctx)));
+  { contexts
+  ; conf
+  ; env
+  }
 
 let init_build_system ?only_packages ?external_lib_deps_mode w =
   Option.iter only_packages ~f:(fun set ->
     Package.Name.Set.iter set ~f:(fun pkg ->
       if not (Package.Name.Map.mem w.conf.packages pkg) then
         let pkg_name = Package.Name.to_string pkg in
-        die "@{<error>Error@}: I don't know about package %s \
-             (passed through --only-packages/--release)%s"
-          pkg_name
-          (hint pkg_name
-             (Package.Name.Map.keys w.conf.packages
-              |> List.map ~f:Package.Name.to_string))));
+        User_error.raise
+          [ Pp.textf "I don't know about package %s (passed through \
+                      --only-packages/--release)"
+              pkg_name ]
+          ~hints:(User_message.did_you_mean pkg_name
+                    ~candidates:(Package.Name.Map.keys w.conf.packages
+                                 |> List.map ~f:Package.Name.to_string))));
   let rule_done  = ref 0 in
   let rule_total = ref 0 in
   let gen_status_line () =
-    { Scheduler.
-      message = Some (sprintf "Done: %u/%u" !rule_done !rule_total)
+    { Console.
+      message = Some (Pp.verbatim
+                        (sprintf "Done: %u/%u" !rule_done !rule_total))
     ; show_jobs = true
     }
   in
@@ -99,11 +101,12 @@ let init_build_system ?only_packages ?external_lib_deps_mode w =
   Build_system.reset ();
   Build_system.init ~contexts:w.contexts ~file_tree:w.conf.file_tree ~hook;
   Scheduler.set_status_line_generator gen_status_line;
-  Gen_rules.gen w.conf
-    ~contexts:w.contexts
-    ?only_packages
-    ?external_lib_deps_mode
-  >>| fun scontexts ->
+  let+ scontexts =
+    Gen_rules.gen w.conf
+      ~contexts:w.contexts
+      ?only_packages
+      ?external_lib_deps_mode
+  in
   { workspace = w; scontexts }
 
 let auto_concurrency =
@@ -112,53 +115,58 @@ let auto_concurrency =
     match !v with
     | Some n -> Fiber.return n
     | None ->
-      (if Sys.win32 then
-         match Env.get Env.initial "NUMBER_OF_PROCESSORS" with
-         | None -> Fiber.return 1
-         | Some s ->
-           match int_of_string s with
-           | exception _ -> Fiber.return 1
-           | n -> Fiber.return n
-       else
-         let commands =
-           [ "nproc", []
-           ; "getconf", ["_NPROCESSORS_ONLN"]
-           ; "getconf", ["NPROCESSORS_ONLN"]
-           ]
-         in
-         let rec loop = function
-           | [] -> Fiber.return 1
-           | (prog, args) :: rest ->
-             match Bin.which ~path:(Env.path Env.initial) prog with
-             | None -> loop rest
-             | Some prog ->
-               Process.run_capture (Accept All) prog args ~env:Env.initial
-                 ~stderr_to:(Process.Output.file Config.dev_null)
-               >>= function
-               | Error _ -> loop rest
-               | Ok s ->
-                 match int_of_string (String.trim s) with
-                 | n -> Fiber.return n
-                 | exception _ -> loop rest
-         in
-         loop commands)
-      >>| fun n ->
+      let+ n =
+        (if Sys.win32 then
+           match Env.get Env.initial "NUMBER_OF_PROCESSORS" with
+           | None -> Fiber.return 1
+           | Some s ->
+             match int_of_string s with
+             | exception _ -> Fiber.return 1
+             | n -> Fiber.return n
+         else
+           let commands =
+             [ "nproc", []
+             ; "getconf", ["_NPROCESSORS_ONLN"]
+             ; "getconf", ["NPROCESSORS_ONLN"]
+             ]
+           in
+           let rec loop = function
+             | [] -> Fiber.return 1
+             | (prog, args) :: rest ->
+               match Bin.which ~path:(Env.path Env.initial) prog with
+               | None -> loop rest
+               | Some prog ->
+                 let* result =
+                   Process.run_capture (Accept All) prog args ~env:Env.initial
+                     ~stderr_to:(Process.Output.file Config.dev_null)
+                 in
+                 match result with
+                 | Error _ -> loop rest
+                 | Ok s ->
+                   match int_of_string (String.trim s) with
+                   | n -> Fiber.return n
+                   | exception _ -> loop rest
+           in
+           loop commands)
+      in
       Log.infof log "Auto-detected concurrency: %d" n;
       v := Some n;
       n
 
 let set_concurrency ?log (config : Config.t) =
-  (match config.concurrency with
-   | Fixed n -> Fiber.return n
-   | Auto    -> auto_concurrency ?log ())
-  >>| fun n ->
+  let+ n =
+    match config.concurrency with
+    | Fixed n -> Fiber.return n
+    | Auto    -> auto_concurrency ?log ()
+  in
   if n >= 1 then Scheduler.set_concurrency n
 
 (* Called by the script generated by ../build.ml *)
 let bootstrap () =
+  Clflags.promote_install_files := true;
   Colors.setup_err_formatter_colors ();
   Path.set_root Path.External.initial_cwd;
-  Path.set_build_dir (Path.Kind.of_string "_boot");
+  Path.Build.set_build_dir (Path.Build.Kind.of_string "_boot");
   let main () =
     let anon s = raise (Arg.Bad (Printf.sprintf "don't know what to do with %s\n" s)) in
     let subst () =
@@ -212,18 +220,19 @@ let bootstrap () =
     in
     let config =
       Config.adapt_display config
-        ~output_is_a_tty:(Lazy.force Colors.stderr_supports_colors)
+        ~output_is_a_tty:(Lazy.force Ansi_color.stderr_supports_color)
     in
     let log = Log.create ~display:config.display () in
     Scheduler.go ~log ~config
       (fun () ->
-         set_concurrency config
-         >>= fun () ->
-         scan_workspace ~log ~workspace:(Workspace.default ?profile:!profile ())
-           ?profile:!profile
-           ()
-         >>= init_build_system
-         >>= fun _ ->
+         let* () = set_concurrency config in
+         let* workspace =
+           scan_workspace ~log
+             ~workspace:(Workspace.default ?profile:!profile ())
+            ?profile:!profile ~ancestor_vcs:None
+            ()
+         in
+         let* _ = init_build_system workspace in
          Build_system.do_build
            ~request:(Build.path (
              Path.relative Path.build_dir "default/dune.install")))
@@ -233,6 +242,7 @@ let bootstrap () =
   with
   | Fiber.Never -> exit 1
   | exn ->
+    let exn = Exn_with_backtrace.capture exn in
     Report_error.report exn;
     exit 1
 
@@ -240,4 +250,4 @@ let find_context_exn t ~name =
   match List.find t.contexts ~f:(fun c -> c.name = name) with
   | Some ctx -> ctx
   | None ->
-    die "@{<Error>Error@}: Context %S not found!@." name
+    User_error.raise [ Pp.textf "Context %S not found!" name ]

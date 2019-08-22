@@ -1,11 +1,6 @@
 open Import
 
-let flag_of_kind : Ml_kind.t -> _ =
-  function
-  | Impl -> "--impl"
-  | Intf -> "--intf"
-
-let add_diff sctx loc alias ~dir input output =
+let add_diff sctx loc alias ~dir ~input ~output =
   let open Build.O in
   let action = Action.diff input output in
   Super_context.add_alias_action sctx alias ~dir ~loc:(Some loc) ~locks:[]
@@ -13,7 +8,7 @@ let add_diff sctx loc alias ~dir input output =
     (Build.paths [input; output]
      >>>
      Build.action
-       ~dir
+       ~dir:(Path.build dir)
        ~targets:[]
        action)
 
@@ -22,88 +17,80 @@ let rec subdirs_until_root dir =
   | None -> [dir]
   | Some d -> dir :: subdirs_until_root d
 
-let depend_on_existing_paths paths =
-  let open Build.O in
-  let build_id = Build.arr Fn.id in
-  List.fold_left
-    ~f:(fun acc path ->
-      Build.if_file_exists
-        path
-        ~then_:(Build.path path)
-        ~else_:build_id
-      >>>
-      acc)
-    ~init:build_id
-    paths
-
 let depend_on_files ~named dir =
   subdirs_until_root dir
   |> List.concat_map ~f:(fun dir -> List.map named ~f:(Path.relative dir))
-  |> depend_on_existing_paths
+  |> Build.paths_existing
 
-let gen_rules sctx (config : Dune_file.Auto_format.t) ~dir =
+let formatted = ".formatted"
+
+let gen_rules_output sctx (config : Dune_file.Auto_format.t)
+      ~dialects ~expander ~output_dir =
+  assert (formatted = Path.Build.basename output_dir);
   let loc = Dune_file.Auto_format.loc config in
-  let source_dir = Path.drop_build_context_exn dir in
-  let subdir = ".formatted" in
-  let output_dir = Path.relative dir subdir in
-  let alias = Build_system.Alias.fmt ~dir in
-  let alias_formatted = Build_system.Alias.fmt ~dir:output_dir in
+  let dir = Path.Build.parent_exn output_dir in
+  let source_dir = Path.Build.drop_build_context_exn dir in
+  let alias_formatted = Alias.fmt ~dir:output_dir in
   let resolve_program =
     Super_context.resolve_program ~dir sctx ~loc:(Some loc) in
-  let ocamlformat_deps =
-    lazy (depend_on_files ~named:[".ocamlformat"; ".ocamlformat-ignore"] source_dir)
-  in
+  let depend_on_files named = depend_on_files ~named (Path.build dir) in
   let setup_formatting file =
-    let open Build.O in
-    let input_basename = Path.basename file in
-    let input = Path.relative dir input_basename in
-    let output = Path.relative output_dir input_basename in
-
-    let ocaml kind =
-      if Dune_file.Auto_format.includes config Ocaml then
-        let exe = resolve_program "ocamlformat" in
-        let args =
-          let open Arg_spec in
-          [ A (flag_of_kind kind)
-          ; Dep input
-          ; A "--name"
-          ; Path file
-          ; A "-o"
-          ; Target output
-          ]
-        in
-        Some (Lazy.force ocamlformat_deps >>> Build.run ~dir exe args)
-      else
-        None
-    in
+    let input_basename = Path.Source.basename file in
+    let input = Path.Build.relative dir input_basename in
+    let output = Path.Build.relative output_dir input_basename in
 
     let formatter =
-      match Path.basename file, Path.extension file with
-      | _, ".ml" -> ocaml Impl
-      | _, ".mli" -> ocaml Intf
-      | _, ".re"
-      | _, ".rei" when Dune_file.Auto_format.includes config Reason ->
-        let exe = resolve_program "refmt" in
-        let args = [Arg_spec.Dep input] in
-        Some (Build.run ~dir ~stdout_to:output exe args)
-      | "dune", _ when Dune_file.Auto_format.includes config Dune ->
+      let input = Path.build input in
+      match Path.Source.basename file with
+      | "dune" when Dune_file.Auto_format.includes config Dune ->
         let exe = resolve_program "dune" in
-        let args = [Arg_spec.A "format-dune-file"; Dep input] in
-        Some (Build.run ~dir ~stdout_to:output exe args)
-      | _ -> None
+        let args = [Command.Args.A "format-dune-file"; Dep input] in
+        let dir = Path.build dir in
+        Some (Command.run ~dir ~stdout_to:output exe args)
+      | _ ->
+        let ext = Path.Source.extension file in
+        let open Option.O in
+        let* (dialect, kind) = Dialect.DB.find_by_extension dialects ext in
+        let* () =
+          Option.some_if (Dune_file.Auto_format.includes
+                            config (Dialect (Dialect.name dialect))) ()
+        in
+        let+ (loc, action, extra_deps) =
+          match Dialect.format dialect kind with
+          | Some _ as action ->
+            action
+          | None ->
+            begin match Dialect.preprocess dialect kind with
+            | None -> Dialect.format Dialect.ocaml kind
+            | Some _ -> None
+            end
+        in
+        let src = Path.as_in_build_dir_exn input in
+        let extra_deps =
+          match extra_deps with
+          | [] ->
+            Build.return ()
+          | extra_deps ->
+            Build.S.ignore (depend_on_files extra_deps)
+        in
+        Build.S.seq extra_deps
+          (Preprocessing.action_for_pp sctx ~dep_kind:Lib_deps_info.Kind.Required
+             ~loc ~expander ~action ~src ~target:(Some output))
     in
-
-    Option.iter
-      formatter
-      ~f:(fun arr ->
-        Super_context.add_rule sctx ~mode:Standard ~loc ~dir arr;
-        add_diff sctx loc alias_formatted ~dir input output)
+    Option.iter formatter ~f:(fun arr ->
+      Super_context.add_rule sctx ~mode:Standard ~loc ~dir arr;
+      add_diff sctx loc alias_formatted ~dir
+        ~input:(Path.build input) ~output:(Path.build output))
   in
-  Build_system.on_load_dir
-    ~dir:output_dir
-    ~f:(fun () ->
-      File_tree.files_of (Super_context.file_tree sctx) source_dir
-      |> Path.Set.iter ~f:setup_formatting);
-  Build_system.Alias.add_deps alias
-    (Path.Set.singleton (Build_system.Alias.stamp_file alias_formatted));
-  Build_system.Alias.add_deps alias_formatted Path.Set.empty
+  File_tree.files_of (Super_context.file_tree sctx) source_dir
+  |> Path.Source.Set.iter ~f:setup_formatting;
+  Rules.Produce.Alias.add_deps alias_formatted Path.Set.empty
+
+let gen_rules ~dir =
+  let output_dir = Path.Build.relative dir formatted in
+  let alias = Alias.fmt ~dir in
+  let alias_formatted = Alias.fmt ~dir:output_dir in
+  Alias.stamp_file alias_formatted
+  |> Path.build
+  |> Path.Set.singleton
+  |> Rules.Produce.Alias.add_deps alias

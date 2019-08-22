@@ -3,7 +3,9 @@ open Import
 
 let config =
   ("dune-config", 5, "", "Dune", "Dune manual"),
-  [ `S Manpage.s_synopsis
+  [ `S Manpage.s_name
+  ; `P {|dune-config - configuring the dune build system|}
+  ; `S Manpage.s_synopsis
   ; `Pre "~/.config/dune/config"
   ; `S Manpage.s_description
   ; `P {|Unless $(b,--no-config) or $(b,-p) is passed, Dune will read a
@@ -82,11 +84,12 @@ let info = Term.info "help" ~doc ~man
 
 let term =
   Term.ret @@
-  let%map man_format = Arg.man_format
-  and what =
+  let+ man_format = Arg.man_format
+  and+ what =
     Arg.(value
          & pos 0 (some (enum commands)) None
          & info [] ~docv:"TOPIC")
+  and+ () = Common.build_info
   in
   match what with
   | None ->

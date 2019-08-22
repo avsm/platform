@@ -8,25 +8,25 @@ open Dune_file
 val user_rule
   :  Super_context.t
   -> ?extra_bindings:Pform.Map.t
-  -> dir:Path.t
+  -> dir:Path.Build.t
   -> expander:Expander.t
   -> Rule.t
-  -> Path.t list
+  -> Path.Build.Set.t
 
 (** Interpret a [(copy_files ...)] stanza and return the targets it produces. *)
 val copy_files
   :  Super_context.t
-  -> dir:Path.t
+  -> dir:Path.Build.t
   -> expander:Expander.t
-  -> src_dir:Path.t
+  -> src_dir:Path.Source.t
   -> Copy_files.t
-  -> Path.t list
+  -> Path.Set.t
 
 (** Interpret an [(alias ...)] stanza. *)
 val alias
   :  Super_context.t
   -> ?extra_bindings:Pform.Map.t
-  -> dir:Path.t
+  -> dir:Path.Build.t
   -> expander:Expander.t
   -> Alias_conf.t
   -> unit

@@ -1,6 +1,7 @@
 module type S = sig
   type elt
-  and t
+  type t
+  type 'a map
 
   val empty          : t
   val is_empty       : t -> bool
@@ -25,8 +26,17 @@ module type S = sig
   val min_elt        : t -> elt option
   val max_elt        : t -> elt option
   val choose         : t -> elt option
+  val choose_exn     : t -> elt
   val split          : t -> elt -> t * bool * t
   val of_list        : elt list -> t
   val to_list        : t -> elt list
   val find           : t -> f:(elt -> bool) -> elt option
+
+  val union_all : t list -> t
+  val union_map : 'a list -> f:('a -> t) -> t
+
+  val to_dyn : t -> Dyn.t
+
+  val of_keys : _ map -> t
+  val to_map : t -> unit map
 end

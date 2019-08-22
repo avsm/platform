@@ -4,15 +4,41 @@ type stanza = Stanza.t = ..
 
 module Stanza = struct
   open Stanza.Decoder
+  let c_flags ~since =
+    let check =
+      Option.map since ~f:(fun since ->
+        Syntax.since Stanza.syntax since)
+    in
+    let+ c = Ordered_set_lang.Unexpanded.field "c_flags" ?check
+    and+ cxx = Ordered_set_lang.Unexpanded.field "cxx_flags" ?check
+    in
+    C.Kind.Dict.make ~c ~cxx
 
-  let field_oslu name = Ordered_set_lang.Unexpanded.field name
+  module Inline_tests = struct
+    type t =
+      | Enabled
+      | Disabled
+      | Ignored
+
+    let decode =
+      enum
+        [ "enabled", Enabled
+        ; "disabled", Disabled
+        ; "ignored", Ignored ]
+
+    let to_string = function
+      | Enabled -> "enabled"
+      | Disabled -> "disabled"
+      | Ignored -> "ignored"
+
+  end
 
   type config =
-    { flags          : Ordered_set_lang.Unexpanded.t
-    ; ocamlc_flags   : Ordered_set_lang.Unexpanded.t
-    ; ocamlopt_flags : Ordered_set_lang.Unexpanded.t
+    { flags          : Ocaml_flags.Spec.t
+    ; c_flags        : Ordered_set_lang.Unexpanded.t C.Kind.Dict.t
     ; env_vars       : Env.t
-    ; binaries       : File_bindings.Unexpanded.t
+    ; binaries       : File_binding.Unexpanded.t list
+    ; inline_tests   : Inline_tests.t option
     }
 
   type pattern =
@@ -24,6 +50,12 @@ module Stanza = struct
     ; rules : (pattern * config) list
     }
 
+  let inline_tests_field =
+    field_o
+    "inline_tests"
+      (Syntax.since Stanza.syntax (1, 11) >>>
+      Inline_tests.decode)
+
   let env_vars_field =
     field
     "env-vars"
@@ -33,37 +65,38 @@ module Stanza = struct
        match Env.Map.of_list pairs with
        | Ok vars -> Env.extend Env.empty ~vars
        | Error (k, _, _) ->
-         Errors.fail loc "Variable %s is specified several times" k)
+         User_error.raise ~loc
+           [ Pp.textf "Variable %s is specified several times" k ])
 
   let config =
-    let%map flags = field_oslu "flags"
-    and ocamlc_flags = field_oslu "ocamlc_flags"
-    and ocamlopt_flags = field_oslu "ocamlopt_flags"
-    and env_vars = env_vars_field
-    and binaries = field ~default:File_bindings.empty "binaries"
-                     (Syntax.since Stanza.syntax (1, 6)
-                      >>> File_bindings.Unexpanded.decode)
+    let+ flags = Ocaml_flags.Spec.decode
+    and+ c_flags = c_flags ~since:(Some (1, 7))
+    and+ env_vars = env_vars_field
+    and+ binaries = field ~default:[] "binaries"
+                      (Syntax.since Stanza.syntax (1, 6)
+                       >>> File_binding.Unexpanded.L.decode)
+    and+ inline_tests = inline_tests_field
     in
     { flags
-    ; ocamlc_flags
-    ; ocamlopt_flags
+    ; c_flags
     ; env_vars
     ; binaries
+    ; inline_tests
     }
 
   let rule =
     enter
-      (let%map pat =
+      (let+ pat =
          match_keyword [("_", return Any)]
            ~fallback:(string >>| fun s -> Profile s)
-       and configs = fields config
+       and+ configs = fields config
        in
        (pat, configs))
 
   let decode =
-    let%map () = Syntax.since Stanza.syntax (1, 0)
-    and loc = loc
-    and rules = repeat rule
+    let+ () = Syntax.since Stanza.syntax (1, 0)
+    and+ loc = loc
+    and+ rules = repeat rule
     in
     { loc; rules }
 

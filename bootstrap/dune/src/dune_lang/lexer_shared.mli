@@ -1,8 +1,12 @@
+open Stdune
+
 module Token : sig
   module Comment : sig
     type t =
       | Lines of string list
       | Legacy
+
+    val to_dyn : t -> Dyn.t
   end
 
   type t =
@@ -18,19 +22,11 @@ end
 
 type t = with_comments:bool -> Lexing.lexbuf -> Token.t
 
-module Error : sig
-  type t =
-    { start   : Lexing.position
-    ; stop    : Lexing.position
-    ; message : string
-    }
-end
-
 val error : ?delta:int -> Lexing.lexbuf -> string -> 'a
 
-val escaped_buf : Buffer.t
+val invalid_dune_or_jbuild : Lexing.lexbuf -> 'a
 
-exception Error of Error.t
+val escaped_buf : Buffer.t
 
 type escape_sequence =
   | Newline

@@ -1,6 +1,5 @@
 open Stdune
 open Import
-open Fiber.O
 
 let doc = "Compute internal function."
 
@@ -16,13 +15,13 @@ let info = Term.info "compute" ~doc ~man
 
 let term =
   Term.ret @@
-  let%map common = Common.term
-  and fn =
+  let+ common = Common.term
+  and+ fn =
     Arg.(required
          & pos 0 (some string) None
          & info [] ~docv:"FUNCTION"
              ~doc:"Compute $(docv) for a given input.")
-  and inp =
+  and+ inp =
     Arg.(value
          & pos 1 (some string) None
          & info [] ~docv:"INPUT"
@@ -32,8 +31,10 @@ let term =
   let log = Log.create common in
   let action =
     Scheduler.go ~log ~common (fun () ->
-      Import.Main.setup ~log common ~external_lib_deps_mode:true
-      >>= fun _setup ->
+      let open Fiber.O in
+      let* _setup =
+        Import.Main.setup ~log common ~external_lib_deps_mode:true
+      in
       match fn, inp with
       | "list", None ->
         Fiber.return `List
@@ -47,7 +48,7 @@ let term =
             ~fname:"<command-line>"
             ~mode:Dune_lang.Parser.Mode.Single inp
         in
-        Memo.call fn sexp >>| fun res ->
+        let+ res = Memo.call fn sexp in
         `Result res
       | fn, None ->
         Fiber.return (`Error (sprintf "argument missing for '%s'" fn))
@@ -57,7 +58,8 @@ let term =
   | `Error msg ->
     `Error (true, msg)
   | `Result res ->
-    Format.printf "%a\n%!" Sexp.pp res;
+    Ansi_color.print (Dyn.pp res);
+    print_newline ();
     `Ok ()
   | `List ->
     let fns = Memo.registered_functions () in

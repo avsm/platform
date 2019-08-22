@@ -13,6 +13,12 @@ type 'a t
 (** Create a fiber that has already terminated. *)
 val return : 'a -> 'a t
 
+(** Converts a thunk to a fiber, making sure the thunk runs in the context of the fiber
+    (rather than applied in the current context).
+
+    Equivalent to [(>>=) (return ())], but more explicit. *)
+val of_thunk : (unit -> 'a t) -> 'a t
+
 (** Fiber that never completes. *)
 val never : 'a t
 
@@ -28,9 +34,14 @@ module O : sig
   (** [t >>| f] is the same as [t >>= fun x -> return (f x)] but
       slightly more efficient. *)
   val (>>|) : 'a t -> ('a -> 'b) -> 'b t
+
+  val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
+  val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
 end
 
 val map : 'a t -> f:('a -> 'b) -> 'b t
+
+val bind : 'a t -> f:('a -> 'b t) -> 'b t
 
 (** {1 Forking execution} *)
 
@@ -66,10 +77,8 @@ val nfork_map : 'a list -> f:('a -> 'b t) -> 'b Future.t list t
     parallelism. *)
 
 val both : 'a t -> 'b t -> ('a * 'b) t
-val all : 'a t list -> 'a list t
-val all_unit : unit t list -> unit t
-val map_all : 'a list -> f:('a -> 'b t) -> 'b list t
-val map_all_unit : 'a list -> f:('a -> unit t) -> unit t
+val sequential_map : 'a list -> f:('a -> 'b t) -> 'b list t
+val sequential_iter : 'a list -> f:('a -> unit t) -> unit t
 
 (** {1 Forking + joining} *)
 
@@ -152,7 +161,7 @@ module Var : sig
   (** Create a new variable *)
   val create : unit -> 'a t
 
-  (** [get var] is a fiber that reads the value of [var] *)
+  (** [get var] reads the value of [var]. *)
   val get : 'a t -> 'a option
 
   (** Same as [get] but raises if [var] is unset. *)
@@ -168,6 +177,11 @@ module Var : sig
       ]}
  *)
   val set : 'a t -> 'a -> (unit -> 'b fiber) -> 'b fiber
+  val set_sync : 'a t -> 'a -> (unit -> 'b) -> 'b
+
+  val unset : 'a t -> (unit -> 'b fiber) -> 'b fiber
+  val unset_sync : 'a t -> (unit -> 'b) -> 'b
+
 end with type 'a fiber := 'a t
 
 (** {1 Error handling} *)
@@ -182,7 +196,7 @@ end with type 'a fiber := 'a t
     [on_error] will never be called.  *)
 val with_error_handler
   :  (unit -> 'a t)
-  -> on_error:(exn -> unit)
+  -> on_error:(Exn_with_backtrace.t -> unit)
   -> 'a t
 
 (** If [f ()] completes without raising, then [wait_errors f] is the same
@@ -223,7 +237,7 @@ val wait_errors : (unit -> 'a t) -> ('a, unit) Result.t t
 val fold_errors
   :  (unit -> 'a t)
   -> init:'b
-  -> on_error:(exn -> 'b -> 'b)
+  -> on_error:(Exn_with_backtrace.t -> 'b -> 'b)
   -> ('a, 'b) Result.t t
 
 (** [collect_errors f] is:
@@ -236,7 +250,7 @@ val fold_errors
 *)
 val collect_errors
   :  (unit -> 'a t)
-  -> ('a, exn list) Result.t t
+  -> ('a, Exn_with_backtrace.t list) Result.t t
 
 (** [finalize f ~finally] runs [finally] after [f ()] has terminated,
     whether it fails or succeeds. *)
@@ -281,9 +295,9 @@ end with type 'a fiber := 'a t
 (** Wait for one iteration of the scheduler *)
 val yield : unit -> unit t
 
-(** [run t] runs a fiber until it yield a result. If it becomes clear
-    that the execution of the fiber will never terminate, raise
-    [Never]. *)
+(** [run t] runs a fiber until it (and all the fibers it forked) terminate.
+    Returns the result if it's determined in the end, otherwise
+    raises [Never].  *)
 val run : 'a t -> 'a
 
 exception Never

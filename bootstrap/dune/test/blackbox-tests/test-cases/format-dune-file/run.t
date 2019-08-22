@@ -35,7 +35,9 @@ It is possible to pass a file name:
 Parse errors are displayed:
 
   $ echo '(' | dune format-dune-file
-  Parse error: unclosed parenthesis at end of input
+  File "", line 2, characters 0-0:
+  Error: unclosed parenthesis at end of input
+  [1]
 
 When a list is indented, there is no extra space at the end.
 
@@ -143,13 +145,24 @@ When a comment is at the end of a list, the ")" is on a own line.
    ; multiline
    )
 
-Files in OCaml syntax are ignored with a warning.
+Files in OCaml syntax are copied verbatim (but error when passed in stdin).
 
   $ dune format-dune-file < ocaml-syntax.dune
   File "", line 1, characters 0-20:
-  Warning: OCaml syntax is not supported, skipping.
+  Error: OCaml syntax is not supported.
+  [1]
   $ dune format-dune-file ocaml-syntax.dune
-  File "$TESTCASE_ROOT/ocaml-syntax.dune", line 1, characters 0-20:
-  1 | (* -*- tuareg -*- *)
-      ^^^^^^^^^^^^^^^^^^^^
-  Warning: OCaml syntax is not supported, skipping.
+  (* -*- tuareg -*- *)
+  
+  let () = Jbuild_plugin.V1.send {|
+  (alias
+   (name runtest)
+   (action (echo "ocaml syntax")))
+  |}
+
+Non 0 error code:
+
+  $ echo "(" | dune format ; echo $?
+  File "", line 2, characters 0-0:
+  Error: unclosed parenthesis at end of input
+  1

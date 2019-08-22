@@ -6,14 +6,16 @@ module Parser = struct
   type nonrec t = string * t list Dune_lang.Decoder.t
 end
 
+let latest_version = (1, 11)
+
 let syntax =
   Syntax.create ~name:"dune" ~desc:"the dune language"
     [ (0, 0) (* Jbuild syntax *)
-    ; (1, 7)
+    ; latest_version
     ]
 
 module File_kind = struct
-  type t = Dune_lang.syntax = Jbuild | Dune
+  type t = Dune_lang.File_syntax.t = Jbuild | Dune
 
   let of_syntax = function
     | (0, _) -> Jbuild
@@ -29,22 +31,6 @@ module Decoder = struct
 
   exception Parens_no_longer_necessary of Loc.t * exn
 
-  let () =
-    Report_error.register
-      (function
-        | Parens_no_longer_necessary (loc, exn) ->
-          let hint =
-            "dune files require fewer parentheses than jbuild files.\n\
-             If you just converted this file from a jbuild file, try removing these parentheses."
-          in
-          Option.map (Report_error.find_printer exn)
-            ~f:(fun printer ->
-              printer
-              |> Report_error.set_loc ~loc
-              |> Report_error.set_hint ~hint
-            )
-        | _ -> None)
-
   let switch_file_kind ~jbuild ~dune =
     file_kind () >>= function
     | Jbuild -> jbuild
@@ -54,27 +40,28 @@ module Decoder = struct
     switch_file_kind
       ~jbuild:(enter t)
       ~dune:(
-      try_
-        t
-        (function
-          | Parens_no_longer_necessary _ as exn -> raise exn
-          | exn ->
-            try_
-              (enter
-                 (loc >>= fun loc ->
-                  (if is_record then
-                     peek >>= function
-                     | Some (List _) ->
-                       raise (Parens_no_longer_necessary (loc, exn))
-                     | _ -> t
-                   else
-                     t)
-                  >>= fun _ ->
-                  raise (Parens_no_longer_necessary (loc, exn))))
-              (function
-                | Parens_no_longer_necessary _ as exn -> raise exn
-                | _ -> raise exn))
-    )
+        try_
+          t
+          (function
+            | Parens_no_longer_necessary _ as exn -> raise exn
+            | exn ->
+              try_
+                (enter
+                   (let* loc = loc in
+                    let* _ =
+                      if is_record then
+                        peek >>= function
+                        | Some (List _) ->
+                          raise (Parens_no_longer_necessary (loc, exn))
+                        | _ -> t
+                      else
+                        t
+                    in
+                    raise (Parens_no_longer_necessary (loc, exn))))
+                (function
+                  | Parens_no_longer_necessary _ as exn -> raise exn
+                  | _ -> raise exn))
+      )
 
   let record parse =
     parens_removed_in_dune_generic (fields parse) ~is_record:true
@@ -88,10 +75,13 @@ module Decoder = struct
   let on_dup parsing_context name entries =
     match Univ_map.find parsing_context (Syntax.key syntax) with
     | Some (0, _) ->
+      (* DUNE2: delete this branch (0.x is for jbuilder compat) *)
       let last = Option.value_exn (List.last entries) in
-      Errors.warn (Dune_lang.Ast.loc last)
-        "Field %S is present several times, previous occurrences are ignored."
-        name
+      User_warning.emit ~loc:(Dune_lang.Ast.loc last)
+        [ Pp.textf "Field %S is present several times, previous \
+                    occurrences are ignored."
+            name
+        ]
     | _ ->
       field_present_too_many_times parsing_context name entries
 

@@ -1,5 +1,3 @@
-open Stdune
-
 module Group : sig
   type t =
     | Cmi
@@ -9,18 +7,11 @@ end
 
 (** [file_deps t libs ~files] returns a list of path dependencies for all the
     files with extension [files] of libraries [libs]. *)
-val file_deps
+val deps
   :  Lib.L.t
   -> groups:Group.t list
-  -> Path.t list
+  -> Dep.Set.t
 
-val file_deps_with_exts
+val deps_with_exts
   :  (Lib.t * Group.t list) list
-  -> Path.t list
-
-(** Setup alias dependencies for library artifacts grouped by extensions *)
-val setup_file_deps
-  :  dir:Path.t
-  -> lib:Dune_file.Library.t
-  -> modules:Module.t list
-  -> unit
+  -> Dep.Set.t

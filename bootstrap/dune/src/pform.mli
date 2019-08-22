@@ -7,7 +7,10 @@ module Var : sig
     | First_dep
     | Deps
     | Targets
+    | Target
     | Named_local
+    | Cc
+    | Cxx
 end
 
 module Macro : sig
@@ -32,13 +35,13 @@ module Expansion : sig
     | Var   of Var.t
     | Macro of Macro.t * string
 
-  val to_sexp : t -> Sexp.t
+  val to_dyn : t -> Dyn.t
 end
 
 module Map : sig
   type t
 
-  val create : context:Context.t -> cxx_flags:string list -> t
+  val create : context:Context.t -> t
 
   val superpose : t -> t -> t
 
@@ -59,5 +62,5 @@ module Map : sig
 
   val to_stamp : t -> stamp
 
-  val pp_debug : t Fmt.t
+  val to_dyn : t -> Dyn.t
 end

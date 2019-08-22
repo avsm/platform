@@ -1,7 +1,7 @@
 open! Stdune
 (** Error reporting *)
 
-(** Captures the backtrace and report an error.
+(** Reports an error.
 
     Because dune doesn't stop at the first error, it might end up
     reporting the same error twice about missing libraries for
@@ -9,23 +9,12 @@ open! Stdune
     ignore errors that have already been reported.
 
     We cache what is actually printed to the screen.  *)
-val report : exn -> unit
+val report : Exn_with_backtrace.t -> unit
 
-type printer
+(** Raised for errors that have already been reported to the user and
+    shouldn't be reported again. This might happen when trying to build
+    a dependency that has already failed. *)
+exception Already_reported
 
-val make_printer :
-  ?backtrace:bool ->
-  ?hint:string ->
-  ?loc:Loc.t ->
-  (Format.formatter -> unit) ->
-  printer
-
-val set_loc : printer -> loc:Loc.t -> printer
-
-val set_hint : printer -> hint:string -> printer
-
-(** Register an error printer. *)
-val register : (exn -> printer option) -> unit
-
-(** Find an error printer *)
-val find_printer : exn -> printer option
+(**/**)
+val ppf : Format.formatter

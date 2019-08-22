@@ -7,6 +7,9 @@ type 'a t = 'a option =
 module O : sig
   val (>>|) : 'a t -> ('a -> 'b  ) -> 'b t
   val (>>=) : 'a t -> ('a -> 'b t) -> 'b t
+
+  val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
+  val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
 end
 
 val map  : 'a t -> f:('a -> 'b  ) -> 'b t
@@ -30,6 +33,8 @@ val both : 'a t -> 'b t -> ('a * 'b) t
 val to_list : 'a t -> 'a list
 
 val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
+
+val hash : ('a -> int) -> 'a t -> int
 
 val compare : ('a -> 'a -> Ordering.t) -> 'a t -> 'a t -> Ordering.t
 

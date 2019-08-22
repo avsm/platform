@@ -8,7 +8,7 @@ open! Import
 
 type t
 
-val pp : t Fmt.t
+val to_dyn : t -> Dyn.t
 
 (** {1} Constructors *)
 
@@ -27,13 +27,22 @@ val add_action_paths : t -> Path.Set.t -> t
 (** Add an environment variable as an action dep. *)
 val add_action_env_var : t -> string -> t
 
+(** Add a dependency to action deps. *)
+val add_action_dep : t -> Dep.t -> t
+
+(** Add dependencies to action deps. *)
+val add_action_deps : t -> Dep.Set.t -> t
+
 (** {1} Deconstructors *)
 
 (** Return the rule deps. *)
-val rule_deps : t -> Deps.t
+val rule_deps : t -> Dep.Set.t
 
 (** Return the action deps. *)
-val action_deps : t -> Deps.t
+val action_deps : t -> Dep.Set.t
 
 (** Return the paths deps, both for the rule deps and the action deps. *)
-val paths : t -> Path.Set.t
+val paths
+  : t
+  -> eval_pred:Dep.eval_pred
+  -> Path.Set.t

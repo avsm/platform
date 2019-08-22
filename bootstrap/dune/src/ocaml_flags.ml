@@ -6,28 +6,62 @@ let default_ocamlc_flags   = ["-g"]
 let default_ocamlopt_flags = ["-g"]
 
 let dev_mode_warnings =
-  "@a" ^
-  String.concat ~sep:""
-    (List.map ~f:(sprintf "-%d")
-       [ 4
-       ; 29
-       ; 40
-       ; 41
-       ; 42
-       ; 44
-       ; 45
-       ; 48
-       ; 58
-       ; 59
-       ; 60
-       ])
+  (* New warnings should be introduced here *)
+  let all =
+    Int.Set.diff
+      (Int.Set.of_list (List.init 62 ~f:succ))
+      (Int.Set.of_list
+         [ 4
+         ; 29
+         ; 40
+         ; 41
+         ; 42
+         ; 44
+         ; 45
+         ; 48
+         ; 58
+         ; 59
+         ; 60
+         ])
+  in
+  let warnings_range ws =
+    let wrange_to_flag (x, y) =
+      if x = y then
+        sprintf "@%d" x
+      else
+        sprintf "@%d..%d" x y
+    in
+    let (acc, last_range) =
+      Int.Set.fold ws ~init:([], None) ~f:(fun x (acc, last_range) ->
+        match last_range with
+        | None ->
+          assert (acc = []);
+          [], Some (x, x)
+        | Some (l, u) ->
+          if succ u = x then
+            acc, Some (l, succ u)
+          else
+            wrange_to_flag (l, u) :: acc, Some (x, x))
+    in
+    let acc =
+      match last_range with
+      | None -> acc
+      | Some (x, y) -> wrange_to_flag (x, y) :: acc
+    in
+    List.rev acc
+    |> String.concat ~sep:""
+  in
+  fun ~dune_version:_ -> warnings_range all
+
+let vendored_warnings =
+  ["-w"; "-a"]
 
 let default_warnings =
   "-40"
 
-let default_flags ~profile =
+let default_flags ~dune_version ~profile =
   if profile = "dev" then
-    [ "-w"; dev_mode_warnings ^ default_warnings
+    [ "-w"; dev_mode_warnings ~dune_version ^ default_warnings
     ; "-strict-sequence"
     ; "-strict-formats"
     ; "-short-paths"
@@ -36,10 +70,28 @@ let default_flags ~profile =
   else
     [ "-w"; default_warnings ]
 
-type t =
-  { common     : (unit, string list) Build.t
-  ; specific   : (unit, string list) Build.t Mode.Dict.t
+type 'a t' =
+  { common     : 'a
+  ; specific   : 'a Mode.Dict.t
   }
+
+module Spec = struct
+  type t = Ordered_set_lang.Unexpanded.t t'
+
+  let decode =
+    let open Stanza.Decoder in
+    let field_oslu = Ordered_set_lang.Unexpanded.field in
+    let+ common = field_oslu "flags"
+    and+ byte = field_oslu "ocamlc_flags"
+    and+ native = field_oslu "ocamlopt_flags"
+    in
+    let specific = Mode.Dict.make ~native ~byte in
+    { common
+    ; specific
+    }
+end
+
+type t = (unit, string list) Build.t t'
 
 let empty =
   let build = Build.arr (fun () -> []) in
@@ -50,26 +102,20 @@ let empty =
 let of_list l =
   { empty with common = Build.arr (fun () -> l) }
 
-let default ~profile =
-  { common = Build.return (default_flags ~profile)
+let default ~dune_version ~profile =
+  { common = Build.return (default_flags ~dune_version ~profile)
   ; specific =
       { byte   = Build.return default_ocamlc_flags
       ; native = Build.return default_ocamlopt_flags
       }
   }
 
-let make ~flags ~ocamlc_flags ~ocamlopt_flags ~default ~eval =
-  let f name x standard =
-    Build.memoize name
-      (if Ordered_set_lang.Unexpanded.has_special_forms x then
-         eval x ~standard
-       else
-         eval x ~standard:(Build.return []))
-  in
-  { common = f "common flags" flags default.common
+let make ~spec ~default ~eval =
+  let f name x standard = Build.memoize name (eval x ~standard) in
+  { common = f "common flags" spec.common default.common
   ; specific =
-      { byte   = f "ocamlc flags"   ocamlc_flags   default.specific.byte
-      ; native = f "ocamlopt flags" ocamlopt_flags default.specific.native
+      { byte   = f "ocamlc flags"   spec.specific.byte   default.specific.byte
+      ; native = f "ocamlopt flags" spec.specific.native default.specific.native
       }
   }
 
@@ -86,13 +132,15 @@ let append_common t flags = {t with common = t.common >>^ fun l -> l @ flags}
 
 let prepend_common flags t = {t with common = t.common >>^ fun l -> flags @ l}
 
+let with_vendored_warnings t = append_common t vendored_warnings
+
 let common t = t.common
 
 let dump t =
   Build.fanout3 t.common t.specific.byte t.specific.native
   >>^ fun (common, byte, native) ->
   List.map ~f:Dune_lang.Encoder.(pair string (list string))
-    [  "flags"         , common
+    [ "flags"         , common
     ; "ocamlc_flags"   , byte
     ; "ocamlopt_flags" , native
     ]

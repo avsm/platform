@@ -41,6 +41,7 @@ val destruct_last : 'a t -> ('a list * 'a) option
 
 val        sort : 'a t -> compare:('a -> 'a -> Ordering.t) -> 'a t
 val stable_sort : 'a t -> compare:('a -> 'a -> Ordering.t) -> 'a t
+val   sort_uniq : 'a t -> compare:('a -> 'a -> Ordering.t) -> 'a t
 
 val compare : 'a t -> 'a t -> compare:('a -> 'a -> Ordering.t) -> Ordering.t
 
@@ -53,3 +54,14 @@ val nth : 'a t -> int -> 'a option
 val physically_equal : 'a t -> 'a t -> bool
 
 val init : int -> f:(int -> 'a) -> 'a list
+
+val hd_opt : 'a t -> 'a option
+
+val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
+
+val hash : ('a -> int) -> 'a list -> int
+
+val cons : 'a t -> 'a -> 'a t
+
+val fold_map : 'a list -> init:'b -> f:('b -> 'a -> 'b * 'c) -> 'b * 'c list
+

@@ -61,10 +61,11 @@ module Test = struct
     ; skip_platforms : Platform.t list
     ; enabled        : bool
     ; js             : bool
+    ; coq            : bool
     ; external_deps  : bool
     }
 
-  let make ?env ?skip_ocaml ?(skip_platforms=[]) ?(enabled=true) ?(js=false)
+  let make ?env ?skip_ocaml ?(skip_platforms=[]) ?(enabled=true) ?(js=false) ?(coq=false)
         ?(external_deps=false) name =
     { name
     ; env
@@ -73,6 +74,7 @@ module Test = struct
     ; external_deps
     ; enabled
     ; js
+    ; coq
     }
 
   let pp_sexp fmt t =
@@ -115,7 +117,8 @@ module Test = struct
                        ; sprintf "test-cases/%s" t.name]
         ]
       ) ~action
-    |> Dune_lang.pp Dune fmt
+    |> Dune_lang.pp Dune
+    |> Pp.render_ignore_tags fmt
 end
 
 let exclusions =
@@ -123,12 +126,24 @@ let exclusions =
   let odoc = make ~external_deps:true ~skip_ocaml:"4.02.3" in
   [ make "js_of_ocaml" ~external_deps:true ~js:true
       ~env:("NODE", Sexp.parse "%{bin:node}")
+  ; make "coq" ~external_deps:true ~coq:true
   ; make "github25" ~env:("OCAMLPATH", Dune_lang.atom "./findlib-packages")
   ; odoc "odoc"
+  ; odoc "odoc-package-mld-link"
   ; odoc "odoc-unique-mlds"
   ; odoc "github717-odoc-index"
   ; odoc "multiple-private-libs"
+  ; make "cinaps" ~external_deps:true ~enabled:false
   ; make "ppx-rewriter" ~skip_ocaml:"4.02.3" ~external_deps:true
+  ; make "cross-compilation" ~external_deps:true
+  ; make "dune-ppx-driver-system" ~external_deps:true
+  ; make "github1372" ~external_deps:true
+  ; make "install-dry-run" ~external_deps:true
+  ; make "install-libdir" ~external_deps:true
+  ; make "lint" ~external_deps:true
+  ; make "package-dep" ~external_deps:true
+  ; make "merlin-tests" ~external_deps:true
+  ; make "use-meta" ~external_deps:true
   ; make "output-obj" ~skip_platforms:[Mac; Win] ~skip_ocaml:"<4.06.0"
   ; make "github644" ~external_deps:true
   ; make "private-public-overlap" ~external_deps:true
@@ -136,6 +151,8 @@ let exclusions =
   ; make "menhir"~external_deps:true
   ; make "utop" ~external_deps:true
   ; make "utop-default" ~external_deps:true ~skip_ocaml:"<4.05.0"
+  ; make "utop-default-implementation"
+      ~external_deps:true ~skip_ocaml:"<4.05.0"
   ; make "toplevel-stanza" ~skip_ocaml:"<4.05.0"
   ; make "configurator" ~skip_platforms:[Win]
   ; make "github764" ~skip_platforms:[Win]
@@ -145,7 +162,10 @@ let exclusions =
   (* The next test is disabled as it relies on configured opam
      swtiches and it's hard to get that working properly *)
   ; make "envs-and-contexts" ~external_deps:true ~enabled:false
+  ; make "env" ~skip_ocaml:"<4.06.0"
+  ; make "env-cflags" ~skip_ocaml:"<4.06.0"
   ; make "wrapped-transition" ~skip_ocaml:"<4.06.0"
+  ; make "explicit_js_mode" ~external_deps:true ~js:true
   ]
 
 let all_tests = lazy (
@@ -164,17 +184,19 @@ let pp_group fmt (name, tests) =
   alias name ~deps:(
     (List.map tests ~f:(fun (t : Test.t) ->
        Sexp.strings ["alias"; t.name])))
-  |> Dune_lang.pp Dune fmt
+  |> Dune_lang.pp Dune
+  |> Pp.render_ignore_tags fmt
 
 let () =
   let tests = Lazy.force all_tests in
-  (* The runtest target has a "specoial" definition. It includes all tests
-     except for js and disabled tests *)
+  (* The runtest target has a "special" definition. It includes all
+     tests except for js, coq, and disabled tests *)
   tests |> List.iter ~f:(fun t -> Format.printf "%a@.@." Test.pp_sexp t);
-  [ "runtest", (fun (t : Test.t) -> not t.js && t.enabled)
+  [ "runtest", (fun (t : Test.t) -> not t.js && not t.coq && t.enabled)
   ; "runtest-no-deps", (fun (t : Test.t) -> not t.external_deps && t.enabled)
   ; "runtest-disabled", (fun (t : Test.t) -> not t.enabled)
-  ; "runtest-js", (fun (t : Test.t) -> t.js && t.enabled) ]
+  ; "runtest-js", (fun (t : Test.t) -> t.js && t.enabled)
+  ; "runtest-coq", (fun (t : Test.t) -> t.coq && t.enabled) ]
   |> List.map ~f:(fun (name, predicate) ->
     (name, List.filter tests ~f:predicate))
   |> Format.pp_print_list

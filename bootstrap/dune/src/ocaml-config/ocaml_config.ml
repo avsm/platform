@@ -17,12 +17,12 @@ module Value = struct
     | Words         of string list
     | Prog_and_args of Prog_and_args.t
 
-  let to_sexp : t -> Sexp.t =
-    let open Sexp.Encoder in
+  let to_dyn : t -> Dyn.t =
+    let open Dyn.Encoder in
     function
-    | Bool   x -> bool x
-    | Int    x -> int x
-    | String x -> string x
+    | Bool   x -> Bool x
+    | Int    x -> Int x
+    | String x -> String x
     | Words  x -> (list string) x
     | Prog_and_args { prog; args } ->
       (list string) (prog :: args)
@@ -188,14 +188,12 @@ let to_list t : (string * Value.t) list =
   ; "windows_unicode"          , Bool          t.windows_unicode
   ]
 
-let to_sexp t =
-  let open Sexp in
-  List
+let to_dyn t =
+  let open Dyn in
+  Record
     (to_list t
      |> List.map ~f:(fun (k, v) ->
-       List [ Atom k
-            ; Value.to_sexp v
-            ]))
+       k, Value.to_dyn v))
 
 module Origin = struct
   type t =
@@ -226,7 +224,7 @@ module Vars = struct
         | None ->
           Error (Printf.sprintf "Unrecognized line: %S" line)
     in
-    loop [] lines >>= fun vars ->
+    let* vars = loop [] lines in
     Result.map_error (String.Map.of_list vars) ~f:(fun (var, _, _) ->
       Printf.sprintf "Variable %S present twice." var)
 

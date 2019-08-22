@@ -1,8 +1,8 @@
-module type Params = sig
-  val sctx : Super_context.t
-end
+open Stdune
 
-(** Generate install rules for META and .install files *)
-module Gen (P : Params) : sig
-  val init : unit -> unit
-end
+val gen_rules :
+  Super_context.t -> (dir:Path.Build.t -> Build_system.Subdir_set.t)
+
+val init_meta : Super_context.t -> dir:Path.Build.t -> unit
+
+val packages : Super_context.t -> Package.Name.Set.t Path.Build.Map.t

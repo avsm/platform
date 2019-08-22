@@ -4,6 +4,81 @@ Usage
 
 This section describe usage of dune from the shell.
 
+.. _initializing_components:
+
+Initializing components
+=======================
+
+NOTE: The ``dune init`` command is still under development and subject to
+change.
+
+Dune's ``init`` subcommand provides limited support for generating dune file
+stanzas and folder structures to define components. ``dune init`` can be used to
+quickly add new projects, libraries, tests, or executables without having to
+manually create dune files, or it can be composed to programmatically generate
+parts of a multi-component project.
+
+Initializing a project
+----------------------
+
+To initialize a new ``dune`` project that uses the ``base`` and ``cmdliner``,
+libraries and supports inline tests, you can run
+
+.. code:: bash
+
+   $ dune init proj myproj --libs base,cmdliner --inline-tests --ppx ppx_inline_test
+
+This will create a new directory called ``myproj`` including sub directories and
+``dune`` files for library, executable, and test components. Each component's
+``dune`` file will also include the declarations required for the given
+dependencies.
+
+This is the quickest way to get a basic ``dune`` project up and building.
+
+Initializing an executable
+-----------------------------
+
+To add a new executable to a ``dune`` file in the current directory
+(creating the file if necessary), run
+
+.. code:: bash
+
+    $ dune init exe myexe --libs base,containers,notty --ppx ppx_deriving
+
+This will add the following stanza to the ``dune`` file:
+
+.. code:: scheme
+
+    (executable
+     (name main)
+     (libraries base containers notty)
+     (preprocess
+      (pps ppx_deriving)))
+
+Initializing a library
+----------------------
+
+To create a new directory ``src``, initialized as a library, can run:
+
+.. code:: bash
+
+    $ dune init lib mylib src --libs core --inline-tests --public
+
+This will ensure the file ``./src/dune`` contains the following stanza (creating
+the file and directory, if needed):
+
+.. code:: scheme
+
+    (library
+     (public_name mylib)
+     (inline_tests)
+     (name mylib)
+     (libraries core)
+     (preprocess
+      (pps ppx_inline_tests)))
+
+Consult the manual page ``dune init --help`` for more details.
+
 .. _finding-root:
 
 Finding the root
@@ -83,8 +158,8 @@ directory.  Although, some are sometimes copied to the source tree for
 the need of external tools. These includes:
 
 - ``.merlin`` files
-
-- ``<package>.install`` files
+- ``<package>.install`` files (when either ``-p`` or
+  ``--promote-install-files`` is passed on the command line)
 
 As a result, if you want to ask ``dune`` to produce a particular ``.exe``
 file you would have to type:
@@ -321,61 +396,10 @@ To setup the building and running of tests in opam, add this line to your
 
 ::
 
-    build-test: [["dune" "runtest" "-p" name "-j" jobs]]
-
-Installation
-============
-
-Installing a package means copying the build artifacts from the build directory
-to the installed word.
-
-When installing via opam, you don't need to worry about this step: dune
-generates a ``<package>.install`` file that opam will automatically read to
-handle installation.
-
-However, when not using opam or doing local development, you can use dune to
-install the artifacts by hands. To do that, use the ``install`` command:
-
-::
-
-    $ dune install [PACKAGE]...
-
-without an argument, it will install all the packages available in the
-workspace. With a specific list of packages, it will only install these
-packages. If several build contexts are configured, the installation will be
-performed for all of them.
-
-Destination
------------
-
-The place where the build artifacts are copied, usually referred as **prefix**,
-is determined as follow for a given build context:
-
-#. if an explicit ``--prefix <path>`` argument is passed, use this path
-#. if ``opam`` is present in the ``PATH`` and is configured, use the
-   output of ``opam config var prefix``
-#. otherwise, take the parent of the directory where ``ocamlc`` was found.
-
-As an exception to this rule, library files might be copied to a different
-location. The reason for this is that they often need to be copied to a
-particular location for the various build system used in OCaml projects to find
-them and this location might be different from ``<prefix>/lib`` on some systems.
-
-Historically, the location where to store OCaml library files was configured
-through `findlib <http://projects.camlcity.org/projects/findlib.html>`__ and the
-``ocamlfind`` command line tool was used to both install these files and locate
-them. Many Linux distributions or other packaging systems are using this
-mechanism to setup where OCaml library files should be copied.
-
-As a result, if none of ``--libdir`` and ``--prefix`` is passed to ``dune
-install`` and ``ocamlfind`` is present in the ``PATH``, then library files will
-be copied to the directory reported by ``ocamlfind printconf destdir``. This
-ensures that ``dune install`` can be used without opam. When using opam,
-``ocamlfind`` is configured to point to the opam directory, so this rule makes
-no difference.
-
-Note that ``--prefix`` and ``--libdir`` are only supported if a single build
-context is in use.
+    build: [
+      (* Previous lines here... *)
+      ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+    ]
 
 Workspace configuration
 =======================
@@ -473,6 +497,9 @@ context or can be the description of an opam switch, as follows:
 
 - ``(toolchain <findlib_coolchain>)`` set findlib toolchain for the context.
 
+- ``(host <host_context>)`` choose a different context to build binaries that
+  are meant to be executed on the host machine, such as preprocessors.
+
 Both ``(default ...)`` and ``(opam ...)`` accept a ``targets`` field in order to
 setup cross compilation. See :ref:`advanced-cross-compilation` for more
 information.
@@ -505,7 +532,7 @@ must be prefixed by the shortest one.
 Watermarking
 ============
 
-One of the feature dune-release provides is watermarking; it replaces
+One of the features dune-release provides is watermarking; it replaces
 various strings of the form ``%%ID%%`` in all files of your project
 before creating a release tarball or when the package is pinned by the
 user using opam.

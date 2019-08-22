@@ -36,12 +36,28 @@ let map_error x ~f =
   | Ok _ as res -> res
   | Error x -> Error (f x)
 
+let to_option = function
+  | Ok p -> Some p
+  | Error _ -> None
+
 let errorf fmt =
   Printf.ksprintf (fun x -> Error x) fmt
+
+let both a b =
+  match a with
+  | Error e -> Error e
+  | Ok a ->
+    match b with
+    | Error e -> Error e
+    | Ok b -> Ok (a, b)
 
 module O = struct
   let ( >>= ) t f = bind t ~f
   let ( >>| ) t f = map  t ~f
+
+  let (let*) = (>>=)
+  let (let+) = (>>|)
+  let (and+) = both
 end
 
 open O
@@ -90,3 +106,26 @@ module List = struct
       f init x >>= fun init ->
       fold_left xs ~f ~init
 end
+
+let hash h1 h2 t =
+  Dune_caml.Hashtbl.hash (
+    match t with
+    | Ok s -> h1 s
+    | Error e -> h2 e)
+
+let equal e1 e2 x y =
+  match x, y with
+  | Ok x, Ok y -> e1 x y
+  | Error x, Error y -> e2 x y
+  | _, _ -> false
+
+module Option = struct
+  let iter t ~f =
+    match t with
+    | None -> Ok ()
+    | Some x -> x >>= f
+end
+
+let to_dyn ok err = function
+  | Ok e -> Dyn.Encoder.constr "Ok" [ok e]
+  | Error e -> Dyn.Encoder.constr "Error" [err e]

@@ -11,7 +11,7 @@ module type S = sig
   val compare : t -> t -> Ordering.t
   val equal : t -> t -> bool
   val hash : t -> int
-  val to_sexp : t -> Sexp.t
+  val to_dyn : t -> Dyn.t
 end
 
 module Make () : S = struct
@@ -34,5 +34,5 @@ module Make () : S = struct
   let compare = Int.compare
   let equal = Int.equal
   let hash (t : t) = t
-  let to_sexp = Sexp.Encoder.int
+  let to_dyn t = Dyn.Int t
 end

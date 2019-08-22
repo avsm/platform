@@ -24,6 +24,7 @@ let can_be_displayed_wrapped =
     | Atom _
     | Quoted_string _
     | Template _
+    | List (_, [])
     | List (_, [_])
       ->
       true
@@ -37,7 +38,7 @@ let pp_simple fmt t =
   Dune_lang.Cst.abstract t
   |> Option.value_exn
   |> Dune_lang.Ast.remove_locs
-  |> Dune_lang.pp Dune fmt
+  |> Dune_lang.Deprecated.pp Dune fmt
 
 let print_wrapped_list fmt =
   Format.fprintf fmt "(@[<hov 1>%a@])"
@@ -58,7 +59,8 @@ let pp_comment loc fmt (comment:Dune_lang.Cst.Comment.t) =
          pp_comment_line)
       ls
   | Legacy ->
-    Errors.fail loc "Formatting is only supported with the dune syntax"
+    User_error.raise ~loc
+      [ Pp.text "Formatting is only supported with the dune syntax" ]
 
 let pp_break fmt attached =
   if attached then
@@ -118,13 +120,25 @@ let pp_top_sexp fmt sexp =
 let pp_top_sexps =
   Fmt.list ~pp_sep:Fmt.nl pp_top_sexp
 
+let write_file ~path sexps =
+  let f oc =
+    let fmt = (Format.formatter_of_out_channel oc) in
+    Format.fprintf fmt "%a%!" pp_top_sexps sexps
+  in
+  Io.with_file_out ~binary:true path ~f
+
 let format_file ~input =
   match parse_file input with
-  | exception Dune_lang.Parse_error e ->
-    Printf.printf
-      "Parse error: %s\n"
-      (Dune_lang.Parse_error.message e)
   | OCaml_syntax loc ->
-    Errors.warn loc "OCaml syntax is not supported, skipping."
+    begin
+      match input with
+      | Some path ->
+        Io.with_file_in path ~f:(fun ic ->
+          Io.copy_channels ic stdout
+        )
+      | None ->
+        User_error.raise ~loc
+          [ Pp.text "OCaml syntax is not supported." ]
+    end
   | Sexps sexps ->
     Format.printf "%a%!" pp_top_sexps sexps
