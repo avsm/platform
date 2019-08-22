@@ -10,4 +10,4 @@
 
 (alias
  (name cli)
- (deps opam opam-installer mdx dune-release ocamlmerlin ocamlmerlin-server odoc utop ocamlformat))
+ (deps opam opam-installer mdx dune-release ocamlmerlin odoc utop ocamlformat))

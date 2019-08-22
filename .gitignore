@@ -11,4 +11,4 @@ bootstrap/ocaml/config/auto-aux/tst
 .duniverse-log
 bootstrap/dune/_boot/
 bootstrap/dune/boot.exe
-
+.*.swp

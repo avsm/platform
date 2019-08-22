@@ -3,6 +3,7 @@ PINS=
 
 build:
 	./build.sh native
+	ls -la _build/default/output/
 
 bytecode-only:
 	./build.sh bytecode-only
