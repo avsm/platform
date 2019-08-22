@@ -11,7 +11,6 @@ flambda:
 	./build.sh flambda
 
 quick:
-	cd vendor/lwt && ocaml src/util/configure.ml -use-libev false
 	./bootstrap/dune/_build/install/default/bin/dune build --profile=release @cli
 
 doc:

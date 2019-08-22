@@ -1,5 +1,5 @@
-(rule (copy ../duniverse/opam-core/src/client/opamMain.exe opam))
-(rule (copy ../duniverse/opam-core/src/tools/opam_installer.exe opam-installer))
+(rule (copy ../duniverse/opam-client/src/client/opamMain.exe opam))
+(rule (copy ../duniverse/opam-client/src/tools/opam_installer.exe opam-installer))
 (rule (copy ../duniverse/mdx/bin/main.exe mdx))
 (rule (copy ../duniverse/dune-release/bin/main.exe dune-release))
 (rule (copy ../duniverse/merlin/src/frontend/ocamlmerlin.exe ocamlmerlin))
