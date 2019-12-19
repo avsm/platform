@@ -1,11 +1,16 @@
 module Var : sig
   type t = string
+
   val compare : t -> t -> Ordering.t
 
   module Set : Set.S with type elt = t
 end
 
 type t
+
+val equal : t -> t -> bool
+
+val hash : t -> int
 
 module Map : Map.S with type key = Var.t
 

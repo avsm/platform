@@ -1,6 +1,6 @@
-***************
-Advanced topics
-***************
+************
+Other topics
+************
 
 This section describes some details of dune for advanced users.
 
@@ -30,8 +30,8 @@ dune you can write the following ``META.foo.template`` file:
    # DUNE_GEN
    blah = "..."
 
-Findlib integration and limitations
-===================================
+Findlib integration
+===================
 
 Dune uses ``META`` files to support external libraries. However, it
 doesn't export the full power of findlib to the user, and especially
@@ -112,108 +112,6 @@ load all the plugins installed for your tool by listing the existing packages:
       in
       Fl_dynload.load_packages pkgs
 
-.. _advanced-cross-compilation:
-
-Cross Compilation
-=================
-
-Dune allows for cross compilation by defining build contexts with
-multiple targets. Targets are specified by adding a ``targets`` field
-to the definition of a build context.
-
-``targets`` takes a list of target name. It can be either:
-
-- ``native`` which means using the native tools that can build
-  binaries that run on the machine doing the build
-
-- the name of an alternative toolchain
-
-Note that at the moment, there is no official support for
-cross-compilation in OCaml. Dune supports the opam-cross-x
-repositories from the `ocaml-cross organization on github
-<https://github.com/ocaml-cross/>`_, such as:
-
-- `opam-cross-windows <https://github.com/ocaml-cross/opam-cross-windows>`_
-- `opam-cross-android <https://github.com/ocaml-cross/opam-cross-android>`_
-- `opam-cross-ios <https://github.com/ocaml-cross/opam-cross-ios>`_
-
-In particular:
-
-- to build Windows binaries using opam-cross-windows, write ``windows``
-  in the list of targets
-- to build Android binaries using opam-cross-android, write
-  ``android`` in the list of targets
-- to build IOS binaries using opam-cross-ios, write ``ios`` in the
-  list of targets
-
-For example, the following workspace file defines three different
-targets for the ``default`` build context:
-
-.. code:: scheme
-
-    (context (default (targets (native windows android))))
-
-This configuration defines three build contexts:
-
-- ``default``
-- ``default.windows``
-- ``default.android``
-
-Note that the ``native`` target is always implicitly added when not
-present. However, when implicitly added ``dune build @install``
-will skip this context, i.e. ``default`` will only be used for
-building executables needed by the other contexts.
-
-With such a setup, calling ``dune build @install`` will build all
-the packages three times.
-
-Note that instead of writing a ``dune-workspace`` file, you can also
-use the ``-x`` command line option. Passing ``-x foo`` to ``dune``
-without having a ``dune-workspace`` file is the same as writing the
-following ``dune-workspace`` file:
-
-.. code:: scheme
-
-   (context (default (targets (foo))))
-
-If you have a ``dune-workspace`` and pass a ``-x foo`` option,
-``foo`` will be added as target of all context stanzas.
-
-How does it work?
------------------
-
-In such a setup, binaries that need to be built and executed in the
-``default.windows`` or ``default.android`` contexts as part of the
-build, will no longer be executed. Instead, all the binaries that will
-be executed will come from the ``default`` context. One consequence of
-this is that all preprocessing (ppx or otherwise) will be done using
-binaries built in the ``default`` context.
-
-To clarify this with an example, let's assume that you have the following
-``src/dune`` file:
-
-.. code:: scheme
-
-    (executable (name foo))
-    (rule (with-stdout-to blah (run ./foo.exe)))
-
-When building ``_build/default/src/blah``, dune will resolve ``./foo.exe`` to
-``_build/default/src/foo.exe`` as expected. However, for
-``_build/default.windows/src/blah`` dune will resolve ``./foo.exe`` to
-``_build/default/src/foo.exe``
-
-Assuming that the right packages are installed or that your workspace
-has no external dependencies, dune will be able to cross-compile a
-given package without doing anything special.
-
-Some packages might still have to be updated to support cross-compilation. For
-instance if the ``foo.exe`` program in the previous example was using
-``Sys.os_type``, it should instead take it as a command line argument:
-
-.. code:: scheme
-
-  (rule (with-stdout-to blah (run ./foo.exe -os-type %{os_type})))
-
 Classical ppx
 =============
 
@@ -235,120 +133,98 @@ format is subject to change between versions.
 
 .. _Catapult trace-viewer: https://github.com/catapult-project/catapult/blob/master/tracing/README.md
 
-Implicit Transitive Deps
-========================
+.. _package-version:
 
-By default, dune allows transitive dependencies of dependencies to be used
-directly when compiling OCaml. However, this setting can be controlled per
-project. It can be disabled by adding the ``(implicit_transitive_deps false)``
-to the ``dune-project`` file.
+Package version
+===============
 
-Once this setting is added, all dependencies that are directly used by a library
-or an executable must be directly added in the ``libraries`` field. We recommend
-users to experiment with this mode and report any problems. The goal is to make
-this the default mode eventually.
+Dune determine the version of a package by looking at the ``version``
+field in the :ref:`package stanza <package>`. If the version field is
+not set, it looks at the toplevel ``version`` field in the
+``dune-project`` field. If neither are set, dune assume that we are in
+development mode and reads the version from the VCS if any. The way it
+obtains the version from the VCS in described in :ref:`the build-info
+section <build-info>`.
 
-Note that you must use ``threads.posix`` instead of ``threads`` when using this
-mode. This is not an important limitation as ``threads.vm`` are deprecated
-anyways.
+When installing the files of a package on the system, dune
+automatically inserts the package version into various metadata files
+such as ``META`` and ``dune-package`` files.
 
-Name Mangling of Executables
-============================
+.. _ocaml-syntax:
 
-Executables are made of compilation units whose names may collide with the
-compilation units of libraries. To avoid this possibility, dune prefixes these
-compilation unit names with ``Dune__exe__``. This is entirely transparent to
-users except for when such executables are debugged. In which case the mangled
-names will be visible in the debugger.
+OCaml syntax
+============
 
-Starting from dune 1.11, the ``(wrapped_executables <bool>)`` option is
-available to turn on/off name mangling for executables on a per project basis.
+If a ``dune`` file starts with ``(* -*- tuareg -*- *)``, then it is
+interpreted as an OCaml script that generates the ``dune`` file as described
+in the rest of this section. The code in the script will have access to a
+`Jbuild_plugin
+<https://github.com/ocaml/dune/blob/master/plugin/jbuild_plugin.mli>`__
+module containing details about the build context it is executed in.
 
-Starting from dune 2.0, dune mangles compilation units of executables by
-default. However, this can still be turned off using ``(wrapped_executables
-false)``
+The OCaml syntax gives you an escape hatch for when the S-expression
+syntax is not enough. It is not clear whether the OCaml syntax will be
+supported in the long term as it doesn't work well with incremental
+builds. It is possible that it will be replaced by just an ``include``
+stanza where one can include a generated file.
 
-.. _explicit-js-mode:
+Consequently **you must not** build complex systems based on it.
 
-Explicit JS mode
-================
+.. _variables-for-artifacts:
 
-By default, Javascript targets are defined for every bytecode executable that
-dune knows about. This is not very precise and does not interact well with the
-``@all`` alias (eg, the ``@all`` alias will try to build JS targets
-corresponding to every ``test`` stanza). In order to better control the
-compilation of JS targets, this behaviour can be turned off by using
-``(explicit_js_mode)`` in the ``dune-project`` file.
+Variables for artifacts
+-----------------------
 
-When explicit JS mode is enabled, an explicit `js` mode needs to be added to the
-``(modes ...)`` field of executables in order to trigger JS
-compilation. Explicit JS targets declared like this will be attached to the
-``@all`` alias.
+For specific situations where one needs to refer to individual compilation
+artifacts, special variables (see :ref:`variables`) are provided so that the
+user does not need to be aware of the particular naming conventions or directory
+layout implemented by ``dune``.
 
-Starting from dune 2.0 this new behaviour will be the default and JS compilation
-of binaries will need to be explicitly declared.
+These variables can appear wherever a :ref:`deps-field` is expected and also
+inside :ref:`user-actions`. When used inside :ref:`user-actions`, they
+implicitly declare a dependency on the corresponding artifact.
 
-.. _dialects-main:
+The variables have the form ``%{<ext>:<path>}``, where ``<path>`` is
+interpreted relative to the current directory:
 
-Dialects
-========
+- ``cmo:<path>``, ``cmx:<path>``, ``cmi:<path>`` expand to the path of the
+  corresponding artifact for the module specified by ``<path>``. The basename of
+  ``<path>`` should be the name of a module as specified in a ``(modules)``
+  field.
 
-A dialect is an alternative frontend to OCaml (such as ReasonML). It is
-described by a pair of file extensions, one corresponding to interfaces and one
-to implementations.
+- ``cma:<path>``, ``cmxa:<path>`` expands to the path of the corresponding
+  artifact for the library specified by ``<path>``. The basename of ``<path>``
+  should be the name of the library as specified in the ``(name)`` field of a
+  ``library`` stanza (*not* its public name).
 
-The extensions are unique among all dialects of a given project, so that a given
-extension can be mapped back to the corresponding dialect.
+In each case, the expansion of the variable is a path pointing inside the build
+context (ie ``_build/<context>``).
 
-A dialect can use the standard OCaml syntax or it can specify an action to
-convert from a custom syntax to a binary OCaml abstract syntax tree.
+Building an ad-hoc ``.cmxs``
+----------------------------
 
-Similarly, a dialect can specify a custom formatter to implement the ``@fmt``
-alias, see :ref:`formatting-main`.
+In the model exposed by ``dune``, a ``.cmxs`` target is created for each
+library.  However, the ``.cmxs`` format itself is more flexible than that and is
+capable to containing arbitrary ``.cmxa`` and ``.cmx`` files.
 
-When not using a custom syntax or formatting action, a dialect is nothing but a
-way to specify custom file extensions for OCaml code.
+For the specific cases where this extra flexibility is needed, one can use
+:ref:`variables-for-artifacts` to write explicit rules to build ``.cmxs`` files
+not associated to any library.
 
-Defining a dialect
-------------------
+Below is an example where we build ``my.cmxs`` containing ``foo.cmxa`` and
+``d.cmx``. Note how we use a :ref:`library` stanza to set up the compilation of
+``d.cmx``.
 
-A dialect can be defined by adding the following to the ``dune-project`` file:
+.. code:: scheme
 
-.. code::
+    (library
+     (name foo)
+     (modules a b c))
 
-    (dialect
-     (name <name>)
-     (implementation
-      (extension <string>)
-      <optional fields>)
-     (interface
-      (extension <string>)
-      <optional fields>))
+    (library
+     (name dummy)
+     (modules d))
 
-``<name>`` is the name of the dialect being defined. It must be unique in a
-given project.
-
-``(extension <string>)`` specifies the file extension used for this dialect, for
-interfaces and implementations. The extension string must not contain any dots,
-and be unique in a given project.
-
-``<optional fields>`` are:
-
-- ``(preprocess <action>)`` is the action to run to produce a valid OCaml
-  abstract syntax tree. It is expected to read the file given in the variable
-  named ``input-file`` and output a *binary* abstract syntax tree on its
-  standard output. See :ref:`preprocessing-actions` for more information.
-
-  If the field is not present, it is assumed that the corresponding source code
-  is already valid OCaml code and can be passed to the OCaml compiler as-is.
-
-
-- ``(format <action>)`` is the action to run to format source code for this
-  dialect. The action is expected to read the file given in the variable named
-  ``input-file`` and output the formatted source code on its standard
-  output. For more information. See :ref:`formatting-main` for more information.
-
-  If the field is not present, then if ``(preprocess <action>)`` is not present
-  (so that the dialect consists of valid OCaml code), then by default the
-  dialect will be formatted as any other OCaml code. Otherwise no special
-  formatting will be done.
+    (rule
+     (targets my.cmxs)
+     (action (run %{ocamlopt} -shared -o %{targets} %{cmxa:foo} %{cmx:d})))

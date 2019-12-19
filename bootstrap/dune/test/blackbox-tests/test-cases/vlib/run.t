@@ -60,7 +60,7 @@ virtual libraries may not implement their virtual modules
   1 | (library
   2 |  (name foo)
   3 |  (private_modules m))
-  Warning: Some modules don't have an implementation.
+  Error: Some modules don't have an implementation.
   You need to add the following field to this stanza:
   
     (modules_without_implementation m)
@@ -111,7 +111,7 @@ virtual libraries may not implement their virtual modules
   File "dune", line 1, characters 0-21:
   1 | (library
   2 |  (name foo))
-  Warning: Some modules don't have an implementation.
+  Error: Some modules don't have an implementation.
   You need to add the following field to this stanza:
   
     (modules_without_implementation m)
@@ -280,7 +280,7 @@ an appropriate error message.
   File "dune", line 7, characters 13-30:
   7 |  (implements dune.configurator))
                    ^^^^^^^^^^^^^^^^^
-  Error: Library "dune.configurator" is not virtual. It cannot be implemented
+  Error: Library "dune-configurator" is not virtual. It cannot be implemented
   by "foobar".
   [1]
 
@@ -319,16 +319,16 @@ Implement external virtual libraries with private modules
 Include variants and implementation information in dune-package
   $ dune build --root dune-package-info
   Entering directory 'dune-package-info'
-  (lang dune 1.11)
+  (lang dune 2.0)
   (name foo)
   (library
    (name foo.impl)
    (kind normal)
    (archives (byte impl/impl.cma) (native impl/impl.cmxa))
    (plugins (byte impl/impl.cma) (native impl/impl.cmxs))
-   (foreign_archives (native impl/impl$ext_lib))
+   (native_archives impl/impl$ext_lib)
    (requires foo.vlib)
-   (implements vlib)
+   (implements foo.vlib)
    (main_module_name Vlib)
    (modes byte native)
    (modules
@@ -351,7 +351,7 @@ Include variants and implementation information in dune-package
    (name foo.vlib)
    (kind normal)
    (virtual)
-   (foreign_archives (native vlib/vlib$ext_lib))
+   (native_archives vlib/vlib$ext_lib)
    (main_module_name Vlib)
    (modes byte native)
    (modules

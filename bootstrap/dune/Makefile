@@ -1,57 +1,60 @@
 PREFIX_ARG := $(if $(PREFIX),--prefix $(PREFIX),)
 LIBDIR_ARG := $(if $(LIBDIR),--libdir $(LIBDIR),)
-INSTALL_ARGS := $(PREFIX_ARG) $(LIBDIR_ARG)
-BIN := ./_boot/default/bin/main/main_dune.exe
+DESTDIR_ARG := $(if $(DESTDIR),--destdir $(DESTDIR),)
+INSTALL_ARGS := $(PREFIX_ARG) $(LIBDIR_ARG) $(DESTDIR_ARG)
+BIN := ./dune.exe
 
 -include Makefile.dev
 
-default: boot.exe
-	./boot.exe
+release: $(BIN)
+	$(BIN) build -p dune --profile dune-bootstrap
 
-release: boot.exe
-	./boot.exe --release
-
-boot.exe: bootstrap.ml
+dune.exe: bootstrap.ml boot/libs.ml boot/duneboot.ml
 	ocaml bootstrap.ml
 
+all: $(BIN)
+	$(BIN) build
+
 install:
-	$(BIN) install $(INSTALL_ARGS) dune --build-dir _boot
+	$(BIN) install $(INSTALL_ARGS) dune
 
 uninstall:
-	$(BIN) uninstall $(INSTALL_ARGS) dune --build-dir _boot
+	$(BIN) uninstall $(INSTALL_ARGS) dune
 
-reinstall: uninstall reinstall
+reinstall: uninstall install
 
-test:
+test: $(BIN)
 	$(BIN) runtest
 
-test-js:
+test-js: $(BIN)
 	$(BIN) build @runtest-js
 
-test-coq:
+test-coq: $(BIN)
 	$(BIN) build @runtest-coq
 
-test-all:
+test-all: $(BIN)
 	$(BIN) build @runtest @runtest-js @runtest-coq
 
-check:
+check: $(BIN)
 	$(BIN) build @check
 
-promote:
+fmt: $(BIN)
+	$(BIN) build @fmt --auto-promote
+
+promote: $(BIN)
 	$(BIN) promote
 
 accept-corrections: promote
 
-all-supported-ocaml-versions:
+all-supported-ocaml-versions: $(BIN)
 	$(BIN) build @install @runtest --workspace dune-workspace.dev --root .
 
-clean:
-	rm -f ./boot.exe $(wildcard ./bootstrap.cmi ./bootstrap.cmo ./bootstrap.exe)
+clean: $(BIN)
 	$(BIN) clean || true
-	rm -rf _boot
+	rm -rf _boot dune.exe
 
 distclean: clean
-	rm -f src/setup.ml
+	rm -f src/dune/setup.ml
 
 doc:
 	cd doc && sphinx-build . _build
@@ -75,10 +78,10 @@ dune: $(BIN)
 	$(BIN) $(RUN_ARGS)
 
 .PHONY: default install uninstall reinstall clean test doc
-.PHONY: promote accept-corrections opam-release dune check
+.PHONY: promote accept-corrections opam-release dune check fmt
 
 opam-release:
-	dune-release distrib --skip-build --skip-lint --skip-tests
-	dune-release publish distrib --verbose
-	dune-release opam pkg
-	dune-release opam submit
+	dune-release distrib --skip-build --skip-lint --skip-tests -n dune
+	dune-release publish distrib --verbose -n dune
+	dune-release opam pkg -n dune
+	dune-release opam submit -n dune

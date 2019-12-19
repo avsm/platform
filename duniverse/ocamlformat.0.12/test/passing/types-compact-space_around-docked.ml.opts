@@ -1,0 +1,7 @@
+--type-decl=compact
+--space-around-arrays
+--space-around-lists
+--space-around-records
+--space-around-variants
+--break-separators=after
+--dock-collection-brackets

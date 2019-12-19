@@ -38,14 +38,14 @@ The expected behavior for the following three tests is to output nothing: the te
   backend_mbc1
 
   $ dune runtest dune-file
-  (lang dune 1.11)
+  (lang dune 2.0)
   (name foo)
   (library
    (name foo)
    (kind normal)
    (archives (byte foo.cma) (native foo.cmxa))
    (plugins (byte foo.cma) (native foo.cmxs))
-   (foreign_archives (native foo$ext_lib))
+   (native_archives foo$ext_lib)
    (main_module_name Foo)
    (modes byte native)
    (modules

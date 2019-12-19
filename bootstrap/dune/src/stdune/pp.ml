@@ -27,7 +27,7 @@ let rec map_tags t ~f =
   | Hbox t -> Hbox (map_tags t ~f)
   | Hvbox (indent, t) -> Hvbox (indent, map_tags t ~f)
   | Hovbox (indent, t) -> Hovbox (indent, map_tags t ~f)
-  | Verbatim _ | Char _ | Break _ | Newline | Text _ as t -> t
+  | (Verbatim _ | Char _ | Break _ | Newline | Text _) as t -> t
   | Tag (tag, t) -> Tag (f tag, map_tags t ~f)
 
 let rec filter_map_tags t ~f =
@@ -41,12 +41,12 @@ let rec filter_map_tags t ~f =
   | Hbox t -> Hbox (filter_map_tags t ~f)
   | Hvbox (indent, t) -> Hvbox (indent, filter_map_tags t ~f)
   | Hovbox (indent, t) -> Hovbox (indent, filter_map_tags t ~f)
-  | Verbatim _ | Char _ | Break _ | Newline | Text _ as t -> t
-  | Tag (tag, t) ->
+  | (Verbatim _ | Char _ | Break _ | Newline | Text _) as t -> t
+  | Tag (tag, t) -> (
     let t = filter_map_tags t ~f in
     match f tag with
     | None -> t
-    | Some tag -> Tag (tag, t)
+    | Some tag -> Tag (tag, t) )
 
 module Render = struct
   open Format
@@ -54,13 +54,15 @@ module Render = struct
   let rec render ppf t ~tag_handler =
     match t with
     | Nop -> ()
-    | Seq (a, b) -> render ppf ~tag_handler a; render ppf ~tag_handler b
+    | Seq (a, b) ->
+      render ppf ~tag_handler a;
+      render ppf ~tag_handler b
     | Concat (_, []) -> ()
     | Concat (sep, x :: l) ->
       render ppf ~tag_handler x;
       List.iter l ~f:(fun x ->
-        render ppf ~tag_handler sep;
-        render ppf ~tag_handler x)
+          render ppf ~tag_handler sep;
+          render ppf ~tag_handler x)
     | Box (indent, t) ->
       pp_open_box ppf indent;
       render ppf ~tag_handler t;
@@ -82,7 +84,7 @@ module Render = struct
       render ppf ~tag_handler t;
       pp_close_box ppf ()
     | Verbatim x -> pp_print_string ppf x
-    | Char   x -> pp_print_char ppf x
+    | Char x -> pp_print_char ppf x
     | Break (nspaces, shift) -> pp_print_break ppf nspaces shift
     | Newline -> pp_force_newline ppf ()
     | Text s -> pp_print_text ppf s
@@ -92,48 +94,74 @@ end
 let render = Render.render
 
 let rec render_ignore_tags ppf t =
-  render ppf t ~tag_handler:(fun ppf _tag t ->
-    render_ignore_tags ppf t)
+  render ppf t ~tag_handler:(fun ppf _tag t -> render_ignore_tags ppf t)
 
 let nop = Nop
+
 let seq a b = Seq (a, b)
-let concat ?(sep=Nop) = function
+
+let concat ?(sep = Nop) = function
   | [] -> Nop
-  | [x] -> x
+  | [ x ] -> x
   | l -> Concat (sep, l)
-let concat_map ?(sep=Nop) l ~f =
+
+let concat_map ?(sep = Nop) l ~f =
   match l with
   | [] -> Nop
-  | [x] -> f x
+  | [ x ] -> f x
   | l -> Concat (sep, List.map l ~f)
-let box ?(indent=0) t = Box (indent, t)
-let vbox ?(indent=0) t = Vbox (indent, t)
+
+let concat_mapi ?(sep = Nop) l ~f =
+  match l with
+  | [] -> Nop
+  | [ x ] -> f 0 x
+  | l -> Concat (sep, List.mapi l ~f)
+
+let box ?(indent = 0) t = Box (indent, t)
+
+let vbox ?(indent = 0) t = Vbox (indent, t)
+
 let hbox t = Hbox t
-let hvbox ?(indent=0) t = Hvbox (indent, t)
-let hovbox ?(indent=0) t = Hovbox (indent, t)
+
+let hvbox ?(indent = 0) t = Hvbox (indent, t)
+
+let hovbox ?(indent = 0) t = Hovbox (indent, t)
 
 let verbatim x = Verbatim x
+
 let char x = Char x
 
 let break ~nspaces ~shift = Break (nspaces, shift)
+
 let space = Break (1, 0)
+
 let cut = Break (0, 0)
+
 let newline = Newline
 
 let text s = Text s
+
 let textf fmt = Printf.ksprintf text fmt
 
 let tag t ~tag = Tag (tag, t)
 
 let enumerate l ~f =
-  vbox (concat ~sep:cut (List.map l ~f:(fun x ->
-    box ~indent:2
-      (seq (verbatim "- ") (f x)))))
+  vbox
+    (concat ~sep:cut
+       (List.map l ~f:(fun x -> box ~indent:2 (seq (verbatim "- ") (f x)))))
 
 let chain l ~f =
-  vbox (concat ~sep:cut (List.mapi l ~f:(fun i x ->
-    box ~indent:3
-      (seq (verbatim (if i = 0 then "   " else "-> ")) (f x)))))
+  vbox
+    (concat ~sep:cut
+       (List.mapi l ~f:(fun i x ->
+            box ~indent:3
+              (seq
+                 (verbatim
+                    ( if i = 0 then
+                      "   "
+                    else
+                      "-> " ))
+                 (f x)))))
 
 module O = struct
   let ( ++ ) = seq

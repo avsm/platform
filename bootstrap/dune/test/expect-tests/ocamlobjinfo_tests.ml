@@ -4,7 +4,8 @@ open Dune_tests_common
 
 let () = init ()
 
-let fixture = {ocamlobjinfo|
+let fixture =
+  {ocamlobjinfo|
 File _build/install/default/lib/dune/_stdune/stdune__Env.cmx
 Name: Stdune__Env
 CRC of implementation: b678d7aae434ca3158721e3a37a15776
@@ -76,28 +77,75 @@ Send functions:
 Force link: no
 |ocamlobjinfo}
 
-let parse s =
-  Ocamlobjinfo.parse s
-  |> Ocamlobjinfo.to_dyn
-  |> print_dyn
+let parse s = Ocamlobjinfo.parse s |> Ocamlobjinfo.to_dyn |> print_dyn
 
 let%expect_test _ =
   parse fixture;
-  [%expect{|
-{impl =
-   set {"Printf"; "Stdune__Array"; "Stdune__Bin"; "Stdune__Exn";
-   "Stdune__List"; "Stdune__Map"; "Stdune__Set"; "Stdune__Sexp";
-   "Stdune__String"; "Sys"; "Unix"};
-  intf =
-    set {"ArrayLabels"; "Buffer"; "CamlinternalBigarray";
-    "CamlinternalFormatBasics"; "Complex"; "Dune_caml"; "Dune_caml__";
-    "Dune_caml__Result"; "Dune_caml__Result_compat"; "Format"; "Hashtbl";
-    "Lexing"; "ListLabels"; "Map"; "MoreLabels"; "Pervasives"; "Printexc";
-    "Printf"; "Set"; "Stdune__"; "Stdune__Array"; "Stdune__Bin";
-    "Stdune__Comparator"; "Stdune__Either"; "Stdune__Env"; "Stdune__Exn";
-    "Stdune__Hashable"; "Stdune__Hashtbl"; "Stdune__Hashtbl_intf";
-    "Stdune__List"; "Stdune__Loc"; "Stdune__Map"; "Stdune__Map_intf";
-    "Stdune__Ordering"; "Stdune__Path"; "Stdune__Result"; "Stdune__Set";
-    "Stdune__Set_intf"; "Stdune__Sexp"; "Stdune__Sexp_intf";
-    "Stdune__String"; "StringLabels"; "Sys"; "Uchar"; "Unix"}}
+  [%expect
+    {|
+{
+impl =
+  set
+    { "Printf"
+    ; "Stdune__Array"
+    ; "Stdune__Bin"
+    ; "Stdune__Exn"
+    ; "Stdune__List"
+    ; "Stdune__Map"
+    ; "Stdune__Set"
+    ; "Stdune__Sexp"
+    ; "Stdune__String"
+    ; "Sys"
+    ; "Unix"
+    }
+;
+intf =
+  set
+    { "ArrayLabels"
+    ; "Buffer"
+    ; "CamlinternalBigarray"
+    ; "CamlinternalFormatBasics"
+    ; "Complex"
+    ; "Dune_caml"
+    ; "Dune_caml__"
+    ; "Dune_caml__Result"
+    ; "Dune_caml__Result_compat"
+    ; "Format"
+    ; "Hashtbl"
+    ; "Lexing"
+    ; "ListLabels"
+    ; "Map"
+    ; "MoreLabels"
+    ; "Pervasives"
+    ; "Printexc"
+    ; "Printf"
+    ; "Set"
+    ; "Stdune__"
+    ; "Stdune__Array"
+    ; "Stdune__Bin"
+    ; "Stdune__Comparator"
+    ; "Stdune__Either"
+    ; "Stdune__Env"
+    ; "Stdune__Exn"
+    ; "Stdune__Hashable"
+    ; "Stdune__Hashtbl"
+    ; "Stdune__Hashtbl_intf"
+    ; "Stdune__List"
+    ; "Stdune__Loc"
+    ; "Stdune__Map"
+    ; "Stdune__Map_intf"
+    ; "Stdune__Ordering"
+    ; "Stdune__Path"
+    ; "Stdune__Result"
+    ; "Stdune__Set"
+    ; "Stdune__Set_intf"
+    ; "Stdune__Sexp"
+    ; "Stdune__Sexp_intf"
+    ; "Stdune__String"
+    ; "StringLabels"
+    ; "Sys"
+    ; "Uchar"
+    ; "Unix"
+    }
+}
 |}]

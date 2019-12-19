@@ -1,14 +1,16 @@
 let compare x y =
-  match x, y with
+  match (x, y) with
   | true, true
-  | false, false -> Ordering.Eq
+  | false, false ->
+    Ordering.Eq
   | true, false -> Gt
   | false, true -> Lt
 
-include Comparator.Operators(struct
-    type nonrec t = bool
-    let compare = compare
-  end)
+include Comparator.Operators (struct
+  type nonrec t = bool
+
+  let compare = compare
+end)
 
 let to_string = string_of_bool
 

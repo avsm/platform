@@ -6,8 +6,7 @@ public libraries may not have private dependencies
   8 |  (libraries privatelib)
                   ^^^^^^^^^^
   Error: Library "privatelib" is private, it cannot be a dependency of a public
-  library.
-  You need to give "privatelib" a public name.
+  library. You need to give "privatelib" a public name.
       ocamldep .publiclib.objs/publiclib.ml.d
   [1]
 
@@ -17,7 +16,7 @@ On the other hand, public libraries may have private preprocessors
         ocamlc .ppx_internal.objs/byte/ppx_internal.{cmi,cmo,cmt}
       ocamlopt .ppx_internal.objs/native/ppx_internal.{cmx,o}
       ocamlopt ppx_internal.{a,cmxa}
-      ocamlopt .ppx/56104176c8a6db31b669b5ba60470694/ppx.exe
+      ocamlopt .ppx/7c2b363c472d29b86b00b0db993dada7/ppx.exe
            ppx mylib.pp.ml
       ocamldep .mylib.objs/mylib.pp.ml.d
         ocamlc .mylib.objs/byte/mylib.{cmi,cmo,cmt}
@@ -33,12 +32,11 @@ Unless they introduce private runtime dependencies:
   16 |   (pps private_ppx))
               ^^^^^^^^^^^
   Error: Library "private_runtime_dep" is private, it cannot be a dependency of
-  a public library.
-  You need to give "private_runtime_dep" a public name.
+  a public library. You need to give "private_runtime_dep" a public name.
         ocamlc .private_ppx.objs/byte/private_ppx.{cmi,cmo,cmt}
       ocamlopt .private_ppx.objs/native/private_ppx.{cmx,o}
       ocamlopt private_ppx.{a,cmxa}
-      ocamlopt .ppx/6100aaab21a64480982f84e67ccfce18/ppx.exe
+      ocamlopt .ppx/1646e695232ddc3002c2a70d93a17f14/ppx.exe
            ppx mylib.pp.ml
       ocamldep .mylib.objs/mylib.pp.ml.d
   [1]
@@ -52,5 +50,5 @@ However, public binaries may accept private dependencies
       ocamlopt publicbin.exe
 
 Private dependencies shouldn't make the library optional
-  $ dune build --display short --root optional
+  $ dune build @install --display short --root optional
   Entering directory 'optional'

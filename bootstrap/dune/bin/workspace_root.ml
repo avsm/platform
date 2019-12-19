@@ -5,23 +5,18 @@ module Kind = struct
   type t =
     | Explicit
     | Dune_workspace
-    | Jbuild_workspace
     | Dune_project
     | Cwd
 
   let priority = function
     | Explicit -> 0
     | Dune_workspace -> 1
-    | Jbuild_workspace -> 2
-    | Dune_project -> 3
-    | Cwd -> 4
+    | Dune_project -> 2
+    | Cwd -> 3
 
   let of_dir_contents files =
     if String.Set.mem files Workspace.filename then
       Some Dune_workspace
-    else if Wp.t = Jbuilder && String.Set.exists files ~f:(fun fn ->
-      String.is_prefix fn ~prefix:"jbuild-workspace") then
-      Some Jbuild_workspace
     else if String.Set.mem files Dune_project.filename then
       Some Dune_project
     else
@@ -35,24 +30,21 @@ type t =
   ; ancestor_vcs : Dune.Vcs.t option
   }
 
-let make kind dir =
-  { kind
-  ; dir
-  ; to_cwd = []
-  ; ancestor_vcs = None
-  }
+let make kind dir = { kind; dir; to_cwd = []; ancestor_vcs = None }
 
 let find () =
   let cwd = Sys.getcwd () in
   let rec loop counter ~candidate ~to_cwd dir =
     match Sys.readdir dir with
-    | exception (Sys_error msg) ->
+    | exception Sys_error msg ->
       User_warning.emit
-        [ Pp.textf "Unable to read directory %s. Will not look for \
-                    root in parent directories."
+        [ Pp.textf
+            "Unable to read directory %s. Will not look for root in parent \
+             directories."
             dir
         ; Pp.textf "Reason: %s" msg
-        ; Pp.text "To remove this warning, set your root explicitly using --root."
+        ; Pp.text
+            "To remove this warning, set your root explicitly using --root."
         ];
       candidate
     | files ->
@@ -61,20 +53,19 @@ let find () =
         match Kind.of_dir_contents files with
         | Some kind when Kind.priority kind <= Kind.priority candidate.kind ->
           Some { kind; dir; to_cwd; ancestor_vcs = None }
-        | _ ->
-          None
+        | _ -> None
       in
       let candidate =
-        match new_candidate, candidate.ancestor_vcs with
+        match (new_candidate, candidate.ancestor_vcs) with
         | Some c, _ -> c
         | None, Some _ -> candidate
-        | None, None ->
+        | None, None -> (
           match Vcs.Kind.of_dir_contents files with
           | Some kind ->
             { candidate with
               ancestor_vcs = Some { kind; root = Path.of_string dir }
             }
-          | None -> candidate
+          | None -> candidate )
       in
       cont counter ~candidate dir ~to_cwd
   and cont counter ~candidate ~to_cwd dir =

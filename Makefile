@@ -1,4 +1,4 @@
-PACKAGES=opam-devel dune-release utop odoc merlin ocp-indent ocamlformat ocamlfind mdx
+PACKAGES=menhir opam-devel dune-release utop odoc merlin ocp-indent ocamlformat ocamlfind mdx
 PINS=
 
 build:

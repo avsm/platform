@@ -1,0 +1,21 @@
+opam-version: "2.0"
+maintainer: "roberto@dicosmo.org"
+authors: ["Roberto di Cosmo <roberto@dicosmo.org>" "Stefano Zacchiroli" "Pietro Abate"]
+homepage: "http://www.mancoosi.org/cudf/"
+bug-reports: "https://gforge.inria.fr/tracker/?atid=13811&group_id=4385&func=browse"
+dev-repo: "git+https://github.com/dune-universe/cudf.git"
+depends: [
+  "dune"
+  "ocaml"
+  "conf-perl" {build}
+  ("extlib" | "extlib-compat")
+]
+synopsis: "CUDF library (part of the Mancoosi tools)"
+description: """
+CUDF (for Common Upgradeability Description Format) is a format for
+describing upgrade scenarios in package-based Free and Open Source
+Software distribution."""
+build: [[ "dune" "build" "-p" name ]]
+url {
+  src: "git://github.com/dune-universe/cudf.git#duniverse-0.9"
+}

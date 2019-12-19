@@ -1,4 +1,5 @@
 (test
  (name artifact_substitution)
- (libraries stdune dune fiber dune._wp.dune dune_re)
+ (package dune-private-libs)
+ (libraries stdune dune fiber dune_re)
  (preprocess future_syntax))

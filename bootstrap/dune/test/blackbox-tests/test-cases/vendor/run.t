@@ -1,6 +1,6 @@
 Vendored directories should be traversed to find targets so that they are built when they are depend upon
 
-  $ dune build --root duniverse
+  $ dune build --root duniverse --debug-dependency-path
   Entering directory 'duniverse'
 
 Aliases should not be resolved in vendored sub directories
@@ -16,12 +16,6 @@ When compiling vendored code, all warnings should be disabled
   Entering directory 'warnings'
   There should be no OCaml warning above!
 
-Dune will not warn about jbuild files within vendored directories
-
-  $ dune build --root jbuild-files @jbuild-are-ok
-  Entering directory 'jbuild-files'
-  There should be no jbuild warning above!
-
 Dune will not warn about generating inaccurate .merlin files within vendored directories
 
   $ dune build --root inaccurate-merlin @inaccurate-merlins-are-ok
@@ -36,7 +30,7 @@ The vendored_dirs stanza is available from version 1.11 of the dune language
   1 | (vendored_dirs *)
       ^^^^^^^^^^^^^^^^^
   Error: 'vendored_dirs' is only available since version 1.11 of the dune
-  language
+  language. Please update your dune-project file to have (lang 1.11).
   [1]
 
 The same directory cannot be marked as both vendored and data-only

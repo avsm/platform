@@ -38,17 +38,17 @@ variants and finally default implementation.
 
 Check that variant data is installed in the dune package file.
 
-  $ dune build --root dune-package
+  $ dune build @install --root dune-package
   Entering directory 'dune-package'
   $ cat  dune-package/_build/install/default/lib/a/dune-package
-  (lang dune 1.11)
+  (lang dune 2.0)
   (name a)
   (library
    (name a)
    (kind normal)
    (archives (byte a.cma) (native a.cmxa))
    (plugins (byte a.cma) (native a.cmxs))
-   (foreign_archives (native a$ext_lib))
+   (native_archives a$ext_lib)
    (requires b)
    (implements b)
    (main_module_name B)
@@ -66,13 +66,13 @@ Check that variant data is installed in the dune package file.
       (impl))
      (wrapped true))))
   $ cat  dune-package/_build/install/default/lib/b/dune-package
-  (lang dune 1.11)
+  (lang dune 2.0)
   (name b)
   (library
    (name b)
    (kind normal)
    (virtual)
-   (foreign_archives (native b$ext_lib))
+   (native_archives b$ext_lib)
    (known_implementations (test a))
    (main_module_name B)
    (modes byte native)

@@ -1,6 +1,6 @@
-*****
-Usage
-*****
+**********************
+Command-line interface
+**********************
 
 This section describe usage of dune from the shell.
 
@@ -84,11 +84,6 @@ Consult the manual page ``dune init --help`` for more details.
 Finding the root
 ================
 
-.. _dune-workspace:
-
-dune-workspace
---------------
-
 The root of the current workspace is determined by looking up a
 ``dune-workspace`` or ``dune-project`` file in the current directory
 and parent directories.
@@ -120,8 +115,8 @@ always use the outermost one.
 
 In addition to determining the root, ``dune`` will read this file as
 to setup the configuration of the workspace unless the ``--workspace``
-command line option is used. See the section `Workspace
-configuration`_ for the syntax of this file.
+command line option is used. See the section :ref:`dune-workspace`
+for the syntax of this file.
 
 The ``Entering directory`` message can be suppressed with the
 ``--no-print-directory`` command line option (as in GNU make).
@@ -227,7 +222,7 @@ definition is assumed:
 
    (alias
     (name default)
-    (deps (alias_rec install)))
+    (deps (alias_rec all)))
 
 Which means that by default ``dune build`` will build everything that
 is installable.
@@ -254,7 +249,7 @@ There's a few aliases that dune automatically creates for the user
 
 * ``default`` - this alias includes all the targets that dune will build if a
   target isn't specified, i.e. ``$ dune build``. By default, this is set to the
-  ``install`` alias.
+  ``all`` alias. Note that for dune 1.x, this was set to the ``install`` alias.
 
 * ``runtest`` - this is the alias to run all the tests, building them if
   necessary.
@@ -272,7 +267,20 @@ There's a few aliases that dune automatically creates for the user
 
 * ``check`` - This alias will build the minimal set of targets required for
   tooling support. Essentially, this is ``.cmi``, ``.cmt``, ``.cmti``, and
-  .merlin files.
+  ``.merlin`` files.
+
+Variables for artifacts
+-----------------------
+
+It is possible to build specific artifacts by using the corresponding variable
+on the command line, eg:
+
+.. code::
+
+    dune build '%{cmi:foo}'
+
+See :ref:`variables-for-artifacts` for more information.
+
 
 Finding external libraries
 ==========================
@@ -357,162 +365,6 @@ This option acts as if you went through all the dune files and
 commented out the stanzas referring to a package that is not in the list
 given to ``dune``.
 
-Invocation from opam
-====================
-
-You should set the ``build:`` field of your ``<package>.opam`` file as
-follows:
-
-::
-
-    build: [
-      ["dune" "subst"] {pinned}
-      ["dune" "build" "-p" name "-j" jobs]
-    ]
-
-``-p pkg`` is a shorthand for ``--root . --only-packages pkg --profile
-release --default-target @install``. ``-p`` is the short version of
-``--for-release-of-packages``.
-
-This has the following effects:
-
--  it tells dune to build everything that is installable and to
-   ignore packages other than ``name`` defined in your project
--  it sets the root to prevent dune from looking it up
--  it silently ignores all rules with ``(mode promote)``
--  it sets the build profile to ``release``
--  it uses whatever concurrency option opam provides
--  it sets the default target to ``@install`` rather than ``@@default``
-
-Note that ``name`` and ``jobs`` are variables expanded by opam. ``name`` expands
-to the package name and ``jobs`` to the number of jobs available to build the
-package.
-
-Tests
-=====
-
-To setup the building and running of tests in opam, add this line to your
-``<package>.opam`` file:
-
-::
-
-    build: [
-      (* Previous lines here... *)
-      ["dune" "runtest" "-p" name "-j" jobs] {with-test}
-    ]
-
-Workspace configuration
-=======================
-
-By default, a workspace has only one build context named ``default`` which
-correspond to the environment in which ``dune`` is run. You can define more
-contexts by writing a ``dune-workspace`` file.
-
-You can point ``dune`` to an explicit ``dune-workspace`` file with the
-``--workspace`` option. For instance it is good practice to write a
-``dune-workspace.dev`` in your project with all the version of OCaml your
-projects support. This way developers can tests that the code builds with all
-version of OCaml by simply running:
-
-.. code:: bash
-
-    $ dune build --workspace dune-workspace.dev @all @runtest
-
-dune-workspace
---------------
-
-The ``dune-workspace`` file uses the S-expression syntax. This is what
-a typical ``dune-workspace`` file looks like:
-
-.. code:: scheme
-
-    (lang dune 1.0)
-    (context (opam (switch 4.02.3)))
-    (context (opam (switch 4.03.0)))
-    (context (opam (switch 4.04.0)))
-
-The rest of this section describe the stanzas available.
-
-Note that an empty ``dune-workspace`` file is interpreted the same as one
-containing exactly:
-
-.. code:: scheme
-
-    (lang dune 1.0)
-    (context default)
-
-This allows you to use an empty ``dune-workspace`` file to mark the root of your
-project.
-
-profile
-~~~~~~~
-
-The build profile can be selected in the ``dune-workspace`` file by write a
-``(profile ...)`` stanza. For instance:
-
-.. code:: scheme
-
-    (profile release)
-
-Note that the command line option ``--profile`` has precedence over this stanza.
-
-env
-~~~
-
-The ``env`` stanza can be used to set the base environment for all contexts in
-this workspace. This environment has the lowest precedence of all other ``env``
-stanzas. The syntax for this stanza is the same dune's :ref:`dune-env` stanza.
-
-context
-~~~~~~~
-
-The ``(context ...)`` stanza declares a build context. The argument
-can be either ``default`` or ``(default)`` for the default build
-context or can be the description of an opam switch, as follows:
-
-.. code:: scheme
-
-    (context (opam (switch <opam-switch-name>)
-                   <optional-fields>))
-
-``<optional-fields>`` are:
-
--  ``(name <name>)`` is the name of the subdirectory of ``_build``
-   where the artifacts for this build context will be stored
-
--  ``(root <opam-root>)`` is the opam root. By default it will take
-   the opam root defined by the environment in which ``dune`` is
-   run which is usually ``~/.opam``
-
-- ``(merlin)`` instructs dune to use this build context for
-  merlin
-
-- ``(profile <profile>)`` to set a different profile for a build
-  context. This has precedence over the command line option
-  ``--profile``
-
-- ``(env <env>)`` to set the environment for a particular context. This is of
-  higher precedence than the toplevel ``env`` stanza in the workspace file. This
-  field the same options as the :ref:`dune-env` stanza.
-
-- ``(toolchain <findlib_coolchain>)`` set findlib toolchain for the context.
-
-- ``(host <host_context>)`` choose a different context to build binaries that
-  are meant to be executed on the host machine, such as preprocessors.
-
-Both ``(default ...)`` and ``(opam ...)`` accept a ``targets`` field in order to
-setup cross compilation. See :ref:`advanced-cross-compilation` for more
-information.
-
-Merlin reads compilation artifacts and it can only read the compilation
-artifacts of a single context. Usually, you should use the artifacts from the
-``default`` context, and if you have the ``(context default)`` stanza in your
-``dune-workspace`` file, that is the one dune will use.
-
-For rare cases where this is not what you want, you can force dune to use a
-different build contexts for merlin by adding the field ``(merlin)`` to this
-context.
-
 Distributing Projects
 =====================
 
@@ -529,10 +381,12 @@ The common defaults are that your projects include the following files:
 And that if your project contains several packages, then all the package names
 must be prefixed by the shortest one.
 
-Watermarking
-============
+.. _dune-subst:
 
-One of the features dune-release provides is watermarking; it replaces
+dune subst
+==========
+
+One of the features ``dune-release`` provides is watermarking; it replaces
 various strings of the form ``%%ID%%`` in all files of your project
 before creating a release tarball or when the package is pinned by the
 user using opam.
@@ -550,11 +404,6 @@ Projects using dune usually only need dune-release for creating and
 publishing releases. However they might still want to substitute the
 watermarks when the package is pinned by the user. To help with this,
 dune provides the ``subst`` sub-command.
-
-.. _dune-subst:
-
-dune subst
-==========
 
 ``dune subst`` performs the same substitution ``dune-release`` does
 with the default configuration. i.e. calling ``dune subst`` at the
@@ -603,3 +452,66 @@ to the user's workspace. However, one can customize this directory by using the
 
    # Absolute paths are also allowed
    $ dune build --build-dir /tmp/build foo.exe
+
+Installing a package
+====================
+
+Via opam
+--------
+
+When releasing a package using Dune in opam there is nothing special
+to do.  Dune generates a file called ``<package-name>.install`` at the
+root of the project.  This contains a list of files to install and
+opam reads it in order to perform the installation.
+
+Manually
+--------
+
+When not using opam or when you want to manually install a package,
+you can ask Dune to perform the installation via the ``install``
+command:
+
+::
+
+    $ dune install [PACKAGE]...
+
+This command takes a list of package names to install.  If no packages
+are specified, Dune will install all the packages available in the
+workspace.  When several build contexts are specified via a
+:ref:`dune-workspace` file, the installation will be performed in all the
+build contexts.
+
+Destination directory
+---------------------
+
+The ``<prefix>`` directory is determined as follows for a given build
+context:
+
+#. if an explicit ``--prefix <path>`` argument is passed, use this path
+#. if ``opam`` is present in the ``PATH`` and is configured, use the
+   output of ``opam config var prefix``
+#. otherwise, take the parent of the directory where ``ocamlc`` was found.
+
+As an exception to this rule, library files might be copied to a
+different location. The reason for this is that they often need to be
+copied to a particular location for the various build system used in
+OCaml projects to find them and this location might be different from
+``<prefix>/lib`` on some systems.
+
+Historically, the location where to store OCaml library files was
+configured through `findlib
+<http://projects.camlcity.org/projects/findlib.html>`__ and the
+``ocamlfind`` command line tool was used to both install these files
+and locate them. Many Linux distributions or other packaging systems
+are using this mechanism to setup where OCaml library files should be
+copied.
+
+As a result, if none of ``--libdir`` and ``--prefix`` is passed to ``dune
+install`` and ``ocamlfind`` is present in the ``PATH``, then library files will
+be copied to the directory reported by ``ocamlfind printconf destdir``. This
+ensures that ``dune install`` can be used without opam. When using opam,
+``ocamlfind`` is configured to point to the opam directory, so this rule makes
+no difference.
+
+Note that ``--prefix`` and ``--libdir`` are only supported if a single build
+context is in use.

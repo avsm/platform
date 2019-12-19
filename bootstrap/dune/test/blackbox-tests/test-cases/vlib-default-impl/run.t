@@ -34,14 +34,14 @@ Check that default implementation data is installed in the dune package file.
   $ dune build --root dune-package
   Entering directory 'dune-package'
   $ cat dune-package/_build/install/default/lib/a/dune-package
-  (lang dune 1.11)
+  (lang dune 2.0)
   (name a)
   (library
    (name a)
    (kind normal)
    (virtual)
-   (foreign_archives (native a$ext_lib))
-   (default_implementation a-default)
+   (native_archives a$ext_lib)
+   (default_implementation a.default-impl)
    (main_module_name A)
    (modes byte native)
    (modules
@@ -52,6 +52,32 @@ Check that default implementation data is installed in the dune package file.
      (alias_module
       (name A)
       (obj_name a)
+      (visibility public)
+      (kind alias)
+      (impl))
+     (wrapped true))))
+  (library
+   (name a.default-impl)
+   (kind normal)
+   (archives
+    (byte default-impl/a_default.cma)
+    (native default-impl/a_default.cmxa))
+   (plugins
+    (byte default-impl/a_default.cma)
+    (native default-impl/a_default.cmxs))
+   (native_archives default-impl/a_default$ext_lib)
+   (requires a)
+   (implements a)
+   (main_module_name A)
+   (modes byte native)
+   (modules
+    (wrapped
+     (main_module_name A)
+     (modules
+      ((name X) (obj_name a__X) (visibility public) (kind impl_vmodule) (impl)))
+     (alias_module
+      (name A__a_default__)
+      (obj_name a__a_default__)
       (visibility public)
       (kind alias)
       (impl))

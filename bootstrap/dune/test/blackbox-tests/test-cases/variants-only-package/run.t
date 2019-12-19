@@ -4,13 +4,13 @@ known_implementations implementations when using -p
   $ cd project && dune build -p vlibfoo
 
   $ cat project/_build/install/default/lib/vlibfoo/dune-package
-  (lang dune 1.11)
+  (lang dune 2.0)
   (name vlibfoo)
   (library
    (name vlibfoo)
    (kind normal)
    (virtual)
-   (foreign_archives (native vlibfoo$ext_lib))
+   (native_archives vlibfoo$ext_lib)
    (known_implementations (somevariant implfoo))
    (main_module_name Vlibfoo)
    (modes byte native)
